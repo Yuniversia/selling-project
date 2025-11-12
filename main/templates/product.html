@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Смартфон X200 - Lais</title>
+    <link rel="stylesheet" href="styles2.css">
+    <style>
+
+        .container {
+            max-width: 1400px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+
+    </style>
+</head>
+<body>
+    <header class="header-fixed">
+        <div class="utility-bar">
+            <div class="utility-content">
+                <div class="utility-links">
+                    <a href="#help">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                            <line x1="12" y1="17" x2="12.01" y2="17"/>
+                        </svg>
+                        Помощь
+                    </a>
+                    <a href="#info">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="12" y1="8" x2="12" y2="12"/>
+                            <line x1="12" y1="16" x2="12.01" y2="16"/>
+                        </svg>
+                        Информация
+                    </a>
+                    <a href="#contact">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+                        </svg>
+                        Контакты
+                    </a>
+                </div>
+                <div class="utility-controls">
+                    <select class="lang-select">
+                        <option value="ru">RU</option>
+                        <option value="lv">LV</option>
+                        <option value="lt">LT</option>
+                        <option value="en">EN</option>
+                        <option value="ee">EE</option>
+                    </select>
+                    <button class="btn btn-post">
+                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <line x1="12" y1="5" x2="12" y2="19"/>
+                            <line x1="5" y1="12" x2="19" y2="12"/>
+                        </svg>
+                        Разместить
+                    </button>
+                    <button class="btn btn-login" id="loginBtn">
+                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+                            <polyline points="10 17 15 12 10 7"/>
+                            <line x1="15" y1="12" x2="3" y2="12"/>
+                        </svg>
+                        Войти
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="search-section">
+            <div class="search-container">
+                <a href="/" class="logo">lais</a>
+                <div class="search-box">
+                    <input type="text" placeholder="Найти товары, услуги, работу...">
+                    <button class="search-btn">
+                        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <circle cx="11" cy="11" r="8"/>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="product-page container">
+        <div class="product-layout">
+            <!-- Left: Gallery -->
+            <div class="product-gallery">
+                <div class="image-display">
+                    <div class="image-slide active-slide">Фото 1</div>
+                    <div class="image-slide">Фото 2</div>
+                    <div class="image-slide">Фото 3</div>
+                    <button class="nav-btn prev-btn" onclick="changeSlide(-1)">‹</button>
+                    <button class="nav-btn next-btn" onclick="changeSlide(1)">›</button>
+                </div>
+                <div class="thumbnails">
+                    <div class="thumb active-thumb" onclick="showSlide(0)">Фото 1</div>
+                    <div class="thumb" onclick="showSlide(1)">Фото 2</div>
+                    <div class="thumb" onclick="showSlide(2)">Фото 3</div>
+                </div>
+            </div>
+
+            <!-- Right: Info -->
+            <div class="product-sidebar">
+                <h1 class="product-title">Смартфон "X200" почти новый (3 месяца)</h1>
+                
+                <!-- Price -->
+                <div class="price-card">
+                    <div class="price-label">Цена</div>
+                    <div class="price-value">€450</div>
+                    <div class="action-buttons">
+                        <button class="btn-buy">🛒 КУПИТЬ СЕЙЧАС</button>
+                        <button class="btn-like">
+                            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Description
+                <div class="description-card">
+                    <h3 class="card-title">Описание</h3>
+                    <p class="description-text">
+                        Продаю свой Смартфон X200, пользовался всего 3 месяца, состояние идеальное. 
+                        Причина продажи — перешел на новую модель. Полный комплект: коробка, зарядка, чехол. 
+                        Без царапин и повреждений. Отличная батарея.
+                    </p>
+                </div> -->
+
+                <!-- Seller -->
+                <div class="seller-card">
+                    <h3 class="card-title">Продавец</h3>
+                    <a href="/seller" class="seller-profile">
+                        <div class="seller-avatar">ИП</div>
+                        <div class="seller-info">
+                            <span class="seller-name">Игорь П.</span>
+                            <div class="seller-rating">
+                                <span class="rating-stars">⭐ 4.8</span>
+                                <span class="reviews-count">(125 отзывов)</span>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="specs-section">
+            <h2 class="section-title">Описание</h2>
+                    <p class="description-text">
+                        Продаю свой Смартфон X200, пользовался всего 3 месяца, состояние идеальное. 
+                        Причина продажи — перешел на новую модель. Полный комплект: коробка, зарядка, чехол. 
+                        Без царапин и повреждений. Отличная батарея.
+                    </p>
+        </div>
+
+        <!-- Specifications -->
+        <div class="specs-section">
+            <h2 class="section-title">Характеристики</h2>
+            <table class="specs-table">
+                <tr>
+                    <td>Модель</td>
+                    <td>X200 Ultra</td>
+                </tr>
+                <tr>
+                    <td>Память</td>
+                    <td>256 GB</td>
+                </tr>
+                <tr>
+                    <td>Оперативная память</td>
+                    <td>8 GB</td>
+                </tr>
+                <tr>
+                    <td>Процессор</td>
+                    <td>Snapdragon 888</td>
+                </tr>
+                <tr>
+                    <td>Экран</td>
+                    <td>6.7" AMOLED, 120Hz</td>
+                </tr>
+                <tr>
+                    <td>Камера</td>
+                    <td>108MP + 12MP + 5MP</td>
+                </tr>
+                <tr>
+                    <td>Батарея</td>
+                    <td>5000 mAh</td>
+                </tr>
+                <tr>
+                    <td>Цвет</td>
+                    <td>Космический серый</td>
+                </tr>
+                <tr>
+                    <td>Состояние</td>
+                    <td>Б/У (Отличное)</td>
+                </tr>
+                <tr>
+                    <td>Гарантия</td>
+                    <td>9 месяцев</td>
+                </tr>
+                <tr>
+                    <td>Местоположение</td>
+                    <td>Рига, Латвия</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- Similar Products -->
+        <div class="similar-section">
+            <h2 class="section-title">Похожие товары</h2>
+            <div class="similar-products">
+                <a href="#" class="similar-card">
+                    <div class="similar-image" style="background: linear-gradient(135deg, #6366f1, #8b5cf6)">Товар 1</div>
+                    <div class="similar-info">
+                        <div class="similar-title">iPhone 13 Pro Max</div>
+                        <div class="similar-price">€650</div>
+                    </div>
+                </a>
+                <a href="#" class="similar-card">
+                    <div class="similar-image" style="background: linear-gradient(135deg, #ec4899, #f59e0b)">Товар 2</div>
+                    <div class="similar-info">
+                        <div class="similar-title">Samsung Galaxy S22</div>
+                        <div class="similar-price">€520</div>
+                    </div>
+                </a>
+                <a href="#" class="similar-card">
+                    <div class="similar-image" style="background: linear-gradient(135deg, #10b981, #06b6d4)">Товар 3</div>
+                    <div class="similar-info">
+                        <div class="similar-title">Google Pixel 7 Pro</div>
+                        <div class="similar-price">€580</div>
+                    </div>
+                </a>
+                <a href="#" class="similar-card">
+                    <div class="similar-image" style="background: linear-gradient(135deg, #8b5cf6, #ec4899)">Товар 4</div>
+                    <div class="similar-info">
+                        <div class="similar-title">OnePlus 11</div>
+                        <div class="similar-price">€480</div>
+                    </div>
+                </a>
+                <a href="#" class="similar-card">
+                    <div class="similar-image" style="background: linear-gradient(135deg, #f59e0b, #ef4444)">Товар 5</div>
+                    <div class="similar-info">
+                        <div class="similar-title">Xiaomi Mi 13</div>
+                        <div class="similar-price">€420</div>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.image-slide');
+        const thumbs = document.querySelectorAll('.thumb');
+
+        function showSlide(index) {
+            slides.forEach(slide => slide.classList.remove('active-slide'));
+            thumbs.forEach(thumb => thumb.classList.remove('active-thumb'));
+            
+            currentSlide = index;
+            slides[currentSlide].classList.add('active-slide');
+            thumbs[currentSlide].classList.add('active-thumb');
+        }
+
+        function changeSlide(direction) {
+            currentSlide += direction;
+            if (currentSlide < 0) currentSlide = slides.length - 1;
+            if (currentSlide >= slides.length) currentSlide = 0;
+            showSlide(currentSlide);
+        }
+
+        document.querySelector('.btn-like').addEventListener('click', function() {
+            this.style.transform = 'scale(1.2)';
+            setTimeout(() => {
+                this.style.transform = 'scale(1)';
+            }, 200);
+        });
+    </script>
+</body>
+</html>

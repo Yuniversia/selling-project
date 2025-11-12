@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Продавец Игорь П. - Lais</title>
+    <meta name="description" content="Страница продавца Игоря П.: товары в продаже, рейтинг и отзывы.">
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3EL%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+    <div class="header-utility">
+        <div class="container utility-content">
+            <nav class="links">
+                <a href="index.html">На главную</a>
+                <a href="#help">Помощь</a>
+                <a href="#contact">Контакты</a>
+            </nav>
+            <div class="controls">
+                <div class="language-switcher">
+                    <select><option selected>RU</option></select>
+                </div>
+                <button class="btn btn-primary">Разместить объявление</button>
+                <button class="btn btn-secondary">Войти</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="search-bar-container">
+        <div class="container search-content">
+            <div class="logo">
+                <h1><a href="index.html" class="logo-text">lais</a></h1>
+            </div>
+            <div class="search-box">
+                <input type="text" placeholder="Поиск по товарам и брендам...">
+                <button class="search-btn" aria-label="Искать">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27C14.35 12.59 15 11.37 15 10c0-3.31-2.69-6-6-6S3 6.69 3 10s2.69 6 6 6c1.37 0 2.59-.65 3.32-1.66l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <main class="seller-page container">
+        <header class="seller-header">
+            <div class="seller-profile-top">
+                <div class="seller-photo large"></div>
+                <div class="seller-details-top">
+                    <h1>Игорь П.</h1>
+                    <p>На Lais с **2021** года</p>
+                    <div class="seller-rating-large">
+                        <span class="rating-value">⭐️ 4.8</span>
+                        <span class="reviews-count">(125 отзывов)</span>
+                    </div>
+                </div>
+            </div>
+            <button class="btn btn-primary message-btn">Написать сообщение</button>
+        </header>
+
+        <section class="seller-items">
+            <h2>Товары в продаже (5)</h2>
+            <div class="product-feed product-list">
+                <a href="product.html" class="product-card">
+                    <div class="image-placeholder"></div>
+                    <div class="card-info">
+                        <span class="price">€250</span>
+                        <h3 class="title">Iphone 12 Pro (Б/У)</h3>
+                        <p class="location">Рига, LV</p>
+                    </div>
+                </a>
+                <a href="product.html" class="product-card">
+                    <div class="image-placeholder"></div>
+                    <div class="card-info">
+                        <span class="price">€450</span>
+                        <h3 class="title">Новый Ноутбук HP</h3>
+                        <p class="location">Каунас, LT</p>
+                    </div>
+                </a>
+            </div>
+        </section>
+
+        <section class="seller-reviews">
+            <h2>Отзывы о продавце (125)</h2>
+            <div class="review-list">
+                <div class="review-item">
+                    <p class="review-text">"Отличный продавец! Товар полностью соответствовал описанию, быстрая отправка."</p>
+                    <p class="review-author">- Карина Л. | ⭐⭐⭐⭐⭐</p>
+                </div>
+                <div class="review-item">
+                    <p class="review-text">"Все в порядке, но доставка заняла чуть больше времени, чем ожидалось. 4 звезды."</p>
+                    <p class="review-author">- Мартин К. | ⭐⭐⭐⭐</p>
+                </div>
+            </div>
+            <button class="btn btn-secondary load-more">Показать еще отзывы</button>
+        </section>
+    </main>
+    
+    <script src="script.js"></script>
+</body>
+</html>
