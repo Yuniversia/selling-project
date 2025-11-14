@@ -33,10 +33,10 @@ def author_page(request: Request):
         {"request": request, "title": "Об продавце"}
     )
 
-@frontend_router.get("/registry", name="registry")
-def registry_page(request: Request):
-    """Отдает страницу регистрации (форму)."""
+@frontend_router.get("/profile", name="profile")
+def profile_page(request: Request):
+    """Отдает страницу профиля пользователя."""
     return templates.TemplateResponse(
-        "registry.html", 
-        {"request": request, "title": "Регистрация"}
+        "profile.html", 
+        {"request": request, "title": "Мой Профиль"}
     )
