@@ -27,8 +27,3 @@ app = FastAPI(
 
 # Подключаем роутер аутентификации
 app.include_router(auth_router)
-
-# Пример незащищенной конечной точки
-@app.get("/")
-def read_root():
-    return {"message": "Добро пожаловать в приложение FastAPI!"}

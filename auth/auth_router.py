@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, status, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session
 
-from models import UserCreate, Token, User
+from models import UserCreate, Token, User, PublicUser
 from database import get_session
 from auth_service import (
     register_user,
@@ -59,7 +59,7 @@ async def handle_login_for_access_token(
     return {"access_token": access_token, "token_type": "bearer"}
 
 @auth_router.get("/me", response_model=User)
-async def read_users_me(current_user: User = Depends(get_current_user)):
+async def read_users_me(current_user: PublicUser = Depends(get_current_user)):
     """
     Получает информацию о текущем аутентифицированном пользователе.
     (Пример защищенной конечной точки)

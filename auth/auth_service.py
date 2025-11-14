@@ -9,7 +9,7 @@ from jose import JWTError, jwt
 from sqlmodel import Session, select
 from fastapi.security import OAuth2PasswordBearer
 
-from models import User, UserCreate, TokenData
+from models import User, UserCreate, TokenData, PublicUser
 from database import get_session
 
 # --- Конфигурация безопасности ---
@@ -98,7 +98,7 @@ def authenticate_user(db: Session, username: str, password: str) -> Optional[Use
 # --- Зависимость для получения текущего пользователя ---
 async def get_current_user(
     db: Session = Depends(get_session), token: str = Depends(oauth2_scheme)
-) -> User:
+) -> PublicUser:
     """
     Декодирует JWT токен и возвращает пользователя.
     """
