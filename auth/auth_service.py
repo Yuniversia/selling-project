@@ -12,10 +12,12 @@ from fastapi.security import OAuth2PasswordBearer
 from models import User, UserCreate, TokenData, PublicUser
 from database import get_session
 
+from configs import Configs
+
 # --- Конфигурация безопасности ---
-SECRET_KEY = "YOUR_SECRET_KEY"  # Замените на надежный ключ
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+SECRET_KEY = Configs.secret_key  # Замените на надежный ключ
+ALGORITHM = Configs.token_algoritm
+ACCESS_TOKEN_EXPIRE_MINUTES = Configs.acces_token_expires_minutes
 
 # Контекст для хеширования паролей
 
@@ -73,9 +75,13 @@ def register_user(db: Session, user_data: UserCreate) -> User:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Пользователь с таким email уже существует",
         )
-
-    # Хешируем пароль
-    hashed_password = get_password_hash(user_data.password)
+    
+    if user_data.password is None:
+        hashed_password = None
+    else:
+        # Хешируем пароль
+        hashed_password = get_password_hash(user_data.password)
+    
     
     # Создаем нового пользователя
     new_user = User(username=user_data.username, email=user_data.email, hashed_password=hashed_password)
@@ -90,6 +96,18 @@ def authenticate_user(db: Session, username: str, password: str) -> Optional[Use
     """
     Аутентифицирует пользователя по имени и паролю.
     """
+    if username is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Небыл передано имя пользователя",
+        )
+
+    if password is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Небыл передан пароль",
+        )
+
     user = get_user_by_username(db, username=username)
     if not user or not verify_password(password, user.hashed_password):
         return None

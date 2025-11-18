@@ -2,6 +2,7 @@
 
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
+from starlette.middleware.sessions import SessionMiddleware
 
 from database import create_db_and_tables 
 from auth_router import auth_router
@@ -24,6 +25,7 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan # Регистрируем контекстный менеджер
 )
+app.add_middleware(SessionMiddleware, secret_key="ANY_RANDOM_STRING_FOR_SESSION")
 
 # Подключаем роутер аутентификации
 app.include_router(auth_router)

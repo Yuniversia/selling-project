@@ -3,34 +3,41 @@
 from sqlmodel import Field, SQLModel
 from pydantic import BaseModel
 from typing import Optional
+from datetime import datetime
 
 # Модель пользователя для базы данных (SQLAlchemy/SQLModel)
 class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     username: str = Field(index=True, unique=True, max_length=50)
     email: str = Field(index=True, unique=True, max_length=150)
-    hashed_password: str
+    hashed_password: Optional[str]
 
-    name: Optional[str] = Field(default=None, index=False, unique=False, max_length=150)
-    surname: Optional[str] = Field(default=None, index=False, unique=False, max_length=150)
-    phone: Optional[str] = Field(default=None, index=False, max_length=12)
+    name: Optional[str] = Field(default=None, max_length=150)
+    surname: Optional[str] = Field(default=None, max_length=150)
+    phone: Optional[str] = Field(default=None, max_length=20)
     posts_count: int = Field(default=0)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
 
 class PublicUser(BaseModel):
     username: str
-    name: Optional[str]
-    surname: Optional[str]
+    name: Optional[str] = None
+    surname: Optional[str] = None
     email: str
-    phone: Optional[str]
-    created_date: str
+    phone: Optional[str] = None
+    created_date: datetime
     posts_count: int
+
+    class Config:
+        # Это позволяет Pydantic читать данные из ORM-объекта SQLModel
+        from_attributes = True
 
 
 # Схема для ввода данных при регистрации
 class UserCreate(BaseModel):
     username: str
     email: str
-    password: str
+    password: Optional[str] # Имеет возможность None для регистрации через o2auth
 
 # Схема для ввода данных при аутентификации
 class UserLogin(BaseModel):

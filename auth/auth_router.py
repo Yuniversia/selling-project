@@ -3,6 +3,9 @@
 from fastapi import APIRouter, Depends, status, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session
+from authlib.integrations.starlette_client import OAuth
+from fastapi import Request
+from starlette.responses import RedirectResponse
 
 from models import UserCreate, Token, User, PublicUser
 from database import get_session
@@ -10,11 +13,19 @@ from auth_service import (
     register_user,
     authenticate_user,
     create_access_token,
-    get_current_user,
-    ACCESS_TOKEN_EXPIRE_MINUTES,
+    get_current_user
 )
+from configs import Configs
 
 auth_router = APIRouter(prefix="/auth", tags=["Authentication"])
+oauth = OAuth()
+oauth.register(
+    name='google',
+    client_id=Configs.google_client_id,
+    client_secret=Configs.google_client_secret,
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_kwargs={'scope': 'openid email profile'}
+)
 
 @auth_router.post("/register", response_model=User, status_code=status.HTTP_201_CREATED)
 def handle_register(user_data: UserCreate, db: Session = Depends(get_session)):
@@ -33,6 +44,7 @@ def handle_register(user_data: UserCreate, db: Session = Depends(get_session)):
             detail="Ошибка сервера при регистрации",
         )
 
+# Надо заменить JWT токены на Cokies
 @auth_router.post("/token", response_model=Token)
 async def handle_login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_session)
@@ -58,11 +70,53 @@ async def handle_login_for_access_token(
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
-@auth_router.get("/me", response_model=User)
-async def read_users_me(current_user: PublicUser = Depends(get_current_user)):
+@auth_router.get("/me", response_model=PublicUser)
+async def read_users_me(current_user: User = Depends(get_current_user)):
     """
     Получает информацию о текущем аутентифицированном пользователе.
     (Пример защищенной конечной точки)
     """
-    # В реальном приложении создайте схему, которая не включает hashed_password
+
     return current_user
+
+# 1. Роут для входа (Frontend вызывает эту ссылку)
+@auth_router.get("/google/login")
+async def login_via_google(request: Request):
+    redirect_uri = 'https://test.yuniversia.eu/auth/google/callback' # Сгенерирует URL callback'а
+    return await oauth.google.authorize_redirect(request, redirect_uri)
+
+# 2. Роут Callback (Сюда Google возвращает пользователя)
+@auth_router.get("/google/callback", name="auth_google_callback")
+async def auth_google_callback(request: Request, db: Session = Depends(get_session)):
+    try:
+        token = await oauth.google.authorize_access_token(request)
+        user_info = token.get('userinfo')
+        
+        if not user_info:
+             raise HTTPException(status_code=400, detail="Не удалось получить данные Google")
+
+        email = user_info.get('email')
+        # Используем email как username, если нет другого варианта, или генерируем
+        username = email.split('@')[0] 
+
+        # Проверяем, есть ли пользователь в БД
+        from auth_service import get_user_by_email, create_access_token
+        
+        existing_user = get_user_by_email(db, email)
+        
+        if not existing_user:
+
+            user_data = UserCreate(username = username, email = email, password = None)
+
+            user = register_user(db, user_data)
+        
+        # Создаем НАШ внутренний токен (как при обычном входе)
+        access_token = create_access_token(data={"username": username})
+        
+        # Редиректим на Frontend и передаем токен в URL (простой способ)
+        # Фронтенд должен прочитать токен из URL и сохранить в localStorage
+        frontend_url = f"https://test.yuniversia.eu/?token={access_token}" 
+        return RedirectResponse(url=frontend_url)
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Ошибка авторизации: {str(e)}")
