@@ -2,577 +2,251 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lais - Быстрые и удобные покупки и продажи</title>
-
-    <meta name="robots" content="index, follow">
-    <meta property="og:title" content="Lais — Ваш выбор в Прибалтике">
-    <meta property="og:description" content="Lais: техника, транспорт, недвижимость, услуги, работа.">
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="http://lais-demo.com">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Lais</title>
     <link rel="stylesheet" href="{{ url_for('static', path='/styles2.css') }}">
-
-    <style>
-        .product-title {
-            font-size: 16px;
-            font-weight: 600;
-            color: var(--color-text);
-            margin-bottom: 12px;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-            min-height: 48px;
-        }
-    </style>
 </head>
 <body>
-    <div class="top-banner"></div>
 
     <header class="header-fixed">
-        <div class="utility-bar">
-            <div class="utility-content">
-                <div class="utility-links">
-                    <a href="#help">
-                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <circle cx="12" cy="12" r="10"/>
-                            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
-                            <line x1="12" y1="17" x2="12.01" y2="17"/>
-                        </svg>
-                        Помощь
-                    </a>
-                    <a href="#info">
-                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <circle cx="12" cy="12" r="10"/>
-                            <line x1="12" y1="8" x2="12" y2="12"/>
-                            <line x1="12" y1="16" x2="12.01" y2="16"/>
-                        </svg>
-                        Информация
-                    </a>
-                    <a href="#contact">
-                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
-                        </svg>
-                        Контакты
-                    </a>
-                </div>
-                <div class="utility-controls">
-                    <select class="lang-select">
-                        <option value="ru">RU</option>
-                        <option value="lv">LV</option>
-                        <option value="lt">LT</option>
-                        <option value="en">EN</option>
-                        <option value="ee">EE</option>
-                    </select>
-                    <button class="btn btn-post">
-                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <line x1="12" y1="5" x2="12" y2="19"/>
-                            <line x1="5" y1="12" x2="19" y2="12"/>
-                        </svg>
-                        Разместить
-                    </button>
-                    <button class="btn btn-login" id="loginBtn">
-                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
-                            <polyline points="10 17 15 12 10 7"/>
-                            <line x1="15" y1="12" x2="3" y2="12"/>
-                        </svg>
-                        Войти
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <div class="search-section">
-            <div class="search-container">
-                <a href="#" class="logo">lais</a>
-                <div class="search-box">
-                    <input type="text" placeholder="Найти товары, услуги, работу...">
-                    <button class="search-btn">
-                        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <circle cx="11" cy="11" r="8"/>
-                            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                        </svg>
-                    </button>
-                </div>
+        <div class="nav-container">
+            <a href="/" class="logo">lais</a>
+            <div style="flex:1"></div> <div class="header-controls">
+                <button class="btn btn-text" id="loginBtn">Войти</button>
+                <a href="/post-ad" class="btn btn-primary">Разместить</a>
             </div>
         </div>
     </header>
 
-    <main class="main-layout">
-        <aside class="sidebar">
-            <div class="sidebar-ad">
-                <h3>Информация о Lais</h3>
-                <p>Lais - это платформа для покупки и продажи товаров и услуг в Прибалтике. Здесь вы найдете широкий выбор категорий, включая технику, транспорт, недвижимость, услуги и работу.<br><br></p>
-                <p>© Lais SIA<br></p>
-                <p>Регистрационный номер: 40103983879<br></p>
-                <p>Адрес: Ул. Бривибас 123, Рига, Латвия<br><br></p>
-                <a style="color: black;"><b>Информация о рекламе</b><br></a>
-                <a style="color: black;"><b>Правила и условия</b><br></a>
-                <a style="color: black;"><b>Политика конфиденциальности</b><br></a>
+    <section class="hero-section">
+        <h1 class="hero-title">Купи. Продай. Обновись.</h1>
+        <p class="hero-text">Лучшее место для техники Apple и не только.</p>
+    </section>
+
+    <div class="category-scroll">
+        <div class="cat-pill active">Все</div>
+        <div class="cat-pill">iPhone</div>
+        <div class="cat-pill">MacBook</div>
+        <div class="cat-pill">iPad</div>
+        <div class="cat-pill">AirPods</div>
+        <div class="cat-pill">Watch</div>
+        <div class="cat-pill">Консоли</div>
+    </div>
+
+    <main class="main-container">
+        <div class="product-grid">
+            <a href="/product" style="text-decoration: none; color: inherit;">
+                <div style="background: #fff; border-radius: 16px; overflow: hidden; border: 1px solid var(--color-border);">
+                    <div style="height: 200px; background: #f5f5f7; display: flex; align-items: center; justify-content: center;">
+                        <span style="font-weight: 600; color: #ccc;">IMG</span>
+                    </div>
+                    <div style="padding: 16px;">
+                        <div style="font-weight: 700; font-size: 18px;">€1,250</div>
+                        <div style="font-size: 15px; margin-bottom: 6px;">iPhone 14 Pro Max 256GB</div>
+                        <div style="font-size: 12px; color: #86868b;">Рига • Вчера</div>
+                    </div>
+                </div>
+            </a>
             </div>
-            
-        </aside>
-
-        <div class="main-content">
-            <nav class="categories">
-                <a href="#tech" class="category-chip">
-                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <rect x="2" y="3" width="20" height="14" rx="2"/>
-                        <line x1="8" y1="21" x2="16" y2="21"/>
-                        <line x1="12" y1="17" x2="12" y2="21"/>
-                    </svg>
-                    Техника
-                </a>
-                <a href="#electronics" class="category-chip">
-                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <rect x="4" y="2" width="16" height="20" rx="2"/>
-                        <line x1="12" y1="18" x2="12.01" y2="18"/>
-                    </svg>
-                    Электроника
-                </a>
-                <a href="#transport" class="category-chip">
-                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path d="M18 18m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/>
-                        <path d="M6 18m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/>
-                        <path d="M4 16h12l2 -7h-14l-1 -3h-3"/>
-                    </svg>
-                    Транспорт
-                </a>
-                <a href="#realestate" class="category-chip">
-                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                        <polyline points="9 22 9 12 15 12 15 22"/>
-                    </svg>
-                    Недвижимость
-                </a>
-                <a href="#services" class="category-chip">
-                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path d="M12 20h9"/>
-                        <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-                    </svg>
-                    Услуги
-                </a>
-                <a href="#jobs" class="category-chip">
-                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <rect x="2" y="7" width="20" height="14" rx="2"/>
-                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
-                    </svg>
-                    Работа
-                </a>
-            </nav>
-
-            <h2 class="section-title">✨ Актуальные предложения</h2>
-
-            <div class="product-grid" id="productGrid">
-                <a href="/product" class="product-card">
-                    <div class="product-image" style="background: linear-gradient(135deg, #6366f1, #8b5cf6)">
-                        <span class="price-badge">€250</span>
-                    </div>
-                    <div class="product-info">
-                        <h3 class="product-title">iPhone 12 Pro (Б/У, отличное состояние)</h3>
-                        <div class="product-footer">
-                            <span class="product-location">
-                                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                                    <circle cx="12" cy="10" r="3"/>
-                                </svg>
-                                Рига, LV
-                            </span>
-                            <div class="like-btn">
-                                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-                                </svg>
-                            </div>
-                        </div>
-                    </div>
-                </a>
-
-                <a href="/product" class="product-card">
-                    <div class="product-image" style="background: linear-gradient(135deg, #ec4899, #f59e0b)">
-                        <span class="price-badge">€8500</span>
-                    </div>
-                    <div class="product-info">
-                        <h3 class="product-title">VW Golf 5 2007, отличное состояние</h3>
-                        <div class="product-footer">
-                            <span class="product-location">
-                                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                                    <circle cx="12" cy="10" r="3"/>
-                                </svg>
-                                Вильнюс, LT
-                            </span>
-                            <div class="like-btn">
-                                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-                                </svg>
-                            </div>
-                        </div>
-                    </div>
-                </a>
-
-                <a href="/product" class="product-card">
-                    <div class="product-image" style="background: linear-gradient(135deg, #10b981, #06b6d4)">
-                        <span class="price-badge">€120 000</span>
-                    </div>
-                    <div class="product-info">
-                        <h3 class="product-title">2-к. квартира в Таллине, р-н Кесклинн</h3>
-                        <div class="product-footer">
-                            <span class="product-location">
-                                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                                    <circle cx="12" cy="10" r="3"/>
-                                </svg>
-                                Таллин, EE
-                            </span>
-                            <div class="like-btn">
-                                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-                                </svg>
-                            </div>
-                        </div>
-                    </div>
-                </a>
-
-                <a href="/product" class="product-card">
-                    <div class="product-image" style="background: linear-gradient(135deg, #8b5cf6, #ec4899)">
-                        <span class="price-badge">€450</span>
-                    </div>
-                    <div class="product-info">
-                        <h3 class="product-title">Новый ноутбук HP с гарантией</h3>
-                        <div class="product-footer">
-                            <span class="product-location">
-                                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                                    <circle cx="12" cy="10" r="3"/>
-                                </svg>
-                                Каунас, LT
-                            </span>
-                            <div class="like-btn">
-                                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-                                </svg>
-                            </div>
-                        </div>
-                    </div>
-                </a>
-            </div>
-        </div>
-
-        <aside class="sidebar">
-            <h3>Реклама</h3>
-        </aside>
     </main>
 
-    <!-- Auth Modal -->
     <div class="modal" id="authModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 class="modal-title">Добро пожаловать в Lais</h2>
-                <button class="modal-close" id="closeModal">
-                    <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <line x1="18" y1="6" x2="6" y2="18"/>
-                        <line x1="6" y1="6" x2="18" y2="18"/>
-                    </svg>
-                </button>
+        <div class="modal-box">
+            <div style="text-align: right;">
+                <button id="closeModal" style="background:none; border:none; cursor:pointer; font-size:24px; color: var(--color-text-light);">&times;</button>
             </div>
-            <div class="modal-body">
-                <div class="auth-tabs">
-                    <button class="auth-tab active" data-tab="login">Вход</button>
-                    <button class="auth-tab" data-tab="register">Регистрация</button>
-                </div>
 
-                <form class="auth-form active" id="loginForm">
+            <!-- <div style="display: flex; gap: 16px; margin-bottom: 24px; border-bottom: 1px solid var(--color-border);">
+                <button class="btn-tab" onclick="switchTab('login')" style="border-bottom: 2px solid var(--color-primary); color: var(--color-text); padding: 12px 0; flex: 1; background: none; cursor: pointer; font-weight: 600;">Вход</button>
+                <button class="btn-tab" onclick="switchTab('register')" style="border-bottom: 2px solid transparent; color: var(--color-text-light); padding: 12px 0; flex: 1; background: none; cursor: pointer; font-weight: 600;">Регистрация</button>
+            </div> -->
+
+            <!-- <div id="registerForm" style="display: none;">
+                <form id="emailRegisterForm">
                     <div class="form-group">
-                        <input type="text" placeholder="Email или телефон" required>
+                        <input type="email" class="form-input" placeholder="Email" required>
                     </div>
                     <div class="form-group">
-                        <input type="password" placeholder="Пароль" required>
+                        <input type="text" class="form-input" placeholder="Ник" required>
                     </div>
-                    <button type="submit" class="btn-submit">Войти</button>
+                    <div class="form-group">
+                        <input type="password" class="form-input" placeholder="Пароль" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="password" class="form-input" placeholder="Повторить пароль" required>
+                    </div>
+                    <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" id="termsCheck" required style="width: 18px; height: 18px; cursor: pointer;">
+                        <label for="termsCheck" style="font-size: 13px; color: var(--color-text-light); cursor: pointer;">Я согласен с правилами площадки</label>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">Зарегистрироваться</button>
                 </form>
+            </div> -->
+            
+            <div class="auth-header">
+                <h2>Вход в Lais</h2>
+                <p>Управляйте своими объявлениями и покупками</p>
+            </div>
 
-                <form class="auth-form" id="registerForm">
-                    <div class="form-group">
-                        <input type="text" placeholder="Имя пользователя" required>
-                    </div>
-                    <div class="form-group">
-                        <input type="email" placeholder="Email" required>
-                    </div>
-                    <div class="form-group">
-                        <input type="password" placeholder="Пароль (мин. 8 символов)" required>
-                    </div>
-                    <button type="submit" class="btn-submit">Зарегистрироваться</button>
-                </form>
+            <div style="display: flex; gap: 16px; margin-bottom: 24px; border-bottom: 1px solid var(--color-border);">
+                <button class="btn-tab" onclick="switchTab('login')" style="border: none; border-bottom: 2px solid var(--color-primary); color: var(--color-text); padding: 12px 0; flex: 1; background: none; cursor: pointer; font-weight: 600;">Вход</button>
+                <button class="btn-tab" onclick="switchTab('register')" style="border: none; border-bottom: 2px solid transparent; color: var(--color-text-light); padding: 12px 0; flex: 1; background: none; cursor: pointer; font-weight: 600;">Регистрация</button>
+            </div>
 
-                <div class="oauth-divider">или</div>
+            <div id="loginForm">
 
                 <div class="oauth-buttons">
-                    <button class="oauth-btn">
-                        <svg width="20" height="20" viewBox="0 0 24 24">
-                            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                        </svg>
-                        Google
+                    <a href="http://localhost:8000/auth/google/login" class="oauth-btn google">
+                        <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                        Продолжить с Google
+                    </a>
+                    <button class="oauth-btn facebook">
+                        <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                        Продолжить с Facebook
                     </button>
-                    <button class="oauth-btn">
-                        <svg width="20" height="20" viewBox="0 0 24 24">
-                            <path fill="#1877F2" d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                        </svg>
-                        Facebook
-                    </button>
+                    <button class="oauth-btn apple">
+                        <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.127 3.675-.552 9.12 1.519 12.123.987 1.431 2.178 3.065 3.749 3.007 1.497-.056 2.06-.967 3.866-.967 1.785 0 2.316.967 3.863.967 1.626 0 2.786-1.488 3.807-2.958 1.165-1.683 1.651-3.315 1.681-3.399-.037-.018-3.265-1.248-3.3-4.946-.034-3.093 2.536-4.569 2.664-4.656-1.453-2.124-3.707-2.363-4.515-2.389-1.02-.032-2.344.599-3.081.599-.739 0-1.947-.556-2.333-.355zM12.752 4.55c.846-1.021 1.418-2.438 1.262-3.853-1.222.049-2.7 .813-3.578 1.839-.787.914-1.471 2.378-1.286 3.78 1.363.105 2.753-.745 3.602-1.766z"/></svg>
+                        Продолжить с Apple
+                    </a>
                 </div>
+
+                <div class="divider"><span>или по email</span></div>
+
+                <form id="emailAuthForm">
+                    <div class="form-group">
+                        <input type="email" class="form-input" placeholder="Email" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="password" class="form-input" placeholder="Пароль" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">Войти</button>
+                </form>
+
             </div>
+
+            <div id="registerForm" style="display: none;">
+                <form id="emailRegisterForm" onsubmit="event.preventDefault()">
+                    <div class="form-group">
+                        <input type="email" class="form-input" placeholder="Email" required>
+                        <span style="color: red;" class="error-message"></span>
+                    </div>
+                    <div class="form-group">
+                        <input type="text" class="form-input" placeholder="Ник" required>
+                        <span style="color: red;" class="error-message"></span>
+                    </div>
+                    <div class="form-group">
+                        <input type="password" class="form-input" placeholder="Пароль" required>
+                        <span style="color: red;" class="error-message"></span>
+                    </div>
+                    <div class="form-group">
+                        <input type="password" class="form-input" placeholder="Повторить пароль" required>
+                        <span style="color: red;" class="error-message"></span>
+                    </div>
+                    <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" id="termsCheck" required style="width: 18px; height: 18px; cursor: pointer;">
+                        <label for="termsCheck" style="font-size: 13px; color: var(--color-text-light); cursor: pointer;">Я согласен с правилами площадки</label>
+                    </div>
+                    <span class="error-message" style="display: block; margin-bottom: 12px;"></span>
+                    <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">Зарегистрироваться</button>
+                </form>
+
+                <script>
+                    document.getElementById('emailRegisterForm').addEventListener('submit', async (e) => {
+                        e.preventDefault();
+                        const form = e.target;
+                        const inputs = form.querySelectorAll('.form-input');
+                        const [emailInput, nickInput, passInput, confirmPassInput] = inputs;
+                        const termsCheck = form.querySelector('#termsCheck');
+                        const errorMessages = form.querySelectorAll('.error-message');
+                        
+                        errorMessages.forEach(err => err.textContent = '');
+                        
+                        let hasError = false;
+                        
+                        if (passInput.value !== confirmPassInput.value) {
+                            errorMessages[3].textContent = 'Пароли не совпадают';
+                            hasError = true;
+                        }
+
+                        if (passInput.value.length < 8) {
+                            errorMessages[3].textContent = 'Пароль должен быть не менее 8 символов';
+                            hasError = true;
+                        }
+                        
+                        if (!termsCheck.checked) {
+                            errorMessages[4].textContent = 'Необходимо согласиться с правилами';
+                            hasError = true;
+                        }
+                        
+                        if (hasError) return;
+                        
+                        const data = {
+                            email: emailInput.value,
+                            username: nickInput.value,
+                            password: passInput.value
+                        };
+                        
+                        try {
+                            const response = await fetch('http://localhost:8000/auth/register', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(data)
+                            });
+                            const result = await response.json();
+                            if (!response.ok) {
+                                Object.keys(result.errors || {}).forEach(key => {
+                                    const idx = {email: 0, nickname: 1, password: 2}[key];
+                                    if (idx !== undefined) errorMessages[idx].textContent = result.errors[key];
+                                });
+                            }
+                        } catch (err) {
+                            console.error(err);
+                        }
+                    });
+                    
+                    document.getElementById('emailRegisterForm').querySelectorAll('.form-input').forEach(input => {
+                        input.addEventListener('input', (e) => {
+                            e.target.parentElement.querySelector('.error-message').textContent = '';
+                        });
+                    });
+                </script>
+            </div>
+
         </div>
+
+        
     </div>
 
     <script>
-        // Modal functionality
+        const modal = document.getElementById('authModal');
         const loginBtn = document.getElementById('loginBtn');
-        const authModal = document.getElementById('authModal');
-        const closeModal = document.getElementById('closeModal');
-        const authTabs = document.querySelectorAll('.auth-tab');
-        const authForms = document.querySelectorAll('.auth-form');
+        const closeBtn = document.getElementById('closeModal');
 
-        loginBtn.addEventListener('click', () => {
-            authModal.classList.add('active');
-        });
+        loginBtn.onclick = () => modal.classList.add('active');
+        closeBtn.onclick = () => modal.classList.remove('active');
+        window.onclick = (e) => { if (e.target === modal) modal.classList.remove('active'); }
 
-        closeModal.addEventListener('click', () => {
-            authModal.classList.remove('active');
-        });
-
-        authModal.addEventListener('click', (e) => {
-            if (e.target === authModal) {
-                authModal.classList.remove('active');
+        function switchTab(tab) {
+            const loginForm = document.getElementById('loginForm');
+            const regForm = document.getElementById('registerForm');
+            const tabs = document.querySelectorAll('.btn-tab');
+            
+            if(tab === 'login') {
+                loginForm.style.display = 'block';
+                regForm.style.display = 'none';
+                tabs[0].style.borderColor = 'var(--color-primary)';
+                tabs[0].style.color = 'var(--color-text)';
+                tabs[1].style.borderColor = 'transparent';
+                tabs[1].style.color = 'var(--color-text-light)';
+            } else {
+                loginForm.style.display = 'none';
+                regForm.style.display = 'block';
+                tabs[1].style.borderColor = 'var(--color-primary)';
+                tabs[1].style.color = 'var(--color-text)';
+                tabs[0].style.borderColor = 'transparent';
+                tabs[0].style.color = 'var(--color-text-light)';
             }
-        });
-
-        authTabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                const tabName = tab.dataset.tab;
-                
-                authTabs.forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
-                
-                authForms.forEach(form => {
-                    form.classList.remove('active');
-                    if (form.id === tabName + 'Form') {
-                        form.classList.add('active');
-                    }
-                });
-            });
-        });
-
-        // Infinite scroll
-        const productGrid = document.getElementById('productGrid');
-        const gradients = [
-            'linear-gradient(135deg, #6366f1, #8b5cf6)',
-            'linear-gradient(135deg, #ec4899, #f59e0b)',
-            'linear-gradient(135deg, #10b981, #06b6d4)',
-            'linear-gradient(135deg, #8b5cf6, #ec4899)',
-            'linear-gradient(135deg, #f59e0b, #ef4444)'
-        ];
-        const cities = ['Рига, LV', 'Вильнюс, LT', 'Таллин, EE', 'Каунас, LT', 'Тарту, EE'];
-        const titles = [
-            'MacBook Pro 2019 (отличное состояние)',
-            'Samsung Galaxy S21 Ultra',
-            'BMW X5 2015, полная комплектация',
-            'Игровой компьютер RTX 3080',
-            '3-к. квартира с ремонтом',
-            'Услуги веб-разработки',
-            'Вакансия: Senior Developer',
-            'Canon EOS 5D Mark IV',
-            'Офисная мебель (комплект)',
-            'Tesla Model 3 2021'
-        ];
-
-        let loading = false;
-
-        function createProductCard() {
-            const gradient = gradients[Math.floor(Math.random() * gradients.length)];
-            const city = cities[Math.floor(Math.random() * cities.length)];
-            const title = titles[Math.floor(Math.random() * titles.length)];
-            const price = Math.floor(Math.random() * 10000) + 100;
-
-            return `
-                <a href="#" class="product-card">
-                    <div class="product-image" style="background: ${gradient}">
-                        <span class="price-badge">€${price}</span>
-                    </div>
-                    <div class="product-info">
-                        <h3 class="product-title">${title}</h3>
-                        <div class="product-footer">
-                            <span class="product-location">
-                                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                                    <circle cx="12" cy="10" r="3"/>
-                                </svg>
-                                ${city}
-                            </span>
-                            <div class="like-btn">
-                                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-                                </svg>
-                            </div>
-                        </div>
-                    </div>
-                </a>
-            `;
         }
-
-        function loadMoreProducts() {
-            if (loading) return;
-            loading = true;
-
-            setTimeout(() => {
-                for (let i = 0; i < 8; i++) {
-                    productGrid.insertAdjacentHTML('beforeend', createProductCard());
-                }
-                loading = false;
-            }, 500);
-        }
-
-        window.addEventListener('scroll', () => {
-            if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 1000) {
-                loadMoreProducts();
-            }
-        });
-
-        // Initial load
-        for (let i = 0; i < 8; i++) {
-            productGrid.insertAdjacentHTML('beforeend', createProductCard());
-        }
-
-        // ====================================================
-// 🚀 НОВЫЙ КОД: API Сервис и Обработчики Форм
-// ====================================================
-
-const apiService = {
-    /**
-     * Регистрирует нового пользователя.
-     * @param {string} name - Имя пользователя (username)
-     * @param {string} email - Email
-     * @param {string} password - Пароль
-     */
-    async register(name, email, password) {
-        // Конечная точка из auth_router.py
-        const url = "/auth/register"; 
-        
-        const body = JSON.stringify({
-            username: name,
-            email: email,
-            password: password
-        });
-
-        const response = await fetch(url, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: body
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.detail || "Ошибка регистрации");
-        }
-        return await response.json();
-    },
-
-    /**
-     * Аутентифицирует пользователя для получения токена.
-     * @param {string} email - Email пользователя (отправляется как 'username')
-     * @param {string} password - Пароль
-     */
-    async login(email, password) {
-        // Конечная точка из auth_router.py
-        const url = "/auth/token"; 
-        
-        // OAuth2PasswordRequestForm требует 'x-www-form-urlencoded'
-        const body = new URLSearchParams();
-        // ВНИМАНИЕ: Бэкенд ожидает поле 'username', 
-        // но использует его для поиска по EMAIL.
-        body.append("username", email); 
-        body.append("password", password);
-
-        const response = await fetch(url, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/x-www-form-urlencoded"
-            },
-            body: body
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.detail || "Неверный email или пароль");
-        }
-        return await response.json();
-    }
-};
-
-// --- Привязка API к формам из index2.html ---
-
-// Находим формы
-const loginForm = document.getElementById('loginForm');
-const registerForm = document.getElementById('registerForm');
-// Находим модальное окно, чтобы закрыть его при успехе
-// const authModal = document.getElementById('authModal'); // Уже найдено выше
-
-// --- Обработчик формы РЕГИСТРАЦИИ ---
-registerForm.addEventListener('submit', async (e) => {
-    e.preventDefault(); // Отменяем стандартную отправку
-    
-    // Получаем значения из полей
-    const name = registerForm.querySelector('input[type="text"]').value;
-    const email = registerForm.querySelector('input[type="email"]').value;
-    const password = registerForm.querySelector('input[type="password"]').value;
-    
-    try {
-        const newUser = await apiService.register(name, email, password);
-        console.log("Регистрация успешна:", newUser);
-        
-        alert("Регистрация прошла успешно! Теперь вы можете войти.");
-        
-        // Автоматически переключаем на вкладку входа
-        document.querySelector('.auth-tab[data-tab="login"]').click();
-        
-    } catch (error) {
-        console.error("Ошибка регистрации:", error);
-        alert(`Ошибка: ${error.message}`);
-    }
-});
-
-// --- Обработчик формы ЛОГИНА (ВХОДА) ---
-loginForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    // Бэкенд ожидает username в поле 'username'
-    const username = loginForm.querySelector('input[type="text"]').value;
-    const password = loginForm.querySelector('input[type="password"]').value;
-
-    try {
-        const tokenData = await apiService.login(username, password);
-        console.log("Вход успешен, получен токен:", tokenData);
-
-        // Сохраняем токен
-        localStorage.setItem("access_token", tokenData.access_token);
-        
-        // Закрываем модальное окно
-        authModal.classList.remove('active');
-        
-        alert("Вход выполнен!");
-        // Здесь вы бы обновили UI, например, спрятали кнопку "Войти"
-        
-    } catch (error) {
-        console.error("Ошибка входа:", error);
-        alert(`Ошибка: ${error.message}`);
-    }
-});
-
     </script>
 </body>
 </html>

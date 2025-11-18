@@ -1,12 +1,14 @@
+
 python -m venv auth
 
 source auth/bin/activate
 
-pip install fastapi uvicorn sqlmodel bcrypt python-jose[cryptography] authlib httpx itsdangerous
+## Start project
 
-```shell
-uvicorn main:app --reload
-```
+pip install fastapi uvicorn sqlmodel bcrypt python-jose[cryptography] authlib httpx itsdangerous python-multipart
+
+uvicorn main:app --port 8000 --reload
+
 
 or for Windows
 

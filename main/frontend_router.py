@@ -40,3 +40,11 @@ def profile_page(request: Request):
         "profile.html", 
         {"request": request, "title": "Мой Профиль"}
     )
+
+@frontend_router.get("/post-ad", name="post_ad")
+def post_ad_page(request: Request):
+    """Отдает страницу подачи объявления."""
+    return templates.TemplateResponse(
+        "post-ad.html", 
+        {"request": request, "title": "Подать объявление"}
+    )

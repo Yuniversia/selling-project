@@ -1,11 +1,13 @@
 # auth_router.py
 
-from fastapi import APIRouter, Depends, status, HTTPException
+from fastapi import APIRouter, Depends, status, HTTPException, Form
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session
 from authlib.integrations.starlette_client import OAuth
 from fastapi import Request
 from starlette.responses import RedirectResponse
+
+from typing_extensions import Annotated
 
 from models import UserCreate, Token, User, PublicUser
 from database import get_session
@@ -30,51 +32,105 @@ oauth.register(
 @auth_router.post("/register", response_model=User, status_code=status.HTTP_201_CREATED)
 def handle_register(user_data: UserCreate, db: Session = Depends(get_session)):
     """
-    Обрабатывает запрос на регистрацию нового пользователя.
+    Обрабатывает запрос на регистрацию нового пользователя. При успешной регистрации
+    создает токен доступа и сохраняет его в cookies.
     """
     try:
         new_user = register_user(db, user_data)
        
-        return new_user
+        access_token = create_access_token(data={"username": new_user.username})
+    
+        response = RedirectResponse(url="http://localhost:5500/", status_code=status.HTTP_302_FOUND)
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            secure=True,
+            samesite="lax"
+        )
+        return response
+    
     except HTTPException as e:
         raise e
+    
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Ошибка сервера при регистрации",
         )
 
-# Надо заменить JWT токены на Cokies
-@auth_router.post("/token", response_model=Token)
-async def handle_login_for_access_token(
-    form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_session)
-):
+@auth_router.post("/login")
+async def handle_login(username_or_email: Annotated[str, Form()], 
+                        password: Annotated[str, Form()],
+                        db: Session = Depends(get_session)):
     """
-    Аутентифицирует пользователя и возвращает JWT токен.
-    Использует стандартную форму OAuth2 (username и password).
+    Аутентифицирует пользователя по email/никнейму и паролю.
+    Сохраняет токен в cookies.
+    """
 
-    Принимает:
-    - form_data: Данные формы OAuth2 с именем пользователя и паролем.
-    """
-    user = authenticate_user(db, form_data.username, form_data.password)
+    if not password or not username_or_email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Требуется пароль и email или никнейм"
+        )
+    
+    if "@" in username_or_email:
+        user = authenticate_user(db, email=username_or_email, password=password)
+    else:
+        user = authenticate_user(db, username=username_or_email, password=password)
+    
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Неправильное имя пользователя или пароль",
-            headers={"WWW-Authenticate": "Bearer"},
+            detail="Неправильные учетные данные"
         )
     
-    # Создание токена
-    access_token = create_access_token(
-        data={"username": user.username}
+    access_token = create_access_token(data={"username": user.username})
+    
+    response = RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=True,
+        samesite="lax"
     )
-    return {"access_token": access_token, "token_type": "bearer"}
+    return response
+
+@auth_router.post("/refresh")
+async def refresh_token(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_session)
+):
+    """
+    Обновляет токен доступа. Сохраняет новый токен в cookies.
+    """
+    access_token = create_access_token(data={"username": current_user.username})
+    
+    response = {"status": "refreshed"}
+    response_obj = RedirectResponse(url="/", status_code=status.HTTP_200_OK)
+    response_obj.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=True,
+        samesite="lax"
+    )
+    return response_obj
+
+@auth_router.post("/logout")
+async def logout():
+    """
+    Удаляет токен из cookies.
+    """
+    response = RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
+    response.delete_cookie(key="access_token")
+    return response
 
 @auth_router.get("/me", response_model=PublicUser)
 async def read_users_me(current_user: User = Depends(get_current_user)):
     """
     Получает информацию о текущем аутентифицированном пользователе.
-    (Пример защищенной конечной точки)
     """
 
     return current_user
@@ -112,11 +168,16 @@ async def auth_google_callback(request: Request, db: Session = Depends(get_sessi
         
         # Создаем НАШ внутренний токен (как при обычном входе)
         access_token = create_access_token(data={"username": username})
-        
-        # Редиректим на Frontend и передаем токен в URL (простой способ)
-        # Фронтенд должен прочитать токен из URL и сохранить в localStorage
-        frontend_url = f"https://test.yuniversia.eu/?token={access_token}" 
-        return RedirectResponse(url=frontend_url)
+
+        response = RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            secure=True,
+            samesite="lax"
+        )
+        return response
 
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Ошибка авторизации: {str(e)}")

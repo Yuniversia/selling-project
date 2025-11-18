@@ -3,6 +3,7 @@
 from fastapi import FastAPI
 from frontend_router import frontend_router
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.cors import CORSMiddleware
 
 def configure_static(app: FastAPI):
     app.mount("/templates/static", StaticFiles(directory="templates/static"), name="static")
@@ -16,6 +17,14 @@ app = FastAPI(
     redoc_url=None
 )
 configure_static(app)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5500", "http://localhost:8000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Подключаем роутер для отдачи страниц
 app.include_router(frontend_router)

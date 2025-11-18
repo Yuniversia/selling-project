@@ -92,14 +92,14 @@ def register_user(db: Session, user_data: UserCreate) -> User:
     db.refresh(new_user)
     return new_user
 
-def authenticate_user(db: Session, username: str, password: str) -> Optional[User]:
+def authenticate_user(db: Session, username: str = None, email: str = None, password: str = None) -> Optional[User]:
     """
     Аутентифицирует пользователя по имени и паролю.
     """
-    if username is None:
+    if username is None and email is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Небыл передано имя пользователя",
+            detail="Небыло передано данных пользователя",
         )
 
     if password is None:
@@ -107,8 +107,14 @@ def authenticate_user(db: Session, username: str, password: str) -> Optional[Use
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Небыл передан пароль",
         )
+    
+    if username is None:
+        user = get_user_by_email(db, email=email)
 
-    user = get_user_by_username(db, username=username)
+    if email is None:
+        user = get_user_by_username(db, username=username)
+
+    
     if not user or not verify_password(password, user.hashed_password):
         return None
     return user

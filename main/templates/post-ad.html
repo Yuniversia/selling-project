@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title>Новое объявление</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/styles2.css') }}">
+    <style>
+        .post-container { max-width: 700px; margin: 40px auto; background: #fff; padding: 40px; border-radius: 24px; border: 1px solid var(--color-border); }
+        @media(max-width: 768px) { .post-container { margin: 0; border-radius: 0; border: none; padding: 20px; } }
+        .hidden-group { display: none; animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <header class="header-fixed">
+        <div class="nav-container">
+            <a href="/" class="logo">lais</a>
+            <a href="/" class="btn btn-text">Отмена</a>
+        </div>
+    </header>
+
+    <div class="post-container">
+        <h1 style="margin-bottom: 30px;">Продать устройство</h1>
+        
+        <form>
+            <div class="form-group">
+                <label class="label">Категория</label>
+                <select id="catSelect" class="input">
+                    <option value="">Выберите категорию...</option>
+                    <option value="iphone">iPhone</option>
+                    <option value="macbook">MacBook</option>
+                    <option value="ipad">iPad</option>
+                    <option value="other">Другое</option>
+                </select>
+            </div>
+
+            <div id="iphoneBlock" class="hidden-group">
+                <div class="form-group">
+                    <label class="label">Модель iPhone</label>
+                    <select class="input">
+                        <option>iPhone 15 Pro Max</option>
+                        <option>iPhone 15 Pro</option>
+                        <option>iPhone 14 Pro</option>
+                        <option>iPhone 13</option>
+                        <option>Другой</option>
+                    </select>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <label class="label">Память</label>
+                        <select class="input"><option>128 GB</option><option>256 GB</option><option>512 GB</option><option>1 TB</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="label">Состояние АКБ (%)</label>
+                        <input type="number" class="input" placeholder="95">
+                    </div>
+                </div>
+            </div>
+
+            <div id="macBlock" class="hidden-group">
+                <div class="form-group">
+                    <label class="label">Серия MacBook</label>
+                    <select id="macSeries" class="input">
+                        <option value="">Выберите серию...</option>
+                        <option value="air">MacBook Air</option>
+                        <option value="pro">MacBook Pro</option>
+                    </select>
+                </div>
+
+                <div id="macAirSpecs" class="hidden-group" style="margin-bottom: 16px;">
+                    <label class="label">Чип (Air)</label>
+                    <select class="input">
+                        <option>M1</option>
+                        <option>M2</option>
+                        <option>M3</option>
+                        <option>Intel (Старые)</option>
+                    </select>
+                </div>
+
+                <div id="macProSpecs" class="hidden-group" style="margin-bottom: 16px;">
+                    <label class="label">Чип (Pro)</label>
+                    <select class="input">
+                        <option>M1 Pro / Max</option>
+                        <option>M2 Pro / Max</option>
+                        <option>M3 Pro / Max</option>
+                        <option>Intel i7 / i9</option>
+                    </select>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <label class="label">ОЗУ (RAM)</label>
+                        <select class="input"><option>8 GB</option><option>16 GB</option><option>18 GB</option><option>24 GB</option><option>32 GB+</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="label">SSD</label>
+                        <select class="input"><option>256 GB</option><option>512 GB</option><option>1 TB+</option></select>
+                    </div>
+                </div>
+            </div>
+
+            <div id="commonSpecs" class="hidden-group" style="border-top: 1px solid var(--color-border); padding-top: 20px; margin-top: 20px;">
+                <div class="form-group">
+                    <label class="label">Цвет корпуса</label>
+                    <input type="text" class="input" placeholder="Например: Space Gray">
+                </div>
+                
+                <div class="form-group">
+                    <label class="label">Комплектация (отметьте, что есть)</label>
+                    <div class="checkbox-group">
+                        <label class="check-item"><input type="checkbox"> Оригинальная коробка</label>
+                        <label class="check-item"><input type="checkbox"> Зарядный блок</label>
+                        <label class="check-item"><input type="checkbox"> Кабель</label>
+                        <label class="check-item"><input type="checkbox"> Чек о покупке</label>
+                        <label class="check-item"><input type="checkbox"> Гарантия</label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="label">Цена (€)</label>
+                    <input type="number" class="input" style="font-size: 20px; font-weight: bold;">
+                </div>
+
+                <div class="form-group">
+                    <label class="label">Описание</label>
+                    <textarea class="input" rows="5" placeholder="Расскажите подробнее о состоянии..."></textarea>
+                </div>
+
+                <button type="button" class="btn btn-primary" style="width: 100%; padding: 16px; font-size: 16px;">Опубликовать</button>
+            </div>
+
+        </form>
+    </div>
+
+    <script>
+        const catSelect = document.getElementById('catSelect');
+        const iphoneBlock = document.getElementById('iphoneBlock');
+        const macBlock = document.getElementById('macBlock');
+        const commonSpecs = document.getElementById('commonSpecs');
+        
+        const macSeries = document.getElementById('macSeries');
+        const macAirSpecs = document.getElementById('macAirSpecs');
+        const macProSpecs = document.getElementById('macProSpecs');
+
+        // Главная категория
+        catSelect.addEventListener('change', (e) => {
+            const val = e.target.value;
+            
+            // Сброс
+            iphoneBlock.style.display = 'none';
+            macBlock.style.display = 'none';
+            commonSpecs.style.display = 'none';
+
+            if(val === 'iphone') {
+                iphoneBlock.style.display = 'block';
+                commonSpecs.style.display = 'block';
+            } else if(val === 'macbook') {
+                macBlock.style.display = 'block';
+                commonSpecs.style.display = 'block';
+            } else if (val) {
+                commonSpecs.style.display = 'block';
+            }
+        });
+
+        // Логика MacBook (Air vs Pro)
+        macSeries.addEventListener('change', (e) => {
+            const val = e.target.value;
+            macAirSpecs.style.display = 'none';
+            macProSpecs.style.display = 'none';
+
+            if(val === 'air') {
+                macAirSpecs.style.display = 'block';
+            } else if(val === 'pro') {
+                macProSpecs.style.display = 'block';
+            }
+        });
+    </script>
+
+</body>
+</html>
