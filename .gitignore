@@ -5,6 +5,7 @@ __pycache__
 /auth/auth
 /auth/.env
 /auth/database.db
+/auth/configs.py
 
 /main/__pycache__
 /main/front

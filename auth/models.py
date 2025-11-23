@@ -12,6 +12,7 @@ class User(SQLModel, table=True):
     email: str = Field(index=True, unique=True, max_length=150)
     hashed_password: Optional[str]
 
+    avatar_url: Optional[str] = Field(default=None)
     name: Optional[str] = Field(default=None, max_length=150)
     surname: Optional[str] = Field(default=None, max_length=150)
     phone: Optional[str] = Field(default=None, max_length=20)
@@ -24,6 +25,7 @@ class PublicUser(BaseModel):
     name: Optional[str] = None
     surname: Optional[str] = None
     email: str
+    avatar_url: Optional[str] = None
     phone: Optional[str] = None
     created_date: datetime
     posts_count: int
@@ -41,7 +43,7 @@ class UserCreate(BaseModel):
 
 # Схема для ввода данных при аутентификации
 class UserLogin(BaseModel):
-    username: str
+    username_or_email: str
     password: str
 
 # Схема для возвращаемого токена

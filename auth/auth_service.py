@@ -121,8 +121,7 @@ def authenticate_user(db: Session, username: str = None, email: str = None, pass
 
 # --- Зависимость для получения текущего пользователя ---
 async def get_current_user(
-    db: Session = Depends(get_session), token: str = Depends(oauth2_scheme)
-) -> PublicUser:
+    db: Session = Depends(get_session), token: str = None) -> PublicUser:
     """
     Декодирует JWT токен и возвращает пользователя.
     """

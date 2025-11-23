@@ -13,7 +13,7 @@
             <a href="/" class="logo">lais</a>
             <div style="flex:1"></div> <div class="header-controls">
                 <button class="btn btn-text" id="loginBtn">Войти</button>
-                <a href="/post-ad" class="btn btn-primary">Разместить</a>
+                <a href="/post-ad" id="postAdBtn" class="btn btn-primary">Разместить</a>
             </div>
         </div>
     </header>
@@ -55,40 +55,13 @@
             <div style="text-align: right;">
                 <button id="closeModal" style="background:none; border:none; cursor:pointer; font-size:24px; color: var(--color-text-light);">&times;</button>
             </div>
-
-            <!-- <div style="display: flex; gap: 16px; margin-bottom: 24px; border-bottom: 1px solid var(--color-border);">
-                <button class="btn-tab" onclick="switchTab('login')" style="border-bottom: 2px solid var(--color-primary); color: var(--color-text); padding: 12px 0; flex: 1; background: none; cursor: pointer; font-weight: 600;">Вход</button>
-                <button class="btn-tab" onclick="switchTab('register')" style="border-bottom: 2px solid transparent; color: var(--color-text-light); padding: 12px 0; flex: 1; background: none; cursor: pointer; font-weight: 600;">Регистрация</button>
-            </div> -->
-
-            <!-- <div id="registerForm" style="display: none;">
-                <form id="emailRegisterForm">
-                    <div class="form-group">
-                        <input type="email" class="form-input" placeholder="Email" required>
-                    </div>
-                    <div class="form-group">
-                        <input type="text" class="form-input" placeholder="Ник" required>
-                    </div>
-                    <div class="form-group">
-                        <input type="password" class="form-input" placeholder="Пароль" required>
-                    </div>
-                    <div class="form-group">
-                        <input type="password" class="form-input" placeholder="Повторить пароль" required>
-                    </div>
-                    <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
-                        <input type="checkbox" id="termsCheck" required style="width: 18px; height: 18px; cursor: pointer;">
-                        <label for="termsCheck" style="font-size: 13px; color: var(--color-text-light); cursor: pointer;">Я согласен с правилами площадки</label>
-                    </div>
-                    <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">Зарегистрироваться</button>
-                </form>
-            </div> -->
             
             <div class="auth-header">
                 <h2>Вход в Lais</h2>
                 <p>Управляйте своими объявлениями и покупками</p>
             </div>
 
-            <div style="display: flex; gap: 16px; margin-bottom: 24px; border-bottom: 1px solid var(--color-border);">
+            <div style="display: flex; gap: 16px; margin-bottom: 24px; border-bottom: 1px solid var(--co</button>lor-border);">
                 <button class="btn-tab" onclick="switchTab('login')" style="border: none; border-bottom: 2px solid var(--color-primary); color: var(--color-text); padding: 12px 0; flex: 1; background: none; cursor: pointer; font-weight: 600;">Вход</button>
                 <button class="btn-tab" onclick="switchTab('register')" style="border: none; border-bottom: 2px solid transparent; color: var(--color-text-light); padding: 12px 0; flex: 1; background: none; cursor: pointer; font-weight: 600;">Регистрация</button>
             </div>
@@ -114,10 +87,12 @@
 
                 <form id="emailAuthForm">
                     <div class="form-group">
-                        <input type="email" class="form-input" placeholder="Email" required>
+                        <input type="text" class="form-input" placeholder="Email or username" required>
+                        <span style="color: red;" class="error-message"></span>
                     </div>
                     <div class="form-group">
                         <input type="password" class="form-input" placeholder="Пароль" required>
+                        <span style="color: red;" class="error-message"></span>
                     </div>
                     <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">Войти</button>
                 </form>
@@ -149,9 +124,323 @@
                     <span class="error-message" style="display: block; margin-bottom: 12px;"></span>
                     <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">Зарегистрироваться</button>
                 </form>
+            </div>
 
-                <script>
-                    document.getElementById('emailRegisterForm').addEventListener('submit', async (e) => {
+        </div>
+
+    </div>
+
+    <style>
+    /* Стили для Cookie Модалки */
+    #cookieConsentModal {
+        display: none;
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        width: 340px;
+        background: #fff;
+        border-radius: 16px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+        border: 1px solid var(--color-border, #e5e5e5);
+        padding: 24px;
+        z-index: 9999;
+        animation: slideIn 0.3s ease-out;
+    }
+
+    #cookieConsentModal.active {
+        display: block;
+    }
+
+    @keyframes slideIn {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+
+    /* Стили для Меню Профиля в Хедере */
+    .user-profile-wrapper {
+        position: relative;
+        margin-left: 12px;
+        display: inline-block;
+    }
+
+    .user-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background-color: #f5f5f7;
+        background-image: url('https://ui-avatars.com/api/?name=User&background=0D8ABC&color=fff'); /* Дефолтная аватарка */
+        background-size: cover;
+        background-position: center;
+        cursor: pointer;
+        border: 1px solid var(--color-border, #e5e5e5);
+        transition: transform 0.2s;
+    }
+
+    .user-avatar:hover {
+        transform: scale(1.05);
+    }
+
+    /* Выпадающее меню */
+    .profile-dropdown {
+        display: none;
+        position: absolute;
+        top: 100%;
+        right: 0;
+        margin-top: 12px;
+        width: 200px;
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+        border: 1px solid var(--color-border, #e5e5e5);
+        overflow: hidden;
+        flex-direction: column;
+    }
+
+    .user-profile-wrapper:hover .profile-dropdown {
+        display: flex;
+    }
+
+    .profile-dropdown a, 
+    .profile-dropdown button {
+        display: block;
+        padding: 12px 16px;
+        text-decoration: none;
+        color: var(--color-text, #1d1d1f);
+        font-size: 14px;
+        text-align: left;
+        background: none;
+        border: none;
+        cursor: pointer;
+        transition: background 0.2s;
+        width: 100%;
+        font-family: inherit;
+    }
+
+    .profile-dropdown a:hover, 
+    .profile-dropdown button:hover {
+        background-color: #f5f5f7;
+    }
+
+    .profile-dropdown .divider {
+        height: 1px;
+        background-color: var(--color-border, #e5e5e5);
+        margin: 0;
+    }
+    
+    .logout-btn {
+        color: #ff3b30 !important;
+    }
+</style>
+
+<div id="cookieConsentModal">
+    <h3 style="font-size: 18px; font-weight: 600; margin: 0 0 8px 0;">Мы используем Cookies 🍪</h3>
+    <p style="font-size: 13px; color: #86868b; margin: 0 0 16px 0; line-height: 1.4;">
+        Продолжая пользоваться сайтом, вы соглашаетесь с использованием файлов cookie для улучшения работы сервиса.
+    </p>
+    <button id="acceptCookiesBtn" class="btn btn-primary" style="width: 100%; justify-content: center;">
+        Хорошо
+    </button>
+</div>
+
+<script>
+(function() {
+    // ==========================================
+    // 1. ЛОГИКА COOKIE MODAL (Оставляем как было)
+    // ==========================================
+    const cookieModal = document.getElementById('cookieConsentModal');
+    const acceptBtn = document.getElementById('acceptCookiesBtn');
+    
+    if (!localStorage.getItem('lais_cookie_consent')) {
+        setTimeout(() => {
+            cookieModal.classList.add('active');
+        }, 1000);
+    }
+
+    acceptBtn.addEventListener('click', () => {
+        localStorage.setItem('lais_cookie_consent', 'true');
+        cookieModal.classList.remove('active');
+    });
+
+    // ==========================================
+    // 2. НОВАЯ ЛОГИКА АВТОРИЗАЦИИ (Через /auth/me)
+    // ==========================================
+    
+    async function checkAuthAndBuildUI() {
+        try {
+            // Делаем запрос к /auth/me. 
+            // Важно: credentials: 'include' заставляет браузер отправить HttpOnly cookie вместе с запросом.
+            const response = await fetch('http://localhost:8000/auth/me', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include' 
+            });
+
+            // Если статус 200 - пользователь залогинен
+            if (response.ok) {
+                const userData = await response.json();
+                updateUIForLoggedInUser(userData);
+            } 
+            // Если статус 401 - токен невалиден или его нет, ничего не делаем (кнопка "Войти" остается)
+        } catch (error) {
+            console.log("Пользователь не авторизован или ошибка сети");
+        }
+    }
+
+    function updateUIForLoggedInUser(user) {
+        // А. Скрываем кнопку "Войти"
+        const loginBtn = document.getElementById('loginBtn');
+        if (loginBtn) loginBtn.style.display = 'none';
+
+        // Б. Добавляем Аватарку
+        const headerControls = document.querySelector('.header-controls');
+        if (headerControls) {
+            // Формируем аватарку с инициалами пользователя
+            const avatarUrl = `https://ui-avatars.com/api/?name=${user.username}&background=0D8ABC&color=fff`;
+
+            const profileWrapper = document.createElement('div');
+            profileWrapper.className = 'user-profile-wrapper';
+            
+            profileWrapper.innerHTML = `
+                <div class="user-avatar" style="background-image: url('${avatarUrl}')" onclick="window.location.href='/profile'"></div>
+                <div class="profile-dropdown">
+                    <div style="padding: 12px 16px; border-bottom: 1px solid #eee; font-weight: 600; color: #888; font-size: 12px;">
+                        ${user.username}
+                    </div>
+                    <a href="/profile">👤 Мой профиль</a>
+                    <a href="/profile/edit">⚙️ Сменить данные</a>
+                    <div class="divider"></div>
+                    <button class="logout-btn" id="logoutAction">Выйти из аккаунта</button>
+                </div>
+            `;
+            
+            headerControls.appendChild(profileWrapper);
+            
+            // В. Логика Выхода (Logout)
+            document.getElementById('logoutAction').addEventListener('click', async (e) => {
+                e.stopPropagation(); 
+                try {
+                    await fetch('http://localhost:8000/auth/logout', {
+                        method: 'POST',
+                        credentials: 'include' // Обязательно, чтобы сервер понял, чью куку удалять
+                    });
+                    // Перезагружаем страницу после выхода
+                    window.location.reload();
+                } catch (err) {
+                    console.error('Logout failed', err);
+                    window.location.reload();
+                }
+            });
+        }
+    }
+
+    // Запускаем проверку при загрузке скрипта
+    checkAuthAndBuildUI();
+
+})();
+</script>
+
+    <script>
+        const modal = document.getElementById('authModal');
+        const loginBtn = document.getElementById('loginBtn');
+        const closeBtn = document.getElementById('closeModal');
+        
+        // --- НОВЫЙ КОД НАЧАЛО ---
+        const postAdBtn = document.getElementById('postAdBtn');
+
+        postAdBtn.addEventListener('click', (e) => {
+            // Проверяем, есть ли на странице элементы авторизованного пользователя
+            // (мы создаем .user-profile-wrapper в первом скрипте при успешном входе)
+            const isUserLoggedIn = document.querySelector('.user-profile-wrapper');
+
+            if (!isUserLoggedIn) {
+                e.preventDefault(); // Отменяем переход по ссылке
+                modal.classList.add('active'); // Открываем окно входа
+                
+            }
+            // Если пользователь залогинен, скрипт ничего не делает, 
+        });
+
+        loginBtn.onclick = () => modal.classList.add('active');
+        closeBtn.onclick = () => modal.classList.remove('active');
+        window.onclick = (e) => { if (e.target === modal) modal.classList.remove('active'); }
+
+        function switchTab(tab) {
+            const loginForm = document.getElementById('loginForm');
+            const regForm = document.getElementById('registerForm');
+            const tabs = document.querySelectorAll('.btn-tab');
+            
+            if(tab === 'login') {
+                loginForm.style.display = 'block';
+                regForm.style.display = 'none';
+                tabs[0].style.borderColor = 'var(--color-primary)';
+                tabs[0].style.color = 'var(--color-text)';
+                tabs[1].style.borderColor = 'transparent';
+                tabs[1].style.color = 'var(--color-text-light)';
+            } else {
+                loginForm.style.display = 'none';
+                regForm.style.display = 'block';
+                tabs[1].style.borderColor = 'var(--color-primary)';
+                tabs[1].style.color = 'var(--color-text)';
+                tabs[0].style.borderColor = 'transparent';
+                tabs[0].style.color = 'var(--color-text-light)';
+            }
+        }
+
+        // Login Form Handling
+
+        document.getElementById('emailAuthForm').addEventListener('submit', async (e) => {
+                        e.preventDefault();
+                        const form = e.target;
+                        const inputs = form.querySelectorAll('.form-input');
+                        const [username_or_email, passInput] = inputs;
+                        const errorMessages = form.querySelectorAll('.error-message');
+                        
+                        errorMessages.forEach(err => err.textContent = '');
+                        
+                        let hasError = false;
+                        
+                        if (hasError) return;
+                        
+                        const data = {
+                            username_or_email: username_or_email.value,
+                            password: passInput.value
+                        };
+                        
+                        try {
+                            const response = await fetch('http://localhost:8000/auth/login', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(data),
+                                credentials: 'include'
+                            });
+                            const result = await response.json();
+                            
+                            if (response.status === 406) {
+                                if (result.errors) {
+                                    if (result.errors.auth) {
+                                        errorMessages[0].textContent = 'Неверный логин или пароль';
+                                    }
+                                }
+                            } else if (response.ok) {
+                                console.log("Successful login");
+                                window.location.href = '/';
+                            }
+                        } catch (err) {
+                            console.error(err);
+                        }
+                    });
+                    
+                    document.getElementById('emailAuthForm').querySelectorAll('.form-input').forEach(input => {
+                        input.addEventListener('input', (e) => {
+                            e.target.parentElement.querySelector('.error-message').textContent = '';
+                        });
+                    });
+
+        // Registration Form Handling
+
+        document.getElementById('emailRegisterForm').addEventListener('submit', async (e) => {
                         e.preventDefault();
                         const form = e.target;
                         const inputs = form.querySelectorAll('.form-input');
@@ -190,14 +479,22 @@
                             const response = await fetch('http://localhost:8000/auth/register', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify(data)
+                                body: JSON.stringify(data),
+                                credentials: 'include'
                             });
                             const result = await response.json();
-                            if (!response.ok) {
-                                Object.keys(result.errors || {}).forEach(key => {
-                                    const idx = {email: 0, nickname: 1, password: 2}[key];
-                                    if (idx !== undefined) errorMessages[idx].textContent = result.errors[key];
-                                });
+                            
+                            if (response.status === 406) {
+                                if (result.errors) {
+                                    if (result.errors.email) {
+                                        errorMessages[0].textContent = 'Такая почта уже существует';
+                                    }
+                                    if (result.errors.username) {
+                                        errorMessages[1].textContent = 'Такой никнейм уже существует';
+                                    }
+                                }
+                            } else if (response.ok) {
+                                window.location.href = '/';
                             }
                         } catch (err) {
                             console.error(err);
@@ -209,44 +506,6 @@
                             e.target.parentElement.querySelector('.error-message').textContent = '';
                         });
                     });
-                </script>
-            </div>
-
-        </div>
-
-        
-    </div>
-
-    <script>
-        const modal = document.getElementById('authModal');
-        const loginBtn = document.getElementById('loginBtn');
-        const closeBtn = document.getElementById('closeModal');
-
-        loginBtn.onclick = () => modal.classList.add('active');
-        closeBtn.onclick = () => modal.classList.remove('active');
-        window.onclick = (e) => { if (e.target === modal) modal.classList.remove('active'); }
-
-        function switchTab(tab) {
-            const loginForm = document.getElementById('loginForm');
-            const regForm = document.getElementById('registerForm');
-            const tabs = document.querySelectorAll('.btn-tab');
-            
-            if(tab === 'login') {
-                loginForm.style.display = 'block';
-                regForm.style.display = 'none';
-                tabs[0].style.borderColor = 'var(--color-primary)';
-                tabs[0].style.color = 'var(--color-text)';
-                tabs[1].style.borderColor = 'transparent';
-                tabs[1].style.color = 'var(--color-text-light)';
-            } else {
-                loginForm.style.display = 'none';
-                regForm.style.display = 'block';
-                tabs[1].style.borderColor = 'var(--color-primary)';
-                tabs[1].style.color = 'var(--color-text)';
-                tabs[0].style.borderColor = 'transparent';
-                tabs[0].style.color = 'var(--color-text-light)';
-            }
-        }
     </script>
 </body>
 </html>
