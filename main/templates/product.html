@@ -23,60 +23,89 @@
             
             <div class="gallery-container">
                 <div class="main-image" style="display: flex; align-items: center; justify-content: center; color: #999;">
-                    <svg width="64" height="64" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                    <img id="mainProductImage" src="" alt="Фото товара" style="max-width: 100%; max-height: 400px; object-fit: contain; display: none;">
+                    <svg id="placeholderImage" width="64" height="64" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
                 </div>
-                <div class="thumbs">
-                    <div class="thumb active"></div>
-                    <div class="thumb"></div>
-                    <div class="thumb"></div>
+                <div class="thumbs" id="thumbnailsContainer">
+                    <div class="thumb active" data-index="0"></div>
                 </div>
             </div>
 
             <div class="info-container">
-                <div style="font-size: 13px; color: var(--color-text-light); margin-bottom: 8px;">Ноутбуки / Apple / MacBook Air</div>
-                <h1>MacBook Air 13.6" M2 (2022)</h1>
-                <div class="price-tag">€1,150</div>
+                <div style="font-size: 13px; color: var(--color-text-light); margin-bottom: 8px;" id="breadcrumb">iPhone</div>
+                <h1 id="productTitle">Загружается...</h1>
+                <div id="viewsInfo" style="font-size: 13px; color: var(--color-text-light); margin-bottom: 15px; display: none;">
+                    👁️ Просмотров: <span id="viewCount">0</span> | 
+                    <span id="statusBadge" style="color: #4CAF50;">✓ Активно</span>
+                </div>
+                <div class="price-tag" id="priceTag">—</div>
 
-                <div class="specs-list">
+                <div class="specs-list" id="specsList">
                     <div class="spec-row">
-                        <span class="spec-label">Чип</span>
-                        <span class="spec-value">Apple M2 (8-core)</span>
+                        <span class="spec-label">Модель</span>
+                        <span class="spec-value" id="specModel">—</span>
                     </div>
                     <div class="spec-row">
-                        <span class="spec-label">Память (RAM)</span>
-                        <span class="spec-value">16 GB</span>
-                    </div>
-                    <div class="spec-row">
-                        <span class="spec-label">Накопитель</span>
-                        <span class="spec-value">512 GB SSD</span>
+                        <span class="spec-label">Память</span>
+                        <span class="spec-value" id="specMemory">—</span>
                     </div>
                     <div class="spec-row">
                         <span class="spec-label">Цвет</span>
-                        <span class="spec-value">Midnight (Темная ночь)</span>
+                        <span class="spec-value" id="specColor">—</span>
                     </div>
                     <div class="spec-row">
-                        <span class="spec-label">Состояние</span>
-                        <span class="spec-value">Идеальное (9 циклов)</span>
+                        <span class="spec-label">Состояние батареи</span>
+                        <span class="spec-value" id="specBattery">—</span>
                     </div>
                     <div class="spec-row">
-                        <span class="spec-label">Комплект</span>
-                        <span class="spec-value">Полный (Коробка, Зарядка)</span>
+                        <span class="spec-label">IMEI</span>
+                        <span class="spec-value" id="specIMEI">—</span>
+                    </div>
+                    <div class="spec-row">
+                        <span class="spec-label">Серийный номер</span>
+                        <span class="spec-value" id="specSerial">—</span>
+                    </div>
+                    <div class="spec-row" id="fmiRow" style="display: none;">
+                        <span class="spec-label">Статус FMI</span>
+                        <span class="spec-value" id="specFMI">—</span>
+                    </div>
+                    <div class="spec-row" id="icloudRow" style="display: none;">
+                        <span class="spec-label">Привязка iCloud</span>
+                        <span class="spec-value" id="specICloud">—</span>
+                    </div>
+                    <div class="spec-row" id="simlockRow" style="display: none;">
+                        <span class="spec-label">Simlock</span>
+                        <span class="spec-value" id="specSimlock">—</span>
+                    </div>
+                    <div class="spec-row" id="activatedRow" style="display: none;">
+                        <span class="spec-label">Активирован</span>
+                        <span class="spec-value" id="specActivated">—</span>
                     </div>
                 </div>
 
                 <div style="background: #fff; padding: 20px; border-radius: 16px; border: 1px solid var(--color-border);">
+                    <h3 style="margin-bottom: 10px;">Комплектация</h3>
+                    <div class="checkbox-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <label class="check-item"><input type="checkbox" id="cb_original_box" disabled> Оригинальная коробка</label>
+                        <label class="check-item"><input type="checkbox" id="cb_charger" disabled> Зарядный блок</label>
+                        <label class="check-item"><input type="checkbox" id="cb_cable" disabled> Кабель</label>
+                        <label class="check-item"><input type="checkbox" id="cb_receipt" disabled> Чек о покупке</label>
+                        <label class="check-item"><input type="checkbox" id="cb_warranty" disabled> Гарантия</label>
+                    </div>
+                </div>
+
+                <div style="background: #fff; padding: 20px; border-radius: 16px; border: 1px solid var(--color-border); margin-top: 20px;">
                     <h3 style="margin-bottom: 10px;">Описание продавца</h3>
-                    <p style="color: var(--color-text); line-height: 1.6; font-size: 15px;">
-                        Продаю свой личный макбук. Куплен полгода назад, использовался только для просмотра фильмов. 
-                        Никаких царапин, сколов. Батарея держит как новая. Продаю, так как перехожу на Pro версию.
+                    <p id="productDescription" style="color: var(--color-text); line-height: 1.6; font-size: 15px;">
+                        Загружается...
                     </p>
                 </div>
 
                 <div style="margin-top: 30px; display: flex; align-items: center; gap: 15px;">
-                    <div style="width: 50px; height: 50px; background: #e1e1e1; border-radius: 50%;"></div>
+                    <div id="authorAvatar" style="width: 50px; height: 50px; background: #e1e1e1; border-radius: 50%; display: none;"></div>
                     <div>
-                        <div style="font-weight: 600;">Дмитрий К.</div>
-                        <div style="font-size: 13px; color: var(--color-text-light);">На Lais с 2021</div>
+                        <div id="authorName" style="font-weight: 600;">Дмитрий К.</div>
+                        <div id="authorDate" style="font-size: 13px; color: var(--color-text-light);">На Lais с 2021</div>
                     </div>
                     <button class="btn btn-outline" style="margin-left: auto;">Написать</button>
                 </div>
@@ -85,5 +114,196 @@
         </div>
     </main>
 
-</body>
-</html>
+    <script>
+        // Получаем ID поста из URL параметров
+        const urlParams = new URLSearchParams(window.location.search);
+        const postId = urlParams.get('id');
+        let currentImages = [];
+
+        async function loadPostData() {
+            if (!postId) {
+                console.error('Post ID не найден в URL');
+                document.getElementById('productTitle').textContent = 'Товар не найден';
+                return;
+            }
+
+            try {
+                console.log(`Загружаем данные поста с ID: ${postId}`);
+                const response = await fetch(`http://localhost:3000/api/v1/iphone?id=${postId}`);
+                
+                if (!response.ok) {
+                    console.error('Ошибка при загрузке поста:', response.status);
+                    document.getElementById('productTitle').textContent = 'Ошибка загрузки товара';
+                    return;
+                }
+
+                const postData = await response.json();
+                console.log('Данные поста получены:', postData);
+                
+                // Отображаем информацию о посте
+                updateProductDisplay(postData);
+                
+                // Загружаем информацию об авторе
+                if (postData.author_id) {
+                    await loadAuthorInfo(postData.author_id);
+                }
+                
+            } catch (error) {
+                console.error('Ошибка при загрузке данных:', error);
+                document.getElementById('productTitle').textContent = 'Ошибка подключения';
+            }
+        }
+
+        function updateProductDisplay(postData) {
+            // Обновляем заголовок и основную информацию
+            const model = postData.model || 'iPhone';
+            document.getElementById('productTitle').textContent = model;
+            document.getElementById('breadcrumb').textContent = `iPhone / ${model}`;
+
+            // Обновляем просмотры и статус
+            document.getElementById('viewCount').textContent = postData.view_count || 0;
+            document.getElementById('viewsInfo').style.display = 'block';
+            
+            if (!postData.active) {
+                document.getElementById('statusBadge').textContent = '✗ Неактивно';
+                document.getElementById('statusBadge').style.color = '#f44336';
+            }
+
+            // Заполняем спеки
+            const specs = {
+                'specModel': postData.model || '—',
+                'specMemory': postData.memory || '—',
+                'specColor': postData.color || '—',
+                'specBattery': postData.batery ? `${postData.batery}%` : '—',
+                'specIMEI': postData.imei || '—',
+                'specSerial': postData.serial_number || '—'
+            };
+
+            // Обновляем видимые спеки
+            Object.entries(specs).forEach(([id, value]) => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.textContent = value;
+                }
+            });
+
+            // Дополнительные спеки (если есть данные)
+            if (postData.fmi !== null && postData.fmi !== undefined) {
+                document.getElementById('fmiRow').style.display = 'block';
+                document.getElementById('specFMI').textContent = postData.fmi ? '✓ Включен' : '✗ Отключен';
+            }
+
+            if (postData.icloud_pair !== null && postData.icloud_pair !== undefined) {
+                document.getElementById('icloudRow').style.display = 'block';
+                document.getElementById('specICloud').textContent = postData.icloud_pair ? '✓ Привязан' : '✗ Не привязан';
+            }
+
+            if (postData.simlock !== null && postData.simlock !== undefined) {
+                document.getElementById('simlockRow').style.display = 'block';
+                document.getElementById('specSimlock').textContent = postData.simlock ? '✓ Есть' : '✗ Нет';
+            }
+
+            if (postData.activated !== null && postData.activated !== undefined) {
+                document.getElementById('activatedRow').style.display = 'block';
+                document.getElementById('specActivated').textContent = postData.activated ? '✓ Активирован' : '✗ Не активирован';
+            }
+
+            // Обновляем комплектацию
+            document.getElementById('cb_original_box').checked = postData.has_original_box || false;
+            document.getElementById('cb_charger').checked = postData.has_charger || false;
+            document.getElementById('cb_cable').checked = postData.has_cable || false;
+            document.getElementById('cb_receipt').checked = postData.has_receipt || false;
+            document.getElementById('cb_warranty').checked = postData.has_warranty || false;
+
+            // Обновляем описание
+            document.getElementById('productDescription').textContent = postData.description || 'Нет описания';
+
+            // Загружаем фотографии
+            if (postData.images_url) {
+                currentImages = postData.images_url.split(',').filter(url => url.trim());
+                renderGallery();
+            }
+        }
+
+        function renderGallery() {
+            if (currentImages.length === 0) {
+                document.getElementById('mainProductImage').style.display = 'none';
+                document.getElementById('placeholderImage').style.display = 'block';
+                return;
+            }
+
+            // Показываем первую фотографию
+            const mainImage = document.getElementById('mainProductImage');
+            mainImage.src = currentImages[0];
+            mainImage.style.display = 'block';
+            document.getElementById('placeholderImage').style.display = 'none';
+
+            // Создаем миниатюры
+            const thumbsContainer = document.getElementById('thumbnailsContainer');
+            thumbsContainer.innerHTML = '';
+
+            currentImages.forEach((imageUrl, index) => {
+                const thumb = document.createElement('div');
+                thumb.className = `thumb ${index === 0 ? 'active' : ''}`;
+                thumb.style.backgroundImage = `url('${imageUrl}')`;
+                thumb.style.backgroundSize = 'cover';
+                thumb.style.backgroundPosition = 'center';
+                thumb.dataset.index = index;
+
+                thumb.addEventListener('click', () => {
+                    // Обновляем активный класс
+                    document.querySelectorAll('.thumb').forEach(t => t.classList.remove('active'));
+                    thumb.classList.add('active');
+
+                    // Обновляем главное фото
+                    document.getElementById('mainProductImage').src = imageUrl;
+                });
+
+                thumbsContainer.appendChild(thumb);
+            });
+        }
+
+        async function loadAuthorInfo(authorId) {
+            try {
+                console.log(`Загружаем информацию об авторе с ID: ${authorId}`);
+                // Запрашиваем информацию об авторе из auth сервиса
+                const response = await fetch(`http://localhost:8000/api/users/${authorId}`);
+                
+                if (response.ok) {
+                    const authorData = await response.json();
+                    console.log('Данные об авторе получены:', authorData);
+                    
+                    document.getElementById('authorName').textContent = 
+                        authorData.name || authorData.username || 'Продавец';
+                    
+                    if (authorData.created_at) {
+                        const date = new Date(authorData.created_at);
+                        const year = date.getFullYear();
+                        document.getElementById('authorDate').textContent = 
+                            `На Lais с ${year}`;
+                    }
+
+                    // Устанавливаем аватарку если есть
+                    if (authorData.avatar_url) {
+                        document.getElementById('authorAvatar').style.backgroundImage = 
+                            `url('${authorData.avatar_url}')`;
+                        document.getElementById('authorAvatar').style.backgroundSize = 'cover';
+                        document.getElementById('authorAvatar').style.backgroundPosition = 'center';
+                    }
+                    document.getElementById('authorAvatar').style.display = 'block';
+                    
+                } else {
+                    // Если endpoint не существует, используем default view
+                    console.warn('Не удалось загрузить информацию об авторе');
+                    document.getElementById('authorAvatar').style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Ошибка при загрузке информации об авторе:', error);
+                // Все равно отображаем аватарку с дефолтной информацией
+                document.getElementById('authorAvatar').style.display = 'block';
+            }
+        }
+
+        // Загружаем данные при загрузке страницы
+        window.addEventListener('load', loadPostData);
+    </script>

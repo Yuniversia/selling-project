@@ -70,7 +70,7 @@ def handle_register(user_data: UserCreate, db: Session = Depends(get_session), r
 
         new_user = register_user(db, user_data)
        
-        access_token = create_access_token(data={"username": new_user.username})
+        access_token = create_access_token(data={"username": new_user.username, "user_id": new_user.id})
     
         response = JSONResponse(
             content={"message": "Account created", "username": new_user.username},
@@ -128,7 +128,7 @@ async def handle_login(user_data: UserLogin, db: Session = Depends(get_session))
 
         return response
     
-    access_token = create_access_token(data={"username": user.username})
+    access_token = create_access_token(data={"username": user.username, "user_id": user.id})
     
     response = JSONResponse(
             content={"message": "Login sucsess",},
@@ -151,10 +151,13 @@ async def refresh_token(
     """
     Обновляет токен доступа. Сохраняет новый токен в cookies.
     """
-    access_token = create_access_token(data={"username": current_user.username})
+    access_token = create_access_token(data={"username": current_user.username, "user_id": current_user.id})
     
     response = {"status": "refreshed"}
-    response_obj = RedirectResponse(url="/", status_code=status.HTTP_200_OK)
+    response_obj = JSONResponse(
+            content={"message": "Login sucsess",},
+            status_code=status.HTTP_200_OK
+        )
     response_obj.set_cookie(
         key="access_token",
         value=access_token,
@@ -240,9 +243,11 @@ async def auth_google_callback(request: Request, db: Session = Depends(get_sessi
             user_data = UserCreate(username = username, email = email, password = None)
 
             user = register_user(db, user_data)
+        else:
+            user = existing_user
         
         # Создаем НАШ внутренний токен (как при обычном входе)
-        access_token = create_access_token(data={"username": username})
+        access_token = create_access_token(data={"username": user.username, "user_id": user.id})
 
         response = RedirectResponse(url="http://localhost:5500", status_code=status.HTTP_302_FOUND)
         response.set_cookie(

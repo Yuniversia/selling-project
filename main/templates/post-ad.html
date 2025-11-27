@@ -10,6 +10,81 @@
         @media(max-width: 768px) { .post-container { margin: 0; border-radius: 0; border: none; padding: 20px; } }
         .hidden-group { display: none; animation: fadeIn 0.3s; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .photo-upload-zone {
+            border: 2px dashed var(--color-border);
+            border-radius: 12px;
+            padding: 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #fafafa;
+        }
+        
+        .photo-upload-zone:hover {
+            border-color: var(--color-primary, #007AFF);
+            background: #f0f8ff;
+        }
+        
+        .photo-upload-zone.dragover {
+            border-color: var(--color-primary, #007AFF);
+            background: #e3f2fd;
+        }
+        
+        .photo-gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 12px;
+            margin-top: 16px;
+        }
+        
+        .photo-item {
+            position: relative;
+            width: 80px;
+            height: 80px;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #f0f0f0;
+        }
+        
+        .photo-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .photo-item .delete-btn {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            background: rgba(244, 67, 54, 0.9);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        
+        .photo-item:hover .delete-btn {
+            opacity: 1;
+        }
+        
+        .photo-count {
+            font-size: 13px;
+            color: var(--color-text-light);
+            margin-top: 8px;
+        }
+        
+        .photo-count.max {
+            color: #f44336;
+        }
     </style>
 </head>
 <body>
@@ -34,30 +109,53 @@
                     <option value="ipad">iPad</option>
                     <option value="other">Другое</option>
                 </select>
-            </div>
 
-            <div id="iphoneBlock" class="hidden-group">
-                <div class="form-group">
-                    <label class="label">Модель iPhone</label>
-                    <select class="input">
-                        <option>iPhone 15 Pro Max</option>
-                        <option>iPhone 15 Pro</option>
-                        <option>iPhone 14 Pro</option>
-                        <option>iPhone 13</option>
-                        <option>Другой</option>
-                    </select>
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                    <div class="form-group">
-                        <label class="label">Память</label>
-                        <select class="input"><option>128 GB</option><option>256 GB</option><option>512 GB</option><option>1 TB</option></select>
-                    </div>
-                    <div class="form-group">
-                        <label class="label">Состояние АКБ (%)</label>
-                        <input type="number" class="input" placeholder="95">
-                    </div>
-                </div>
-            </div>
+
+                        <div id="iphoneBlock" class="hidden-group">
+                            <div class="form-group">
+                                <label class="label">Модель iPhone</label>
+                                <select id="iphoneModel" class="input">
+                                    <option value="">Выберите модель...</option>
+                                    <option value="17">iPhone 17</option>
+                                    <option value="17plus">iPhone 17 Plus</option>
+                                    <option value="17pro">iPhone 17 Pro</option>
+                                    <option value="17promax">iPhone 17 Pro Max</option>
+                                    <option value="16">iPhone 16</option>
+                                    <option value="16plus">iPhone 16 Plus</option>
+                                    <option value="16pro">iPhone 16 Pro</option>
+                                    <option value="16promax">iPhone 16 Pro Max</option>
+                                    <option value="15pro">iPhone 15 Pro</option>
+                                    <option value="15promax">iPhone 15 Pro Max</option>
+                                    <option value="15">iPhone 15</option>
+                                    <option value="14pro">iPhone 14 Pro</option>
+                                    <option value="14promax">iPhone 14 Pro Max</option>
+                                    <option value="14">iPhone 14</option>
+                                    <option value="13pro">iPhone 13 Pro</option>
+                                    <option value="13promax">iPhone 13 Pro Max</option>
+                                    <option value="13">iPhone 13</option>
+                                    <option value="12pro">iPhone 12 Pro</option>
+                                    <option value="12promax">iPhone 12 Pro Max</option>
+                                    <option value="12">iPhone 12</option>
+                                    <option value="11pro">iPhone 11 Pro</option>
+                                    <option value="11">iPhone 11</option>
+                                    <option value="xsmax">iPhone XS Max</option>
+                                    <option value="xs">iPhone XS</option>
+                                    <option value="x">iPhone X</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="label">IMEI <a href="https://support.apple.com/ru-ru/HT204073" target="_blank" title="Как найти IMEI">❓</a></label>
+                                <input type="text" class="input" placeholder="Например: 35XXXXXXXXXXXX" required>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                                <div class="form-group">
+                                    <label class="label">Состояние АКБ (%)</label>
+                                    <input type="number" class="input" placeholder="95">
+                                </div>
+                            </div>
+                        </div>
 
             <div id="macBlock" class="hidden-group">
                 <div class="form-group">
@@ -102,19 +200,15 @@
             </div>
 
             <div id="commonSpecs" class="hidden-group" style="border-top: 1px solid var(--color-border); padding-top: 20px; margin-top: 20px;">
-                <div class="form-group">
-                    <label class="label">Цвет корпуса</label>
-                    <input type="text" class="input" placeholder="Например: Space Gray">
-                </div>
                 
                 <div class="form-group">
                     <label class="label">Комплектация (отметьте, что есть)</label>
                     <div class="checkbox-group">
-                        <label class="check-item"><input type="checkbox"> Оригинальная коробка</label>
-                        <label class="check-item"><input type="checkbox"> Зарядный блок</label>
-                        <label class="check-item"><input type="checkbox"> Кабель</label>
-                        <label class="check-item"><input type="checkbox"> Чек о покупке</label>
-                        <label class="check-item"><input type="checkbox"> Гарантия</label>
+                        <label class="check-item"><input type="checkbox" name="has_original_box"> Оригинальная коробка</label>
+                        <label class="check-item"><input type="checkbox" name="has_charger"> Зарядный блок</label>
+                        <label class="check-item"><input type="checkbox" name="has_cable"> Кабель</label>
+                        <label class="check-item"><input type="checkbox" name="has_receipt"> Чек о покупке</label>
+                        <label class="check-item"><input type="checkbox" name="has_warranty"> Гарантия</label>
                     </div>
                 </div>
 
@@ -125,10 +219,22 @@
 
                 <div class="form-group">
                     <label class="label">Описание</label>
-                    <textarea class="input" rows="5" placeholder="Расскажите подробнее о состоянии..."></textarea>
+                    <textarea class="input" id="description" rows="5" placeholder="Расскажите подробнее о состоянии..."></textarea>
                 </div>
 
-                <button type="button" class="btn btn-primary" style="width: 100%; padding: 16px; font-size: 16px;">Опубликовать</button>
+                <div class="form-group">
+                    <label class="label">Фотографии (макс. 15 шт.)</label>
+                    <div class="photo-upload-zone" id="photoUploadZone">
+                        <div style="font-size: 32px; margin-bottom: 8px;">📸</div>
+                        <div style="font-weight: 600; margin-bottom: 4px;">Нажмите или перетащите фото</div>
+                        <div style="font-size: 13px; color: var(--color-text-light);">Поддерживаются: JPG, PNG (макс. 5 МБ за фото)</div>
+                        <input type="file" id="photoInput" multiple accept="image/*" style="display: none;">
+                    </div>
+                    <div class="photo-gallery" id="photoGallery"></div>
+                    <div class="photo-count" id="photoCount">0 / 15 фотографий</div>
+                </div>
+
+                <button type="button" id="publishBtn" class="btn btn-primary" style="width: 100%; padding: 16px; font-size: 16px;">Опубликовать</button>
             </div>
 
         </form>
@@ -143,6 +249,107 @@
         const macSeries = document.getElementById('macSeries');
         const macAirSpecs = document.getElementById('macAirSpecs');
         const macProSpecs = document.getElementById('macProSpecs');
+
+        // Управление фотографиями
+        const photoUploadZone = document.getElementById('photoUploadZone');
+        const photoInput = document.getElementById('photoInput');
+        const photoGallery = document.getElementById('photoGallery');
+        const photoCount = document.getElementById('photoCount');
+        let photos = [];
+        const MAX_PHOTOS = 15;
+        const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 МБ
+
+        // Открытие файлового диалога при клике на зону
+        photoUploadZone.addEventListener('click', () => photoInput.click());
+
+        // Обработка выбранных файлов
+        photoInput.addEventListener('change', (e) => {
+            addPhotos(e.target.files);
+            photoInput.value = ''; // Сброс input для возможности выбрать те же файлы
+        });
+
+        // Drag & Drop
+        photoUploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            photoUploadZone.classList.add('dragover');
+        });
+
+        photoUploadZone.addEventListener('dragleave', () => {
+            photoUploadZone.classList.remove('dragover');
+        });
+
+        photoUploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            photoUploadZone.classList.remove('dragover');
+            addPhotos(e.dataTransfer.files);
+        });
+
+        function addPhotos(files) {
+            const availableSlots = MAX_PHOTOS - photos.length;
+            let added = 0;
+
+            for (let file of files) {
+                if (added >= availableSlots) break;
+                
+                // Проверка размера файла
+                if (file.size > MAX_FILE_SIZE) {
+                    alert(`Файл ${file.name} слишком большой (макс. 5 МБ)`);
+                    continue;
+                }
+
+                // Проверка типа файла
+                if (!file.type.startsWith('image/')) {
+                    alert(`${file.name} не является изображением`);
+                    continue;
+                }
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    photos.push({
+                        file: file,
+                        preview: e.target.result
+                    });
+                    renderPhotos();
+                };
+                reader.readAsDataURL(file);
+                added++;
+            }
+
+            if (added < files.length && photos.length >= MAX_PHOTOS) {
+                alert(`Максимум достигнут! Можно загрузить только ${MAX_PHOTOS} фотографий`);
+            }
+        }
+
+        function renderPhotos() {
+            photoGallery.innerHTML = '';
+            photos.forEach((photo, index) => {
+                const photoItem = document.createElement('div');
+                photoItem.className = 'photo-item';
+                photoItem.innerHTML = `
+                    <img src="${photo.preview}" alt="Photo ${index + 1}">
+                    <button class="delete-btn" data-index="${index}">✕</button>
+                `;
+                
+                photoItem.querySelector('.delete-btn').addEventListener('click', () => {
+                    photos.splice(index, 1);
+                    renderPhotos();
+                });
+                
+                photoGallery.appendChild(photoItem);
+            });
+
+            // Обновляем счётчик
+            photoCount.textContent = `${photos.length} / ${MAX_PHOTOS} фотографий`;
+            if (photos.length >= MAX_PHOTOS) {
+                photoCount.classList.add('max');
+                photoUploadZone.style.opacity = '0.5';
+                photoUploadZone.style.pointerEvents = 'none';
+            } else {
+                photoCount.classList.remove('max');
+                photoUploadZone.style.opacity = '1';
+                photoUploadZone.style.pointerEvents = 'auto';
+            }
+        }
 
         // Главная категория
         catSelect.addEventListener('change', (e) => {
@@ -174,6 +381,67 @@
                 macAirSpecs.style.display = 'block';
             } else if(val === 'pro') {
                 macProSpecs.style.display = 'block';
+            }
+        });
+
+        // Обработка отправки формы на Posts API
+        document.getElementById('publishBtn').addEventListener('click', async (e) => {
+            e.preventDefault();
+            
+            // Получаем значения формы
+            const formData = new FormData();
+            
+            // IMEI
+            const imeiInput = document.querySelector('input[placeholder="Например: 35XXXXXXXXXXXX"]');
+            if (imeiInput && imeiInput.value) {
+                formData.append('imei', imeiInput.value);
+            }
+            
+            // Батарея
+            const batteryInput = document.querySelector('input[placeholder="95"]');
+            if (batteryInput && batteryInput.value) {
+                formData.append('batery', batteryInput.value);
+            }
+            
+            // Описание
+            const description = document.getElementById('description').value;
+            if (description) {
+                formData.append('description', description);
+            }
+            
+            // Комплектация (checkboxes)
+            formData.append('has_original_box', document.querySelector('input[name="has_original_box"]').checked);
+            formData.append('has_charger', document.querySelector('input[name="has_charger"]').checked);
+            formData.append('has_cable', document.querySelector('input[name="has_cable"]').checked);
+            formData.append('has_receipt', document.querySelector('input[name="has_receipt"]').checked);
+            formData.append('has_warranty', document.querySelector('input[name="has_warranty"]').checked);
+            
+            // Добавляем фотографии
+            photos.forEach((photo, index) => {
+                formData.append('files', photo.file);
+            });
+            
+            try {
+                const response = await fetch('http://localhost:3000/api/v1/iphone', {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'include' // Отправляем cookies с JWT токеном
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    alert(`Пост опубликован! ID: ${data.id}`);
+                    // Редирект на страницу продукта
+                    window.location.href = `http://localhost:5500/product.html?id=${data.id}`;
+                } else {
+                    const error = await response.json();
+                    console.log(error.detail)
+                    alert(`Ошибка: ${error.detail || 'Не удалось опубликовать пост'}`);
+                }
+            } catch (error) {
+                console.log(error)
+                console.error('Ошибка при отправке:', error);
+                alert('Ошибка подключения к серверу');
             }
         });
     </script>

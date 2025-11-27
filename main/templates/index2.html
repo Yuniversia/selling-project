@@ -281,7 +281,20 @@
             if (response.ok) {
                 const userData = await response.json();
                 updateUIForLoggedInUser(userData);
-            } 
+            }
+            if (response.status === 401) {
+                const refresh_response = await fetch('http://localhost:8000/auth/refresh', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include' 
+            });
+                if (refresh_response.status === 401) {
+                    console.log("Пользователь не авторизован");
+                    return;
+                }
+            }
             // Если статус 401 - токен невалиден или его нет, ничего не делаем (кнопка "Войти" остается)
         } catch (error) {
             console.log("Пользователь не авторизован или ошибка сети");

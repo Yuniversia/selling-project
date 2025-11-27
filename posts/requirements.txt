@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+sqlmodel
+bcrypt
+python-jose[cryptography]
+authlib
+httpx
+itsdangerous
+python-multipart
+
+# For checker.py
+requests
+jwt
