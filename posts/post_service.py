@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
 from typing import Optional
-from fastapi import HTTPException, status, Depends, UploadFile
-from typing import List
+from fastapi import HTTPException, status, Depends
 import json
 
 from sqlmodel import Session, select
@@ -15,7 +14,6 @@ import sys
 sys.path.append('..')
 
 from iphone_cheker import iphone_check
-from photo_service import upload_photos_to_r2
 
 
 def get_post(db: Session, id: int) -> Optional[Iphone]:
@@ -29,9 +27,12 @@ def get_post(db: Session, id: int) -> Optional[Iphone]:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Ошибка при получении поста: {str(e)}",
         )
-async def add_post(db: Session, post_data: Iphone, files: List[UploadFile]) -> Iphone:
-    """Добавляет новый пост в базу данных и обрабатывает файлы."""
-    # Get data from external module
+
+async def add_post(db: Session, post_data: Iphone) -> Iphone:
+    """
+    Добавляет новый пост в базу данных.
+    Фотографии уже загружены в Cloudflare и их URL передается в post_data.images_url
+    """
     
     try:
         print("Starting iPhone data retrieval...")
@@ -55,15 +56,6 @@ async def add_post(db: Session, post_data: Iphone, files: List[UploadFile]) -> I
             post_data.fmi = iphone_data.get("fmi")
 
         print("Post data after iPhone check:", post_data)   
-        
-        # Handle photo upload to Cloudflare R2
-        # Используем переданный список файлов (files)
-        if files:
-            # upload_photos_to_r2 должна принимать List[UploadFile]
-            images_url_list = await upload_photos_to_r2(files) 
-            # Предположим, что images_url - это строка с разделителями (например, запятая)
-            post_data.images_url = ",".join(images_url_list) 
-
         print("Post data before database insertion:", post_data)
         
         db.add(post_data)

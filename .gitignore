@@ -1,27 +1,27 @@
 __pycache__
 *.db
 
-/auth/__pycache__
-/auth/auth
-/auth/.env
-/auth/database.db
-/auth/configs.py
+auth/__pycache__
+auth/auth
+auth/.env
+auth/database.db
+auth/configs.py
 
 /main/__pycache__
 /main/front
 /main/.env
 
 posts/__pycache__
-/posts/posts.db
-/posts/.env
-/posts/configs.py
-/posts/posts
+posts/posts.db
+posts/.env
+posts/configs.py
+posts/posts
 
-/photos_service/__pycache__
-/photos_service/.env
-/photos_service/configs.py
+photos_service/__pycache__
+photos_service/.env
+photos_service/configs.py
 
 iphone_checker/__pycache__
-/iphone_checker/.env
-/iphone_checker/configs.py
+iphone_checker/.env
+iphone_checker/configs.py
 

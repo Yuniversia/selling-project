@@ -2,7 +2,7 @@ import requests
 import json
 import urllib3
 
-from configs import Configs
+from .configs import Configs
 
 # Отключаем надоедливые предупреждения о небезопасном SSL (так как мы используем verify=False)
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
