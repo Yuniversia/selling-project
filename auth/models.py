@@ -11,6 +11,8 @@ class User(SQLModel, table=True):
     username: str = Field(index=True, unique=True, max_length=50)
     email: str = Field(index=True, unique=True, max_length=150)
     hashed_password: Optional[str]
+    status: str = Field(default="active", index=True)
+    user_type: str = Field(default="regular", index=True)  # regular, admin, suport, etc.
 
     avatar_url: Optional[str] = Field(default=None)
     name: Optional[str] = Field(default=None, max_length=150)
@@ -22,9 +24,11 @@ class User(SQLModel, table=True):
 
 class PublicUser(BaseModel):
     username: str
+    email: str
     name: Optional[str] = None
     surname: Optional[str] = None
-    email: str
+    
+    status: str
     avatar_url: Optional[str] = None
     phone: Optional[str] = None
     created_date: datetime

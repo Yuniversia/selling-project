@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta
 from typing import Optional
-from fastapi import HTTPException, status, Depends
+from fastapi import HTTPException, status, Depends, Request
 import bcrypt
 
 from jose import JWTError, jwt
@@ -18,6 +18,7 @@ from configs import Configs
 SECRET_KEY = Configs.secret_key  # Замените на надежный ключ
 ALGORITHM = Configs.token_algoritm
 ACCESS_TOKEN_EXPIRE_MINUTES = Configs.acces_token_expires_minutes
+REFRESH_TOKEN_EXPIRE_DAYS = 7  # Refresh токен живет 7 дней
 
 # Контекст для хеширования паролей
 
@@ -35,15 +36,35 @@ def get_password_hash(password):
 
 # --- JWT Функции ---
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
-    """Создает JWT Access Token."""
+    """Создает JWT Access Token (короткоживущий ~ 30 минут)."""
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
         expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
+    to_encode.update({"exp": expire, "type": "access"})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
+def create_refresh_token(data: dict):
+    """Создает JWT Refresh Token (долгоживущий ~ 7 дней)."""
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    to_encode.update({"exp": expire, "type": "refresh"})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+def decode_token_skip_exp(token: str) -> Optional[dict]:
+    """
+    Декодирует JWT токен БЕЗ проверки истечения срока действия.
+    Используется для refresh endpoint — чтобы получить username даже из истёкшего токена.
+    Возвращает payload или None если токен невалиден.
+    """
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM], options={"verify_exp": False})
+        return payload
+    except JWTError:
+        return None
 
 # --- Логика Аутентификации и Регистрации ---
 def get_user_by_username(db: Session, username: str) -> Optional[User]:
@@ -54,6 +75,11 @@ def get_user_by_username(db: Session, username: str) -> Optional[User]:
 def get_user_by_email(db: Session, email: str) -> Optional[User]:
     """Получает пользователя по email."""
     statement = select(User).where(User.email == email)
+    return db.exec(statement).first()
+
+def get_user_by_id(db: Session, user_id: int) -> Optional[User]:
+    """Получает пользователя по ID."""
+    statement = select(User).where(User.id == user_id)
     return db.exec(statement).first()
 
 def register_user(db: Session, user_data: UserCreate) -> User:
@@ -121,15 +147,26 @@ def authenticate_user(db: Session, username: str = None, email: str = None, pass
 
 # --- Зависимость для получения текущего пользователя ---
 async def get_current_user(
-    db: Session = Depends(get_session), token: str = None) -> PublicUser:
+    request: Request = None,
+    db: Session = Depends(get_session), 
+    token: str = None) -> User:
     """
-    Декодирует JWT токен и возвращает пользователя.
+    Декодирует JWT токен из cookies или параметра и возвращает пользователя.
+    Если token не передан, пытается получить из request.cookies['access_token']
     """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Недействительные учетные данные",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    
+    # Если token не передан и есть request, пытаемся получить из cookies
+    if token is None and request is not None:
+        token = request.cookies.get("access_token")
+    
+    if token is None:
+        raise credentials_exception
+    
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("username")

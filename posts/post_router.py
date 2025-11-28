@@ -12,7 +12,7 @@ from fastapi import (
     Cookie
 )
 
-from sqlmodel import Session
+from sqlmodel import Session, select, and_
 from typing import List, Optional
 from jose import JWTError, jwt
 import httpx
@@ -114,6 +114,8 @@ async def router_post(
     imei: str = Form(None, description="IMEI телефона (15 цифр)"),
     batery: int = Form(None, description="Уровень заряда батареи (0-100)"),
     description: Optional[str] = Form(None, description="Описание поста (необязательно)"),
+    price: Optional[float] = Form(None, description="Цена iPhone"),
+    condition: Optional[str] = Form(None, description="Состояние устройства"),
     has_original_box: bool = Form(False, description="Оригинальная коробка"),
     has_charger: bool = Form(False, description="Зарядный блок"),
     has_cable: bool = Form(False, description="Кабель"),
@@ -159,6 +161,8 @@ async def router_post(
         validated_data = IphonePostData(
             imei=imei, 
             batery=batery,
+            price=price,
+            condition=condition,
             has_original_box=has_original_box,
             has_charger=has_charger,
             has_cable=has_cable,
@@ -179,6 +183,8 @@ async def router_post(
         imei=validated_data.imei, 
         batery=validated_data.batery,
         description=description,
+        condition=validated_data.condition,
+        price=validated_data.price,
         has_original_box=validated_data.has_original_box,
         has_charger=validated_data.has_charger,
         has_cable=validated_data.has_cable,
@@ -200,7 +206,114 @@ async def router_post(
         )
 
 
-# --- GET Маршрут ---
+# --- GET List Маршрут (с фильтрацией) ---
+@api_router.get(
+    "/iphone/list",
+    response_model=List[IphonePublic],
+    responses={
+        200: {"description": "Список постов"}
+    }
+)
+def router_list(
+    skip: int = Query(0, ge=0, description="Пропустить N постов (для пагинации)"),
+    limit: int = Query(20, ge=1, le=100, description="Количество постов на странице"),
+    model: Optional[str] = Query(None, description="Фильтр по модели (например: 16, 16pro)"),
+    batery_min: Optional[int] = Query(None, ge=0, le=100, description="Минимальный процент АКБ"),
+    batery_max: Optional[int] = Query(None, ge=0, le=100, description="Максимальный процент АКБ"),
+    condition: Optional[str] = Query(None, description="Состояние (Новый, Как новый, Небольшие дефекты, С дефектом, На запчасти)"),
+    color: Optional[str] = Query(None, description="Цвет устройства"),
+    memory: Optional[str] = Query(None, description="Объем памяти"),
+    price_min: Optional[float] = Query(None, ge=0, description="Минимальная цена"),
+    price_max: Optional[float] = Query(None, ge=0, description="Максимальная цена"),
+    db: Session = Depends(get_session)
+):
+    """
+    Получает список iPhone постов с поддержкой фильтрации и пагинации.
+    Возвращает только активные посты, отсортированные по дате создания (новые первыми).
+    """
+    # Начинаем с базового запроса активных постов
+    statement = select(Iphone).where(Iphone.active == True)
+    
+    # Применяем фильтры если они указаны
+    filters = []
+    
+    if model:
+        filters.append(Iphone.model == model)
+    
+    if batery_min is not None:
+        filters.append(Iphone.batery >= batery_min)
+    
+    if batery_max is not None:
+        filters.append(Iphone.batery <= batery_max)
+    
+    if condition:
+        filters.append(Iphone.condition == condition)
+    
+    if color:
+        filters.append(Iphone.color == color)
+    
+    # Фильтр памяти будет применен позже (постфильтрация в Python)
+    # так как нужно сравнивать числовые значения из строк типа "128GB"
+    
+    if price_min is not None:
+        filters.append(Iphone.price >= price_min)
+    
+    if price_max is not None:
+        filters.append(Iphone.price <= price_max)
+    
+    # Объединяем все фильтры с AND
+    if filters:
+        statement = statement.where(and_(*filters))
+    
+    # Сортируем по дате создания (новые первыми)
+    statement = statement.order_by(Iphone.created_at.desc())
+    
+    try:
+        # Сначала получаем все посты с базовыми фильтрами
+        all_posts = db.exec(statement).all()
+        
+        # Если есть фильтр по памяти, применяем постфильтрацию
+        if memory:
+            try:
+                # Извлекаем числовое значение из выбранной памяти
+                memory_value = int(''.join(filter(str.isdigit, memory)))
+                
+                # Функция для извлечения числа из строки памяти
+                def extract_memory_value(memory_str):
+                    if not memory_str:
+                        return 0
+                    # Извлекаем число из строки
+                    digits = ''.join(filter(str.isdigit, memory_str))
+                    if not digits:
+                        return 0
+                    value = int(digits)
+                    # Если в строке есть "TB", умножаем на 1024
+                    if 'TB' in memory_str.upper() or 'ТБ' in memory_str.upper():
+                        value *= 1024
+                    return value
+                
+                # Фильтруем посты: показываем только с памятью >= выбранной
+                filtered_posts = [
+                    post for post in all_posts 
+                    if extract_memory_value(post.memory) >= memory_value
+                ]
+                all_posts = filtered_posts
+            except (ValueError, AttributeError):
+                # Если не удалось извлечь число, используем точное совпадение
+                all_posts = [post for post in all_posts if post.memory == memory]
+        
+        # Применяем пагинацию после фильтрации
+        posts = all_posts[skip:skip + limit]
+        
+        return posts
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Ошибка при получении списка постов: {str(e)}",
+        )
+
+
+# --- GET Маршрут (получить один пост по ID) ---
 @api_router.get(
     "/iphone", 
     response_model=Optional[IphonePublic],

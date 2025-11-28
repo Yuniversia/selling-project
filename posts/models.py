@@ -32,6 +32,8 @@ class IphonePostData(BaseModel):
         return v
     
     description: Optional[str] = None
+    price: Optional[float] = PydanticField(default=None, description="Цена iPhone")
+    condition: Optional[str] = PydanticField(default=None, description="Состояние устройства (Новый, Как новый, Небольшие дефекты, С дефектом, На запчасти)")
     
     # Комплектация
     has_original_box: bool = PydanticField(default=False, description="Оригинальная коробка")
@@ -48,11 +50,13 @@ class Iphone(SQLModel, table=True):
     author_id: int = Field(index=True)  # ID пользователя из auth-сервиса
     active: bool = Field(default=True, index=True)  # Активен ли пост
     view_count: int = Field(default=0)  # Количество просмотров
+    price: Optional[float] = Field(default=None)
 
     # Поля, которые приходят из запроса (IphonePostData)
     imei: str = Field(max_length=15) # Изменено на str, чтобы хранить ведущие нули, если нужно
     batery: int = Field(index=True)
     description: Optional[str] = Field(default=None, max_length=1000)
+    condition : Optional[str] = Field(default=None, max_length=100)  # Новое поле для состояния телефона
     
     # Поля, которые, вероятно, заполняются в post_service.py
     serial_number: Optional[str] = Field(max_length=20, default=None) # Изменено на str
@@ -80,13 +84,22 @@ class IphonePublic(BaseModel):
     author_id: int
     active: bool
     view_count: int
+    price: Optional[float]
     imei: str
     batery: int
+    condition: Optional[str]
     model: Optional[str]
     memory: Optional[str]
     color: Optional[str]
     images_url: Optional[str]
     description: Optional[str]
+
+    # Поля от мошеничествества
+    activated: Optional[bool] = Field(default=None)
+    icloud_pair: Optional[bool] = Field(default=None)
+    fmi: Optional[bool] = Field(default=None)
+    simlock: Optional[bool] = Field(default=None)
+
     # Комплектация
     has_original_box: bool = False
     has_charger: bool = False

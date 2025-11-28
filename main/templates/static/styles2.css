@@ -77,8 +77,29 @@ body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI"
 .main-image {
     width: 100%; aspect-ratio: 4/3; background: #f5f5f7; border-radius: 24px; object-fit: contain; margin-bottom: 16px;
 }
-.thumbs { display: flex; gap: 10px; }
-.thumb { width: 80px; height: 80px; background: #f5f5f7; border-radius: 12px; cursor: pointer; border: 2px solid transparent; }
+.thumbs { 
+    display: flex; 
+    gap: 10px; 
+    overflow-x: auto;
+    padding-bottom: 8px;
+    scrollbar-width: thin;
+}
+.thumbs::-webkit-scrollbar {
+    height: 4px;
+}
+.thumbs::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 2px;
+}
+.thumb { 
+    min-width: 80px; 
+    height: 80px; 
+    background: #f5f5f7; 
+    border-radius: 12px; 
+    cursor: pointer; 
+    border: 2px solid transparent;
+    aspect-ratio: 1 / 1;
+}
 .thumb.active { border-color: var(--color-primary); }
 
 .info-container h1 { font-size: 32px; font-weight: 700; margin-bottom: 8px; line-height: 1.1; }
