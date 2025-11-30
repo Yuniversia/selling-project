@@ -2,6 +2,8 @@
 
 from fastapi import APIRouter, Request
 from fastapi.templating import Jinja2Templates
+from fastapi.responses import FileResponse
+import os
 
 # Инициализация Jinja2Templates. 
 # Указываем, где искать HTML-шаблоны (в папке 'templates')
@@ -47,4 +49,17 @@ def post_ad_page(request: Request):
     return templates.TemplateResponse(
         "post-ad.html", 
         {"request": request, "title": "Подать объявление"}
+    )
+
+@frontend_router.get("/sw.js", name="service_worker")
+def service_worker():
+    """Отдает Service Worker для push-уведомлений."""
+    sw_path = os.path.join("templates", "static", "sw.js")
+    return FileResponse(
+        sw_path,
+        media_type="application/javascript",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Service-Worker-Allowed": "/"
+        }
     )

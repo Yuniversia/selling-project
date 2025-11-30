@@ -299,6 +299,7 @@ async def read_users_me(request: Request, db: Session = Depends(get_session)):
     
     response = JSONResponse(
         content={
+            "id": current_user.id,
             "username": f"{current_user.username}",
             "email": f"{current_user.email}",
             "name": current_user.name,

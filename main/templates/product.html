@@ -4,7 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MacBook Air M2 - Lais</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='/styles2.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='/styles2.css') }}?v=8">
+    <script src="{{ url_for('static', path='/notifications.js') }}?v=8" defer></script>
+    <script src="{{ url_for('static', path='/notification-prompt.js') }}?v=8" defer></script>
+    <script src="{{ url_for('static', path='/chat.js') }}?v=8" defer></script>
 </head>
 <body>
 
@@ -61,25 +64,6 @@
             </div>
         </div>
 
-        <!-- Contact Modal -->
-        <div id="contactModal" class="modal">
-            <div class="modal-content" style="max-width: 400px;">
-                <h2 style="margin-bottom: 20px;">Написать продавцу</h2>
-                <p style="margin-bottom: 20px;">Свяжитесь с продавцом для уточнения деталей.</p>
-                <div id="contactInfo">
-                    <div class="form-group">
-                        <label class="label">Телефон</label>
-                        <div id="sellerPhone" style="font-size: 18px; font-weight: 600;">Загружается...</div>
-                    </div>
-                    <div class="form-group">
-                        <label class="label">Email</label>
-                        <div id="sellerEmail" style="font-size: 16px;">Загружается...</div>
-                    </div>
-                </div>
-                <button class="btn btn-primary" style="width: 100%;" onclick="closeContactModal()">Закрыть</button>
-            </div>
-        </div>
-
         <div class="product-page-layout">
             
             <div class="gallery-container">
@@ -113,7 +97,12 @@
                         <div id="authorName" style="font-weight: 600;">Дмитрий К.</div>
                         <div id="authorDate" style="font-size: 13px; color: var(--color-text-light);">На Lais с 2021</div>
                     </div>
-                    <button id="contactSellerBtn" class="btn btn-outline" style="margin-left: auto;">Написать</button>
+                    <button id="openChatBtn" class="btn btn-primary" style="margin-left: auto;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                        </svg>
+                        Написать
+                    </button>
                 </div>
 
                 <div style="margin-top: 20px;">
@@ -615,18 +604,34 @@
 
         // Обработчики кнопок
         document.getElementById('BuyButon').addEventListener('click', openPurchaseModal);
-        document.getElementById('contactSellerBtn').addEventListener('click', openContactModal);
+        
+        // Обработчик кнопки чата
+        document.getElementById('openChatBtn').addEventListener('click', () => {
+            if (!postId) {
+                alert('ID товара не найден');
+                return;
+            }
+            
+            // Получаем ID продавца из загруженных данных
+            fetch(`http://localhost:3000/api/v1/iphone?id=${postId}`)
+                .then(response => response.json())
+                .then(postData => {
+                    if (postData.author_id && window.chatManager) {
+                        window.chatManager.openChat(postData.author_id, parseInt(postId));
+                    } else {
+                        alert('Не удалось открыть чат');
+                    }
+                })
+                .catch(error => {
+                    console.error('Ошибка при открытии чата:', error);
+                    alert('Ошибка при открытии чата');
+                });
+        });
 
         // Закрытие модальных окон по клику вне их
         document.getElementById('purchaseModal').addEventListener('click', (e) => {
             if (e.target.id === 'purchaseModal') {
                 closePurchaseModal();
-            }
-        });
-
-        document.getElementById('contactModal').addEventListener('click', (e) => {
-            if (e.target.id === 'contactModal') {
-                closeContactModal();
             }
         });
 

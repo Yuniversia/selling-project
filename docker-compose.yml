@@ -77,6 +77,36 @@ services:
       - ./posts:/app
       - /app/posts  # Исключаем виртуальное окружение
 
+  # Chat Service (WebSocket чат)
+  chat-service:
+    build:
+      context: ./chat
+      dockerfile: Dockerfile
+    container_name: lais-chat
+    environment:
+      - USE_POSTGRES=true
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-pass}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB:-lais_marketplace}
+      - DOCKER_ENV=true
+      - PORT=4000
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+      posts-service:
+        condition: service_started
+    networks:
+      - lais-network
+    restart: unless-stopped
+    volumes:
+      - ./chat:/app
+
   # Main Service (Frontend / Web Interface)
   main-service:
     build:
@@ -87,11 +117,13 @@ services:
       - PORT=8080
       - AUTH_SERVICE_URL=http://auth-service:8000
       - POSTS_SERVICE_URL=http://posts-service:3000
+      - CHAT_SERVICE_URL=http://chat-service:4000
     ports:
       - "8080:8080"
     depends_on:
       - auth-service
       - posts-service
+      - chat-service
     networks:
       - lais-network
     restart: unless-stopped
