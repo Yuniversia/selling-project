@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Lais</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='/styles2.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='/styles2.css') }}?v=12">
+    <script src="{{ url_for('static', path='/cache-manager.js') }}?v=12"></script>
 </head>
 <body>
 
@@ -172,7 +173,7 @@
                 <p>Управляйте своими объявлениями и покупками</p>
             </div>
 
-            <div style="display: flex; gap: 16px; margin-bottom: 24px; border-bottom: 1px solid var(--co</button>lor-border);">
+            <div style="display: flex; gap: 16px; margin-bottom: 24px; border-bottom: 1px solid var(--color-border);">
                 <button class="btn-tab" onclick="switchTab('login')" style="border: none; border-bottom: 2px solid var(--color-primary); color: var(--color-text); padding: 12px 0; flex: 1; background: none; cursor: pointer; font-weight: 600;">Вход</button>
                 <button class="btn-tab" onclick="switchTab('register')" style="border: none; border-bottom: 2px solid transparent; color: var(--color-text-light); padding: 12px 0; flex: 1; background: none; cursor: pointer; font-weight: 600;">Регистрация</button>
             </div>
@@ -485,15 +486,14 @@
     
     async function checkAuthAndBuildUI() {
         try {
-            // Делаем запрос к /auth/me. 
-            // Важно: credentials: 'include' заставляет браузер отправить HttpOnly cookie вместе с запросом.
-            const response = await fetch('http://localhost:8000/auth/me', {
+            // Используем кешированный запрос (TTL: 5 минут)
+            const response = await cachedFetch('http://localhost:8000/auth/me', {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 credentials: 'include' 
-            });
+            }, 5 * 60 * 1000);
 
             // Если статус 200 - пользователь залогинен
             if (response.ok) {
@@ -846,11 +846,11 @@
                 if (filterPriceMin.value) params.append('price_min', filterPriceMin.value);
                 if (filterPriceMax.value) params.append('price_max', filterPriceMax.value);
 
-                // Запрашиваем посты с фильтрами
+                // Запрашиваем посты с фильтрами (кешируем на 2 минуты)
                 const url = `http://localhost:3000/api/v1/iphone/list?${params}`;
                 console.log('Загружаем посты с URL:', url);
 
-                const response = await fetch(url);
+                const response = await cachedFetch(url, {}, 2 * 60 * 1000);
                 
                 if (!response.ok) {
                     throw new Error(`Ошибка при загрузке постов: ${response.status}`);
@@ -890,14 +890,14 @@
                         : '<span style="font-weight: 600; color: #ccc;">📱</span>';
 
                     postCard.innerHTML = `
-                        <div style="background: #fff; border-radius: 16px; overflow: hidden; border: 1px solid var(--color-border); transition: transform 0.2s, box-shadow 0.2s; cursor: pointer;" class="post-card">
-                            <div style="aspect-ratio: 4 / 3; width: 100%; background: #f5f5f7; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                        <div style="background: #fff; border-radius: 16px; overflow: hidden; border: 1px solid var(--color-border); transition: transform 0.2s, box-shadow 0.2s; cursor: pointer; display: flex; flex-direction: column; height: 100%;" class="post-card">
+                            <div style="aspect-ratio: 4 / 3; width: 100%; background: #f5f5f7; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
                                 ${imageDisplay}
                             </div>
-                            <div style="padding: 16px;">
+                            <div style="padding: 16px; display: flex; flex-direction: column; gap: 6px; flex-grow: 1;">
                                 <div style="font-weight: 700; font-size: 18px; color: var(--color-primary);">€${post.price || 'N/A'}</div>
-                                <div style="font-size: 15px; margin-bottom: 6px; color: var(--color-text);">${post.model || 'iPhone'} ${formatMemory(post.memory)}</div>
-                                <div style="font-size: 12px; color: var(--color-text-light);">
+                                <div style="font-size: 15px; color: var(--color-text); min-height: 21px; line-height: 1.4;">${post.model || 'iPhone'} ${formatMemory(post.memory)}</div>
+                                <div style="font-size: 12px; color: var(--color-text-light); margin-top: auto;">
                                     ${post.condition || 'Б/У'} • ${formatDate(post.created_at)} • 👁 ${post.view_count}
                                 </div>
                             </div>
