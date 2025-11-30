@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, status, HTTPException, Form, Response, Query
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlmodel import Session
+from sqlmodel import Session, select
 from authlib.integrations.starlette_client import OAuth
 from fastapi import Request
 from starlette.responses import RedirectResponse
@@ -49,10 +49,18 @@ def get_user(id: int = Query(..., description="ID поста iPhone для по�
             return response
             
         response = JSONResponse(
-            content={"username": f"{user.username}",
-                     "email": f"{user.email}",
-                     "posts_count": f"{user.posts_count}",
-                     "joined_date": f"{user.created_at.strftime("%d.%m.%Y")}"})
+            content={
+                "username": f"{user.username}",
+                "email": f"{user.email}",
+                "name": user.name,
+                "surname": user.surname,
+                "avatar_url": user.avatar_url,
+                "phone": user.phone,
+                "posts_count": f"{user.posts_count}",
+                "sells_count": f"{user.sells_count}",
+                "rating": f"{user.rating}",
+                "joined_date": user.created_at.strftime("%d.%m.%Y")
+            })
         return response
     
     except Exception as e:
@@ -272,6 +280,7 @@ async def logout():
     """
     response = RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
     response.delete_cookie(key="access_token")
+    response.delete_cookie(key="refresh_token")
     return response
 
 @auth_router.get("/me", response_model=User)
@@ -292,13 +301,92 @@ async def read_users_me(request: Request, db: Session = Depends(get_session)):
         content={
             "username": f"{current_user.username}",
             "email": f"{current_user.email}",
+            "name": current_user.name,
+            "surname": current_user.surname,
+            "avatar_url": current_user.avatar_url,
+            "phone": current_user.phone,
             "posts_count": f"{current_user.posts_count}",
+            "sells_count": f"{current_user.sells_count}",
+            "rating": f"{current_user.rating}",
             "joined_date": f"{current_user.created_at.strftime('%d.%m.%Y')}"
         },
         status_code=status.HTTP_200_OK
     )
         
     return response
+
+@auth_router.put("/me")
+async def update_user_profile(
+    request: Request,
+    user_update: dict,
+    db: Session = Depends(get_session)
+):
+    """
+    Обновляет профиль текущего пользователя.
+    Нельзя изменить username.
+    Email и phone должны быть уникальными.
+    """
+    # Получаем текущего пользователя
+    try:
+        current_user = await get_current_user(request=request, db=db)
+    except HTTPException:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Не авторизован"
+        )
+    
+    # Проверяем, если пытаются изменить email
+    if "email" in user_update and user_update["email"]:
+        new_email = user_update["email"]
+        if new_email != current_user.email:
+            # Проверяем, не занят ли новый email
+            existing_user = get_user_by_email(db, new_email)
+            if existing_user and existing_user.id != current_user.id:
+                return JSONResponse(
+                    content={"message": "Update failed", "errors": {"email": "Email уже занят"}},
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            current_user.email = new_email
+    
+    # Проверяем, если пытаются изменить телефон
+    if "phone" in user_update and user_update["phone"]:
+        new_phone = user_update["phone"]
+        if new_phone != current_user.phone:
+            # Проверяем, не занят ли новый телефон
+            statement = select(User).where(User.phone == new_phone)
+            existing_user = db.exec(statement).first()
+            if existing_user and existing_user.id != current_user.id:
+                return JSONResponse(
+                    content={"message": "Update failed", "errors": {"phone": "Телефон уже занят"}},
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            current_user.phone = new_phone
+    
+    # Обновляем разрешенные поля
+    if "name" in user_update:
+        current_user.name = user_update["name"]
+    if "surname" in user_update:
+        current_user.surname = user_update["surname"]
+    if "avatar_url" in user_update:
+        current_user.avatar_url = user_update["avatar_url"]
+    
+    # Сохраняем изменения
+    db.add(current_user)
+    db.commit()
+    db.refresh(current_user)
+    
+    return JSONResponse(
+        content={
+            "message": "Profile updated successfully",
+            "username": current_user.username,
+            "email": current_user.email,
+            "name": current_user.name,
+            "surname": current_user.surname,
+            "phone": current_user.phone,
+            "avatar_url": current_user.avatar_url
+        },
+        status_code=status.HTTP_200_OK
+    )
 
 # 1. Роут для входа (Frontend вызывает эту ссылку)
 @auth_router.get("/google/login")
@@ -322,6 +410,11 @@ async def auth_google_callback(request: Request, db: Session = Depends(get_sessi
         email = user_info.get('email')
         # Используем email как username, если нет другого варианта, или генерируем
         username = email.split('@')[0] 
+        
+        # Извлекаем дополнительные данные из Google
+        given_name = user_info.get('given_name')  # Имя
+        family_name = user_info.get('family_name')  # Фамилия
+        picture = user_info.get('picture')  # URL аватара
 
         # Проверяем, есть ли пользователь в БД
         from auth_service import get_user_by_email
@@ -330,7 +423,14 @@ async def auth_google_callback(request: Request, db: Session = Depends(get_sessi
         
         if not existing_user:
 
-            user_data = UserCreate(username = username, email = email, password = None)
+            user_data = UserCreate(
+                username=username, 
+                email=email, 
+                password=None,
+                name=given_name,
+                surname=family_name,
+                avatar_url=picture
+            )
 
             user = register_user(db, user_data)
         else:
@@ -340,7 +440,7 @@ async def auth_google_callback(request: Request, db: Session = Depends(get_sessi
         access_token = create_access_token(data={"username": user.username, "user_id": user.id, "user_type": user.user_type})
         refresh_token = create_refresh_token(data={"username": user.username, "user_id": user.id, "user_type": user.user_type})
 
-        response = RedirectResponse(url="http://localhost:5500", status_code=status.HTTP_302_FOUND)
+        response = RedirectResponse(url="http://localhost:8080", status_code=status.HTTP_302_FOUND)
         response.set_cookie(
             key="access_token",
             value=access_token,

@@ -19,6 +19,8 @@ class User(SQLModel, table=True):
     surname: Optional[str] = Field(default=None, max_length=150)
     phone: Optional[str] = Field(default=None, max_length=20)
     posts_count: int = Field(default=0)
+    sells_count: int = Field(default=0)  # Количество продаж
+    rating: float = Field(default=5.0, ge=0, le=5)  # Рейтинг пользователя (0-5)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -27,7 +29,7 @@ class PublicUser(BaseModel):
     email: str
     name: Optional[str] = None
     surname: Optional[str] = None
-    
+
     status: str
     avatar_url: Optional[str] = None
     phone: Optional[str] = None
@@ -44,11 +46,22 @@ class UserCreate(BaseModel):
     username: str
     email: str
     password: Optional[str] # Имеет возможность None для регистрации через o2auth
+    name: Optional[str] = None  # Имя пользователя
+    surname: Optional[str] = None  # Фамилия пользователя
+    avatar_url: Optional[str] = None  # URL аватара (из Google OAuth)
 
 # Схема для ввода данных при аутентификации
 class UserLogin(BaseModel):
     username_or_email: str
     password: str
+
+# Схема для обновления профиля
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    surname: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    avatar_url: Optional[str] = None
 
 # Схема для возвращаемого токена
 class Token(BaseModel):

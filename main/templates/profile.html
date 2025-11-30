@@ -158,11 +158,22 @@
             
             <aside class="profile-card">
                 <div class="profile-avatar-large" id="avatarDisplay"></div>
+
+                <!-- Кнопка загрузки аватара -->
+                <div>
+                    <input type="file" id="avatarInput" accept="image/*" style="display: none;">
+                    <button class="btn btn-text" style="font-size: 13px; padding: 6px 12px; margin-bottom: 12px;" onclick="document.getElementById('avatarInput').click()">
+                        Изменить фото
+                    </button>
+                </div>
+                
                 
                 <div class="rating-badge">
                     <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
                     <span id="ratingDisplay">5.0</span>
                 </div>
+
+                
 
                 <h2 class="profile-name" id="usernameDisplay">Загрузка...</h2>
                 <div class="profile-tag">На Lais с <span id="joinedDateDisplay">...</span></div>
@@ -204,10 +215,20 @@
                     <div class="form-group">
                         <label class="form-label">Email</label>
                         <input type="email" class="form-input" id="emailInput" placeholder="example@mail.com">
+                        <span id="emailError" style="font-size: 12px; color: #f44336; margin-top: 4px; display: none;"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Телефон</label>
+                        <input type="tel" class="form-input" id="phoneInput" placeholder="+371 12345678">
+                        <span id="phoneError" style="font-size: 12px; color: #f44336; margin-top: 4px; display: none;"></span>
                     </div>
 
                     <div class="form-group" style="margin-top: 30px;">
                         <button type="submit" class="btn btn-primary" style="padding: 14px 32px;">Сохранить изменения</button>
+                        <div id="successMessage" style="display: none; margin-top: 12px; padding: 12px; background: #d4edda; color: #155724; border-radius: 8px; font-size: 14px;">
+                            ✓ Профиль успешно обновлен
+                        </div>
                     </div>
 
                 </form>
@@ -249,22 +270,21 @@
             document.getElementById('usernameDisplay').textContent = user.username || "Пользователь";
             
             // Генерация аватара
-            const avatarUrl = `https://ui-avatars.com/api/?name=${user.username}&background=0D8ABC&color=fff&size=256`;
+            const avatarUrl = user.avatar_url || `https://ui-avatars.com/api/?name=${user.username}&background=0D8ABC&color=fff&size=256`;
             document.getElementById('avatarDisplay').style.backgroundImage = `url('${avatarUrl}')`;
 
-            // Статистика (Пока фейковая или из user model, если расширите БД)
-            // Пример даты регистрации (сейчас мок, потом можно брать из user.created_at)
-            document.getElementById('joinedDateDisplay').textContent = user.joined_date; // MOCK Date
-            document.getElementById('ratingDisplay').textContent = (Math.random() * (5.0 - 4.5) + 4.5).toFixed(1); // MOCK Rating
-            document.getElementById('adsCountDisplay').textContent = user.posts_count; // MOCK Ads count
+            // Статистика
+            document.getElementById('joinedDateDisplay').textContent = user.joined_date || "...";
+            document.getElementById('ratingDisplay').textContent = parseFloat(user.rating || 5.0).toFixed(1);
+            document.getElementById('adsCountDisplay').textContent = user.posts_count || 0;
+            document.getElementById('sellsCountDisplay').textContent = user.sells_count || 0;
 
             // -- Блок Формы --
             document.getElementById('usernameInput').value = user.username;
             document.getElementById('emailInput').value = user.email || "";
-            
-            // Если в модели User появятся first_name/last_name:
-            if (user.first_name) document.getElementById('firstNameInput').value = user.first_name;
-            if (user.last_name) document.getElementById('lastNameInput').value = user.last_name;
+            document.getElementById("firstNameInput").value = user.name || "";
+            document.getElementById("lastNameInput").value = user.surname || "";
+            document.getElementById("phoneInput").value = user.phone || "";
         }
 
         // Логика кнопки Выхода
@@ -278,27 +298,140 @@
             }
         });
 
-        // Логика сохранения (Пока заглушка, т.к. нет эндпоинта update)
-        document.getElementById('profileForm').addEventListener('submit', async () => {
+        // Обработка загрузки аватара
+        document.getElementById('avatarInput').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // Проверка размера (макс 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                alert('Файл слишком большой. Максимум 5MB');
+                return;
+            }
+
+            // Проверка типа
+            if (!file.type.startsWith('image/')) {
+                alert('Можно загружать только изображения');
+                return;
+            }
+
+            try {
+                // Показываем индикатор загрузки
+                const avatarDisplay = document.getElementById('avatarDisplay');
+                avatarDisplay.style.opacity = '0.5';
+
+                // Получаем URL для загрузки
+                const linkResponse = await fetch('http://localhost:3000/api/v1/r2_link');
+                const linkData = await linkResponse.json();
+
+                // Загружаем файл в Cloudflare
+                const formData = new FormData();
+                formData.append('file', file);
+
+                const uploadResponse = await fetch(linkData.upload_url, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!uploadResponse.ok) {
+                    throw new Error('Ошибка загрузки фото');
+                }
+
+                const uploadResult = await uploadResponse.json();
+                const imageId = uploadResult.result.id;
+                const newAvatarUrl = `${linkData.image_delivery_base}/${imageId}/public`;
+
+                // Обновляем профиль с новым аватаром
+                const updateResponse = await fetch('http://localhost:8000/auth/me', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ avatar_url: newAvatarUrl })
+                });
+
+                if (updateResponse.ok) {
+                    avatarDisplay.style.backgroundImage = `url('${newAvatarUrl}')`;
+                    avatarDisplay.style.opacity = '1';
+                } else {
+                    throw new Error('Ошибка сохранения');
+                }
+
+            } catch (error) {
+                console.error('Ошибка загрузки аватара:', error);
+                alert('Не удалось загрузить фото');
+                document.getElementById('avatarDisplay').style.opacity = '1';
+            }
+        });
+
+        // Логика сохранения профиля
+        document.getElementById('profileForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
             const btn = document.querySelector('#profileForm button[type="submit"]');
             const originalText = btn.innerText;
+            const successMessage = document.getElementById('successMessage');
+            const emailError = document.getElementById('emailError');
+            const phoneError = document.getElementById('phoneError');
+            
+            // Скрываем предыдущие ошибки
+            emailError.style.display = 'none';
+            phoneError.style.display = 'none';
+            successMessage.style.display = 'none';
             
             btn.innerText = "Сохранение...";
             btn.disabled = true;
 
-            // Имитация задержки запроса
-            await new Promise(r => setTimeout(r, 800));
+            try {
+                const updateData = {
+                    name: document.getElementById('firstNameInput').value,
+                    surname: document.getElementById('lastNameInput').value,
+                    email: document.getElementById('emailInput').value,
+                    phone: document.getElementById('phoneInput').value
+                };
 
-            // Здесь будет fetch PUT /auth/me ...
-            
-            btn.innerText = "Сохранено!";
-            btn.style.backgroundColor = "#34c759"; // Apple Green
-            
-            setTimeout(() => {
+                const response = await fetch('http://localhost:8000/auth/me', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(updateData)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    btn.innerText = "Сохранено!";
+                    btn.style.backgroundColor = "#34c759";
+                    successMessage.style.display = 'block';
+                    
+                    setTimeout(() => {
+                        btn.innerText = originalText;
+                        btn.style.backgroundColor = "";
+                        btn.disabled = false;
+                        successMessage.style.display = 'none';
+                    }, 3000);
+                } else {
+                    // Показываем ошибки валидации
+                    if (result.errors) {
+                        if (result.errors.email) {
+                            emailError.textContent = result.errors.email;
+                            emailError.style.display = 'block';
+                        }
+                        if (result.errors.phone) {
+                            phoneError.textContent = result.errors.phone;
+                            phoneError.style.display = 'block';
+                        }
+                    }
+                    
+                    btn.innerText = originalText;
+                    btn.disabled = false;
+                }
+
+            } catch (error) {
+                console.error('Ошибка обновления профиля:', error);
+                alert('Ошибка подключения к серверу');
                 btn.innerText = originalText;
-                btn.style.backgroundColor = "";
                 btn.disabled = false;
-            }, 2000);
+            }
         });
 
         // Запуск

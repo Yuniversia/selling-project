@@ -73,16 +73,24 @@ body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI"
 }
 .gallery-container {
     position: sticky; top: 80px; height: fit-content;
+    max-width: 100%;
+    overflow: hidden;
 }
 .main-image {
     width: 100%; aspect-ratio: 4/3; background: #f5f5f7; border-radius: 24px; object-fit: contain; margin-bottom: 16px;
+    max-width: 100%;
 }
 .thumbs { 
     display: flex; 
     gap: 10px; 
     overflow-x: auto;
+    overflow-y: hidden;
     padding-bottom: 8px;
     scrollbar-width: thin;
+    max-height: 90px;
+    width: 100%;
+    cursor: grab;
+    user-select: none;
 }
 .thumbs::-webkit-scrollbar {
     height: 4px;
@@ -92,16 +100,21 @@ body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI"
     border-radius: 2px;
 }
 .thumb { 
-    min-width: 80px; 
+    flex-shrink: 0;
+    width: 80px; 
     height: 80px; 
     background: #f5f5f7; 
     border-radius: 12px; 
     cursor: pointer; 
     border: 2px solid transparent;
-    aspect-ratio: 1 / 1;
+
 }
 .thumb.active { border-color: var(--color-primary); }
 
+.info-container { 
+    max-width: 100%;
+    overflow: hidden;
+}
 .info-container h1 { font-size: 32px; font-weight: 700; margin-bottom: 8px; line-height: 1.1; }
 .price-tag { font-size: 28px; font-weight: 600; margin: 20px 0; color: var(--color-text); }
 .specs-list { margin: 30px 0; border-top: 1px solid var(--color-border); }

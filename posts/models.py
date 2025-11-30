@@ -62,7 +62,7 @@ class Iphone(SQLModel, table=True):
     serial_number: Optional[str] = Field(max_length=20, default=None) # Изменено на str
     model: Optional[str] = Field(max_length=50, default=None)
     color: Optional[str] = Field(index=True, max_length=150, default=None)
-    memory: Optional[str] = Field(index=True, default=None)
+    memory: Optional[int] = Field(index=True, default=None)  # Память в GB (64, 128, 256, 512, 1024)
     activated: Optional[bool] = Field(default=None)
     icloud_pair: Optional[bool] = Field(default=None)
     fmi: Optional[bool] = Field(default=None)
@@ -89,7 +89,7 @@ class IphonePublic(BaseModel):
     batery: int
     condition: Optional[str]
     model: Optional[str]
-    memory: Optional[str]
+    memory: Optional[int]  # Память в GB
     color: Optional[str]
     images_url: Optional[str]
     description: Optional[str]

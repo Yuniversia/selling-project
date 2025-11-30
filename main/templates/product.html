@@ -27,11 +27,64 @@
             <div id="imageCounter" style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); color: white; font-size: 14px; background: rgba(0,0,0,0.5); padding: 8px 16px; border-radius: 20px;"></div>
         </div>
 
+        <!-- Purchase Modal -->
+        <div id="purchaseModal" class="modal">
+            <div class="modal-content" style="max-width: 500px;">
+                <h2 style="margin-bottom: 20px;">Оформление покупки</h2>
+                <form id="purchaseForm">
+                    <div class="form-group">
+                        <label class="label">Имя *</label>
+                        <input type="text" id="buyerName" class="input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="label">Фамилия *</label>
+                        <input type="text" id="buyerSurname" class="input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="label">Номер телефона *</label>
+                        <input type="tel" id="buyerPhone" class="input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="label">Email *</label>
+                        <input type="email" id="buyerEmail" class="input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="label">Адрес доставки *</label>
+                        <textarea id="deliveryAddress" class="input" rows="3" required></textarea>
+                    </div>
+                    <div id="purchaseError" style="color: #ff3b30; margin-bottom: 16px; display: none;"></div>
+                    <div style="display: flex; gap: 12px;">
+                        <button type="button" class="btn btn-outline" style="flex: 1;" onclick="closePurchaseModal()">Отмена</button>
+                        <button type="submit" class="btn btn-primary" style="flex: 1;" id="submitPurchaseBtn">Купить</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Contact Modal -->
+        <div id="contactModal" class="modal">
+            <div class="modal-content" style="max-width: 400px;">
+                <h2 style="margin-bottom: 20px;">Написать продавцу</h2>
+                <p style="margin-bottom: 20px;">Свяжитесь с продавцом для уточнения деталей.</p>
+                <div id="contactInfo">
+                    <div class="form-group">
+                        <label class="label">Телефон</label>
+                        <div id="sellerPhone" style="font-size: 18px; font-weight: 600;">Загружается...</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="label">Email</label>
+                        <div id="sellerEmail" style="font-size: 16px;">Загружается...</div>
+                    </div>
+                </div>
+                <button class="btn btn-primary" style="width: 100%;" onclick="closeContactModal()">Закрыть</button>
+            </div>
+        </div>
+
         <div class="product-page-layout">
             
             <div class="gallery-container">
-                <div class="main-image" style="display: flex; align-items: center; justify-content: center; color: #999;">
-                    <img id="mainProductImage" src="" alt="Фото товара" style="max-width: 100%; max-height: 400px; aspect-ratio: 4/3; object-fit: contain; display: none;">
+                <div class="main-image" style="display: flex; align-items: center; justify-content: center; color: #999; cursor: pointer;">
+                    <img id="mainProductImage" src="" alt="Фото товара" style="width: 100%; height: 100%; object-fit: contain; display: none;">
                     <svg id="placeholderImage" width="64" height="64" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
                 </div>
                 <div class="thumbs" id="thumbnailsContainer">
@@ -60,13 +113,11 @@
                         <div id="authorName" style="font-weight: 600;">Дмитрий К.</div>
                         <div id="authorDate" style="font-size: 13px; color: var(--color-text-light);">На Lais с 2021</div>
                     </div>
-                    <button class="btn btn-outline" style="margin-left: auto;">Написать</button>
+                    <button id="contactSellerBtn" class="btn btn-outline" style="margin-left: auto;">Написать</button>
                 </div>
 
                 <div style="margin-top: 20px;">
-
                     <button id="BuyButon" style="width: 100%; padding-top: 20px; padding-bottom: 20px;"  class="btn btn-primary">Купить</button>
-
                 </div>
 
 
@@ -171,6 +222,15 @@
         }
 
         function updateProductDisplay(postData) {
+            // Функция для форматирования памяти
+            function formatMemory(memoryGB) {
+                if (!memoryGB) return '—';
+                if (memoryGB >= 1024) {
+                    return `${memoryGB / 1024}TB`;
+                }
+                return `${memoryGB}GB`;
+            }
+
             // Обновляем заголовок и основную информацию
             const model = postData.model || 'iPhone';
             document.getElementById('productTitle').textContent = model;
@@ -188,7 +248,7 @@
             // Заполняем спеки
             const specs = {
                 'specModel': postData.model || '—',
-                'specMemory': postData.memory || '—',
+                'specMemory': formatMemory(postData.memory),
                 'specColor': postData.color || '—',
                 'specBattery': postData.batery ? `${postData.batery}%` : '—',
                 'specIMEI': postData.imei || '—',
@@ -270,11 +330,8 @@
                     document.querySelectorAll('.thumb').forEach(t => t.classList.remove('active'));
                     thumb.classList.add('active');
 
-                    // Обновляем главное фото
+                    // Только обновляем главное фото, БЕЗ открытия модального окна
                     document.getElementById('mainProductImage').src = imageUrl;
-                    
-                    // Открываем полноэкранный просмотр
-                    openImageModal(imageUrl, index);
                 });
 
                 thumbsContainer.appendChild(thumb);
@@ -291,12 +348,22 @@
                     const authorData = await response.json();
                     console.log('Данные об авторе получены:', authorData);
                     
-                    document.getElementById('authorName').textContent = 
-                        authorData.name || authorData.username || 'Продавец';
+                    // Сохраняем данные автора для модального окна контакта
+                    currentAuthorData = authorData;
                     
-                    if (authorData.created_at) {
-                        const date = new Date(authorData.created_at);
-                        const year = date.getFullYear();
+                    // Формируем полное имя: "Имя Фамилия" или username
+                    let displayName = authorData.username || 'Продавец';
+                    if (authorData.name && authorData.surname) {
+                        displayName = `${authorData.name} ${authorData.surname}`;
+                    } else if (authorData.name) {
+                        displayName = authorData.name;
+                    }
+                    document.getElementById('authorName').textContent = displayName;
+                    
+                    if (authorData.joined_date) {
+                        // Используем joined_date из API (уже отформатировано)
+                        const dateParts = authorData.joined_date.split('.');
+                        const year = dateParts[2];
                         document.getElementById('authorDate').textContent = 
                             `На Lais с ${year}`;
                     }
@@ -304,7 +371,7 @@
                     // Устанавливаем аватарку если есть
                     if (authorData.avatar_url) {
                         document.getElementById('authorAvatar').style.backgroundImage = 
-                            `url('${authorData.avatar_url}')`;
+                            `url('${authorData.avatar_url}')` || `url('https://ui-avatars.com/api/?name=${displayName}&background=0D8ABC&color=fff&size=256')`;
                         document.getElementById('authorAvatar').style.backgroundSize = 'cover';
                         document.getElementById('authorAvatar').style.backgroundPosition = 'center';
                     }
@@ -378,9 +445,189 @@
 
         // Добавляем клик на главное изображение для открытия модального окна
         document.getElementById('mainProductImage').addEventListener('click', () => {
+            if (currentImages.length === 0) return;
             const activeThumb = document.querySelector('.thumb.active');
             const activeIndex = activeThumb ? parseInt(activeThumb.dataset.index) : 0;
             openImageModal(currentImages[activeIndex], activeIndex);
+        });
+
+        // Добавляем клик на контейнер главного изображения (если кликнули на placeholder)
+        document.querySelector('.main-image').addEventListener('click', () => {
+            if (currentImages.length > 0) {
+                const activeThumb = document.querySelector('.thumb.active');
+                const activeIndex = activeThumb ? parseInt(activeThumb.dataset.index) : 0;
+                openImageModal(currentImages[activeIndex], activeIndex);
+            }
+        });
+
+        // Скролл миниатюр колёсиком мыши
+        const thumbsScrollContainer = document.getElementById('thumbnailsContainer');
+        
+        thumbsScrollContainer.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            thumbsScrollContainer.scrollLeft += e.deltaY;
+        });
+
+        // Перетаскивание мышкой для скролла миниатюр
+        let isDown = false;
+        let startX;
+        let scrollLeft;
+
+        thumbsScrollContainer.addEventListener('mousedown', (e) => {
+            // Если кликнули на миниатюру, не начинаем перетаскивание
+            if (e.target.classList.contains('thumb')) {
+                return;
+            }
+            isDown = true;
+            thumbsScrollContainer.style.cursor = 'grabbing';
+            startX = e.pageX - thumbsScrollContainer.offsetLeft;
+            scrollLeft = thumbsScrollContainer.scrollLeft;
+        });
+
+        thumbsScrollContainer.addEventListener('mouseleave', () => {
+            isDown = false;
+            thumbsScrollContainer.style.cursor = 'default';
+        });
+
+        thumbsScrollContainer.addEventListener('mouseup', () => {
+            isDown = false;
+            thumbsScrollContainer.style.cursor = 'default';
+        });
+
+        thumbsScrollContainer.addEventListener('mousemove', (e) => {
+            if (!isDown) return;
+            e.preventDefault();
+            const x = e.pageX - thumbsScrollContainer.offsetLeft;
+            const walk = (x - startX) * 2; // Множитель для скорости скролла
+            thumbsScrollContainer.scrollLeft = scrollLeft - walk;
+        });
+
+        // Модальные окна для покупки и контакта
+        let currentAuthorData = null;
+
+        function openPurchaseModal() {
+            document.getElementById('purchaseModal').classList.add('active');
+            document.body.style.overflow = 'hidden';
+            
+            // Автозаполнение из профиля если пользователь авторизован
+            loadUserProfileData();
+        }
+
+        function closePurchaseModal() {
+            document.getElementById('purchaseModal').classList.remove('active');
+            document.body.style.overflow = '';
+            document.getElementById('purchaseError').style.display = 'none';
+        }
+
+        function openContactModal() {
+            if (currentAuthorData) {
+                document.getElementById('sellerPhone').textContent = currentAuthorData.phone || 'Не указан';
+                document.getElementById('sellerEmail').textContent = currentAuthorData.email || 'Не указан';
+            }
+            document.getElementById('contactModal').classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeContactModal() {
+            document.getElementById('contactModal').classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        // Загрузка данных пользователя для автозаполнения
+        async function loadUserProfileData() {
+            try {
+                const response = await fetch('http://localhost:8000/auth/me', {
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const userData = await response.json();
+                    
+                    // Автозаполняем форму
+                    if (userData.name) document.getElementById('buyerName').value = userData.name;
+                    if (userData.surname) document.getElementById('buyerSurname').value = userData.surname;
+                    if (userData.phone) document.getElementById('buyerPhone').value = userData.phone;
+                    if (userData.email) document.getElementById('buyerEmail').value = userData.email;
+                }
+            } catch (error) {
+                console.log('Пользователь не авторизован или данные недоступны');
+            }
+        }
+
+        // Обработка отправки формы покупки
+        document.getElementById('purchaseForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const submitBtn = document.getElementById('submitPurchaseBtn');
+            const errorDiv = document.getElementById('purchaseError');
+            
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Обработка...';
+            errorDiv.style.display = 'none';
+            
+            const purchaseData = {
+                post_id: parseInt(postId),
+                buyer_name: document.getElementById('buyerName').value,
+                buyer_surname: document.getElementById('buyerSurname').value,
+                buyer_phone: document.getElementById('buyerPhone').value,
+                buyer_email: document.getElementById('buyerEmail').value,
+                delivery_address: document.getElementById('deliveryAddress').value
+            };
+            
+            try {
+                const response = await fetch('http://localhost:3000/api/v1/bought/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify(purchaseData)
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log('Покупка оформлена:', result);
+                    
+                    // Закрываем модальное окно
+                    closePurchaseModal();
+                    
+                    // Показываем сообщение об успехе
+                    alert('Покупка оформлена! Ожидайте отправку.');
+                    
+                    // Перезагружаем данные поста (он станет неактивным)
+                    await loadPostData();
+                    
+                } else {
+                    const error = await response.json();
+                    errorDiv.textContent = error.detail || 'Ошибка при оформлении покупки';
+                    errorDiv.style.display = 'block';
+                }
+                
+            } catch (error) {
+                console.error('Ошибка:', error);
+                errorDiv.textContent = 'Ошибка подключения к серверу';
+                errorDiv.style.display = 'block';
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Купить';
+            }
+        });
+
+        // Обработчики кнопок
+        document.getElementById('BuyButon').addEventListener('click', openPurchaseModal);
+        document.getElementById('contactSellerBtn').addEventListener('click', openContactModal);
+
+        // Закрытие модальных окон по клику вне их
+        document.getElementById('purchaseModal').addEventListener('click', (e) => {
+            if (e.target.id === 'purchaseModal') {
+                closePurchaseModal();
+            }
+        });
+
+        document.getElementById('contactModal').addEventListener('click', (e) => {
+            if (e.target.id === 'contactModal') {
+                closeContactModal();
+            }
         });
 
         // Загружаем данные при загрузке страницы

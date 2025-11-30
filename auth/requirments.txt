@@ -7,3 +7,5 @@ authlib
 httpx
 itsdangerous
 python-multipart
+psycopg2-binary  # PostgreSQL driver
+python-dotenv    # For .env file support

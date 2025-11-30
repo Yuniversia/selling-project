@@ -127,11 +127,11 @@
                 </label>
                 <select id="filterMemory">
                     <option value="">Все</option>
-                    <option value="64GB">От 64GB</option>
-                    <option value="128GB">От 128GB</option>
-                    <option value="256GB">От 256GB</option>
-                    <option value="512GB">От 512GB</option>
-                    <option value="1TB">От 1TB</option>
+                    <option value="64">От 64GB</option>
+                    <option value="128">От 128GB</option>
+                    <option value="256">От 256GB</option>
+                    <option value="512">От 512GB</option>
+                    <option value="1024">От 1TB</option>
                 </select>
             </div>
 
@@ -547,7 +547,7 @@
         const headerControls = document.querySelector('.header-controls');
         if (headerControls) {
             // Формируем аватарку с инициалами пользователя
-            const avatarUrl = `https://ui-avatars.com/api/?name=${user.username}&background=0D8ABC&color=fff`;
+            const avatarUrl = user.avatar_url || `https://ui-avatars.com/api/?name=${user.username}&background=0D8ABC&color=fff`;
 
             const profileWrapper = document.createElement('div');
             profileWrapper.className = 'user-profile-wrapper';
@@ -824,7 +824,7 @@
                 return `${days} дн. назад`;
             } else if (hours > 0) {
                 return `${hours} ч. назад`;
-            } else if (minutes > 0) {
+            } else if (minutes > 5) {
                 return `${minutes} м. назад`;
             } else {
                 return 'Только что';
@@ -859,6 +859,15 @@
                 const posts = await response.json();
                 console.log('Получено постов:', posts.length);
 
+                // Функция для форматирования памяти
+                function formatMemory(memoryGB) {
+                    if (!memoryGB) return '';
+                    if (memoryGB >= 1024) {
+                        return `${memoryGB / 1024}TB`;
+                    }
+                    return `${memoryGB}GB`;
+                }
+
                 // Очищаем сетку
                 productGrid.innerHTML = '';
 
@@ -887,7 +896,7 @@
                             </div>
                             <div style="padding: 16px;">
                                 <div style="font-weight: 700; font-size: 18px; color: var(--color-primary);">€${post.price || 'N/A'}</div>
-                                <div style="font-size: 15px; margin-bottom: 6px; color: var(--color-text);">${post.model || 'iPhone'} ${post.memory || ''}</div>
+                                <div style="font-size: 15px; margin-bottom: 6px; color: var(--color-text);">${post.model || 'iPhone'} ${formatMemory(post.memory)}</div>
                                 <div style="font-size: 12px; color: var(--color-text-light);">
                                     ${post.condition || 'Б/У'} • ${formatDate(post.created_at)} • 👁 ${post.view_count}
                                 </div>

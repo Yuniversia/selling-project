@@ -222,7 +222,7 @@ def router_list(
     batery_max: Optional[int] = Query(None, ge=0, le=100, description="Максимальный процент АКБ"),
     condition: Optional[str] = Query(None, description="Состояние (Новый, Как новый, Небольшие дефекты, С дефектом, На запчасти)"),
     color: Optional[str] = Query(None, description="Цвет устройства"),
-    memory: Optional[str] = Query(None, description="Объем памяти"),
+    memory: Optional[str] = Query(None, description="Минимальный объем памяти в GB (64, 128, 256, 512, 1024)"),
     price_min: Optional[float] = Query(None, ge=0, description="Минимальная цена"),
     price_max: Optional[float] = Query(None, ge=0, description="Максимальная цена"),
     db: Session = Depends(get_session)
@@ -252,8 +252,13 @@ def router_list(
     if color:
         filters.append(Iphone.color == color)
     
-    # Фильтр памяти будет применен позже (постфильтрация в Python)
-    # так как нужно сравнивать числовые значения из строк типа "128GB"
+    # Фильтр памяти - теперь это число, фильтр "от X GB"
+    if memory:
+        try:
+            memory_value = int(memory)
+            filters.append(Iphone.memory >= memory_value)
+        except (ValueError, TypeError):
+            pass  # Игнорируем некорректный формат
     
     if price_min is not None:
         filters.append(Iphone.price >= price_min)
@@ -265,46 +270,11 @@ def router_list(
     if filters:
         statement = statement.where(and_(*filters))
     
-    # Сортируем по дате создания (новые первыми)
-    statement = statement.order_by(Iphone.created_at.desc())
+    # Сортируем по дате создания (новые первыми) и применяем пагинацию
+    statement = statement.order_by(Iphone.created_at.desc()).offset(skip).limit(limit)
     
     try:
-        # Сначала получаем все посты с базовыми фильтрами
-        all_posts = db.exec(statement).all()
-        
-        # Если есть фильтр по памяти, применяем постфильтрацию
-        if memory:
-            try:
-                # Извлекаем числовое значение из выбранной памяти
-                memory_value = int(''.join(filter(str.isdigit, memory)))
-                
-                # Функция для извлечения числа из строки памяти
-                def extract_memory_value(memory_str):
-                    if not memory_str:
-                        return 0
-                    # Извлекаем число из строки
-                    digits = ''.join(filter(str.isdigit, memory_str))
-                    if not digits:
-                        return 0
-                    value = int(digits)
-                    # Если в строке есть "TB", умножаем на 1024
-                    if 'TB' in memory_str.upper() or 'ТБ' in memory_str.upper():
-                        value *= 1024
-                    return value
-                
-                # Фильтруем посты: показываем только с памятью >= выбранной
-                filtered_posts = [
-                    post for post in all_posts 
-                    if extract_memory_value(post.memory) >= memory_value
-                ]
-                all_posts = filtered_posts
-            except (ValueError, AttributeError):
-                # Если не удалось извлечь число, используем точное совпадение
-                all_posts = [post for post in all_posts if post.memory == memory]
-        
-        # Применяем пагинацию после фильтрации
-        posts = all_posts[skip:skip + limit]
-        
+        posts = db.exec(statement).all()
         return posts
     except Exception as e:
         raise HTTPException(

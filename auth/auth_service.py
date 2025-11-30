@@ -110,7 +110,14 @@ def register_user(db: Session, user_data: UserCreate) -> User:
     
     
     # Создаем нового пользователя
-    new_user = User(username=user_data.username, email=user_data.email, hashed_password=hashed_password)
+    new_user = User(
+        username=user_data.username, 
+        email=user_data.email, 
+        hashed_password=hashed_password,
+        name=user_data.name,
+        surname=user_data.surname,
+        avatar_url=user_data.avatar_url
+    )
 
     
     db.add(new_user)
