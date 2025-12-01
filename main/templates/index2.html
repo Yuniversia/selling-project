@@ -4,15 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Lais</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='/styles2.css') }}?v=12">
-    <script src="{{ url_for('static', path='/cache-manager.js') }}?v=12"></script>
+    <link rel="stylesheet" href="{{ url_for('static', path='/styles2.css') }}?v=15">
+    <script src="{{ url_for('static', path='/cache-manager.js') }}?v=15"></script>
 </head>
 <body>
 
     <header class="header-fixed">
         <div class="nav-container">
             <a href="/" class="logo">lais</a>
-            <div style="flex:1"></div> <div class="header-controls">
+            <div style="flex:1"></div>
+            <div class="header-controls">
+                <a href="/imei-check" class="btn btn-text" style="margin-right: 10px;">Проверка IMEI</a>
                 <button class="btn btn-text" id="loginBtn">Войти</button>
                 <a href="/post-ad" id="postAdBtn" class="btn btn-primary">Разместить</a>
             </div>

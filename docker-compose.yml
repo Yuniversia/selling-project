@@ -36,9 +36,18 @@ services:
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
       - POSTGRES_DB=${POSTGRES_DB:-lais_marketplace}
-      - PORT=8000
+      - PORT=${AUTH_PORT:-8000}
+      - BACKEND_HOST=${BACKEND_HOST:-0.0.0.0}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:8080}
+      - SECRET_KEY=${SECRET_KEY:-My secret key}
+      - TOKEN_ALGORITHM=${TOKEN_ALGORITHM:-HS256}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      - SESSION_SECRET=${SESSION_SECRET:-ANY_RANDOM_STRING_FOR_SESSION}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - AUTH_SERVICE_URL=${AUTH_SERVICE_URL:-http://localhost:8000}
     ports:
-      - "8000:8000"
+      - "${AUTH_PORT:-8000}:${AUTH_PORT:-8000}"
     depends_on:
       postgres:
         condition: service_healthy
@@ -62,9 +71,19 @@ services:
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
       - POSTGRES_DB=${POSTGRES_DB:-lais_marketplace}
-      - PORT=3000
+      - PORT=${POSTS_PORT:-3000}
+      - BACKEND_HOST=${BACKEND_HOST:-0.0.0.0}
+      - SECRET_KEY=${SECRET_KEY:-My secret key}
+      - TOKEN_ALGORITHM=${TOKEN_ALGORITHM:-HS256}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      - CF_ACCOUNT_ID=${CF_ACCOUNT_ID}
+      - CF_ACCOUNT_HASH=${CF_ACCOUNT_HASH}
+      - CF_R2_ACCESS_KEY_ID=${CF_R2_ACCESS_KEY_ID}
+      - CF_R2_SECRET_ACCESS_KEY=${CF_R2_SECRET_ACCESS_KEY}
+      - CF_API_TOKEN=${CF_API_TOKEN}
+      - CF_IMAGE_DELIVERY_URL=${CF_IMAGE_DELIVERY_URL:-https://imagedelivery.net}
     ports:
-      - "3000:3000"
+      - "${POSTS_PORT:-3000}:${POSTS_PORT:-3000}"
     depends_on:
       postgres:
         condition: service_healthy
@@ -91,9 +110,10 @@ services:
       - POSTGRES_PORT=5432
       - POSTGRES_DB=${POSTGRES_DB:-lais_marketplace}
       - DOCKER_ENV=true
-      - PORT=4000
+      - PORT=${CHAT_PORT:-4000}
+      - BACKEND_HOST=${BACKEND_HOST:-0.0.0.0}
     ports:
-      - "4000:4000"
+      - "${CHAT_PORT:-4000}:${CHAT_PORT:-4000}"
     depends_on:
       postgres:
         condition: service_healthy
@@ -107,6 +127,30 @@ services:
     volumes:
       - ./chat:/app
 
+  # IMEI Checker Service (Проверка IMEI iPhone)
+  imei-checker-service:
+    build:
+      context: ./iphone_cheker
+      dockerfile: Dockerfile
+    container_name: lais-imei-checker
+    environment:
+      - PORT=${IMEI_PORT:-5001}
+      - BACKEND_HOST=${BACKEND_HOST:-0.0.0.0}
+      - USE_TEST_MODE=${USE_TEST_MODE:-true}
+      - IMEI_API_KEY=${IMEI_API_KEY}
+    ports:
+      - "${IMEI_PORT:-5001}:${IMEI_PORT:-5001}"
+    networks:
+      - lais-network
+    restart: unless-stopped
+    volumes:
+      - ./iphone_cheker:/app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${IMEI_PORT:-5001}/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   # Main Service (Frontend / Web Interface)
   main-service:
     build:
@@ -114,16 +158,22 @@ services:
       dockerfile: Dockerfile
     container_name: lais-main
     environment:
-      - PORT=8080
-      - AUTH_SERVICE_URL=http://auth-service:8000
-      - POSTS_SERVICE_URL=http://posts-service:3000
-      - CHAT_SERVICE_URL=http://chat-service:4000
+      - PORT=${MAIN_PORT:-8080}
+      - BACKEND_HOST=${BACKEND_HOST:-0.0.0.0}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:8080}
+      - AUTH_SERVICE_URL=http://auth-service:${AUTH_PORT:-8000}
+      - POSTS_SERVICE_URL=http://posts-service:${POSTS_PORT:-3000}
+      - CHAT_SERVICE_URL=http://chat-service:${CHAT_PORT:-4000}
+      - IMEI_CHECKER_URL=http://imei-checker-service:${IMEI_PORT:-5001}
+      - SECRET_KEY=${SECRET_KEY:-My secret key}
+      - TOKEN_ALGORITHM=${TOKEN_ALGORITHM:-HS256}
     ports:
-      - "8080:8080"
+      - "${MAIN_PORT:-8080}:${MAIN_PORT:-8080}"
     depends_on:
       - auth-service
       - posts-service
       - chat-service
+      - imei-checker-service
     networks:
       - lais-network
     restart: unless-stopped

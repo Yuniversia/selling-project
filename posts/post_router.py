@@ -9,19 +9,30 @@ from fastapi import (
     UploadFile, 
     File,
     Query,
-    Cookie
+    Cookie,
+    Request
 )
 
-from sqlmodel import Session, select, and_
+from sqlmodel import Session, select, and_, or_
 from typing import List, Optional
 from jose import JWTError, jwt
 import httpx
 from typing import Dict, Any
+from datetime import datetime, timedelta
 
 from configs import Configs
 from post_service import get_post, add_post
 from database import get_session
-from models import Iphone, IphonePostData, IphonePublic
+from models import (
+    Iphone, 
+    IphonePostData, 
+    IphonePublic, 
+    PostView, 
+    PostReport, 
+    ReportCreate, 
+    ReportResponse,
+    ReportReason
+)
 
 # API Router для постов
 api_router = APIRouter(prefix="/api/v1", tags=["Iphone Posts"])
@@ -283,6 +294,47 @@ def router_list(
         )
 
 
+# --- Вспомогательная функция для получения IP адреса ---
+def get_client_ip(request: Request) -> str:
+    """Получает IP адрес клиента с учетом прокси"""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    real_ip = request.headers.get("X-Real-IP")
+    if real_ip:
+        return real_ip
+    return request.client.host if request.client else "unknown"
+
+
+# --- Вспомогательная функция для проверки уникального просмотра ---
+def is_unique_view(db: Session, post_id: int, viewer_id: Optional[int], viewer_ip: str, user_agent: str) -> bool:
+    """
+    Проверяет, является ли просмотр уникальным.
+    Уникальным считается просмотр если:
+    1. Для авторизованных: пользователь не просматривал этот пост ранее
+    2. Для неавторизованных: комбинация IP + User-Agent не просматривала за последние 24 часа
+    """
+    if viewer_id:
+        # Авторизованный пользователь - проверяем по viewer_id
+        existing_view = db.exec(
+            select(PostView)
+            .where(PostView.post_id == post_id)
+            .where(PostView.viewer_id == viewer_id)
+        ).first()
+        return existing_view is None
+    else:
+        # Неавторизованный - проверяем по IP + User-Agent за последние 24 часа
+        time_threshold = datetime.utcnow() - timedelta(hours=24)
+        existing_view = db.exec(
+            select(PostView)
+            .where(PostView.post_id == post_id)
+            .where(PostView.viewer_ip == viewer_ip)
+            .where(PostView.user_agent == user_agent)
+            .where(PostView.viewed_at > time_threshold)
+        ).first()
+        return existing_view is None
+
+
 # --- GET Маршрут (получить один пост по ID) ---
 @api_router.get(
     "/iphone", 
@@ -292,12 +344,14 @@ def router_list(
     }
 )
 def router_get(
+    request: Request,
     id: int = Query(..., description="ID поста iPhone для получения"),
+    access_token: str = Cookie(None),
     db: Session = Depends(get_session)
 ):
     """
     Получает информацию об iPhone по его ID.
-    Автоматически увеличивает view_count при каждом запросе.
+    Автоматически увеличивает view_count только для уникальных просмотров.
     """
     iphone_post = get_post(db, id)
     
@@ -307,10 +361,396 @@ def router_get(
             detail=f"Пост с ID {id} не найден",
         )
     
-    # Увеличиваем view_count
-    iphone_post.view_count += 1
-    db.add(iphone_post)
-    db.commit()
-    db.refresh(iphone_post)
+    # Получаем информацию о просмотре
+    viewer_ip = get_client_ip(request)
+    user_agent = request.headers.get("User-Agent", "unknown")
+    viewer_id = None
+    
+    # Пытаемся получить ID пользователя из токена
+    if access_token:
+        try:
+            payload = jwt.decode(access_token, Configs.secret_key, algorithms=[Configs.token_algoritm])
+            viewer_id = payload.get("user_id")
+        except:
+            pass  # Игнорируем ошибки токена для просмотров
+    
+    # Проверяем, является ли просмотр уникальным
+    if is_unique_view(db, id, viewer_id, viewer_ip, user_agent):
+        # Увеличиваем счетчик просмотров
+        iphone_post.view_count += 1
+        db.add(iphone_post)
+        
+        # Сохраняем запись о просмотре
+        post_view = PostView(
+            post_id=id,
+            viewer_id=viewer_id,
+            viewer_ip=viewer_ip,
+            user_agent=user_agent
+        )
+        db.add(post_view)
+        
+        db.commit()
+        db.refresh(iphone_post)
+        
+        print(f"[UNIQUE VIEW] Post #{id} | Viewer: {'User#' + str(viewer_id) if viewer_id else viewer_ip} | Total views: {iphone_post.view_count}")
+    else:
+        print(f"[DUPLICATE VIEW] Post #{id} | Viewer: {'User#' + str(viewer_id) if viewer_id else viewer_ip} | Not counted")
     
     return iphone_post
+
+
+# --- POST Жалоба на объявление ---
+@api_router.post(
+    "/report",
+    status_code=status.HTTP_201_CREATED,
+    response_model=ReportResponse
+)
+async def create_report(
+    request: Request,
+    report_data: ReportCreate,
+    access_token: str = Cookie(None),
+    db: Session = Depends(get_session)
+):
+    """
+    Создает жалобу на объявление.
+    Может быть отправлена как авторизованным, так и анонимным пользователем.
+    """
+    # Проверяем существование поста
+    post = get_post(db, report_data.post_id)
+    if not post:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Объявление с ID {report_data.post_id} не найдено"
+        )
+    
+    # Получаем информацию о пользователе
+    reporter_id = None
+    reporter_ip = get_client_ip(request)
+    
+    if access_token:
+        try:
+            payload = jwt.decode(access_token, Configs.secret_key, algorithms=[Configs.token_algoritm])
+            reporter_id = payload.get("user_id")
+        except:
+            pass  # Разрешаем анонимные жалобы
+    
+    # Проверяем, не отправлял ли пользователь уже жалобу на этот пост
+    existing_report_query = select(PostReport).where(PostReport.post_id == report_data.post_id)
+    
+    if reporter_id:
+        # Для авторизованных - проверяем по ID
+        existing_report_query = existing_report_query.where(PostReport.reporter_id == reporter_id)
+    else:
+        # Для анонимных - проверяем по IP за последние 24 часа
+        time_threshold = datetime.utcnow() - timedelta(hours=24)
+        existing_report_query = existing_report_query.where(
+            and_(
+                PostReport.reporter_ip == reporter_ip,
+                PostReport.created_at > time_threshold
+            )
+        )
+    
+    existing_report = db.exec(existing_report_query).first()
+    
+    if existing_report:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Вы уже отправили жалобу на это объявление"
+        )
+    
+    # Создаем жалобу
+    new_report = PostReport(
+        post_id=report_data.post_id,
+        reporter_id=reporter_id,
+        reporter_ip=reporter_ip,
+        reason=report_data.reason.value,  # Используем значение enum
+        details=report_data.details,
+        status="pending"
+    )
+    
+    db.add(new_report)
+    db.commit()
+    db.refresh(new_report)
+    
+    print(f"[REPORT] Post #{report_data.post_id} | Reporter: {'User#' + str(reporter_id) if reporter_id else reporter_ip} | Reason: {report_data.reason.value}")
+    
+    return ReportResponse(
+        id=new_report.id,
+        post_id=new_report.post_id,
+        reason=new_report.reason,
+        status=new_report.status,
+        created_at=new_report.created_at
+    )
+
+
+# --- GET Проверка наличия жалобы от пользователя ---
+@api_router.get(
+    "/report/check/{post_id}",
+    response_model=Dict[str, bool]
+)
+async def check_user_report(
+    request: Request,
+    post_id: int,
+    access_token: str = Cookie(None),
+    db: Session = Depends(get_session)
+):
+    """
+    Проверяет, отправлял ли пользователь жалобу на данное объявление.
+    Возвращает {"has_reported": true/false}
+    """
+    reporter_id = None
+    reporter_ip = get_client_ip(request)
+    
+    if access_token:
+        try:
+            payload = jwt.decode(access_token, Configs.secret_key, algorithms=[Configs.token_algoritm])
+            reporter_id = payload.get("user_id")
+        except:
+            pass
+    
+    # Проверяем наличие жалобы
+    query = select(PostReport).where(PostReport.post_id == post_id)
+    
+    if reporter_id:
+        query = query.where(PostReport.reporter_id == reporter_id)
+    else:
+        time_threshold = datetime.utcnow() - timedelta(hours=24)
+        query = query.where(
+            and_(
+                PostReport.reporter_ip == reporter_ip,
+                PostReport.created_at > time_threshold
+            )
+        )
+    
+    existing_report = db.exec(query).first()
+    
+    return {"has_reported": existing_report is not None}
+
+
+# === ADMIN ENDPOINTS ===
+
+# Вспомогательная функция для проверки прав администратора
+def check_admin_access(access_token: str) -> Dict[str, Any]:
+    """Проверяет JWT токен и извлекает данные пользователя, включая роль"""
+    if not access_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Требуется авторизация"
+        )
+    
+    try:
+        payload = jwt.decode(access_token, Configs.secret_key, algorithms=[Configs.token_algoritm])
+        user_id = payload.get("user_id")
+        username = payload.get("username")
+        user_type = payload.get("user_type", "regular")
+        
+        if not user_id or not username:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Некорректный токен"
+            )
+        
+        # Проверяем, что пользователь - админ или поддержка
+        if user_type not in ["admin", "support"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Доступ запрещен. Требуются права администратора."
+            )
+        
+        return {"user_id": user_id, "username": username, "user_type": user_type}
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Токен истек"
+        )
+    except jwt.InvalidTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Недействительный токен"
+        )
+
+
+# --- GET Все жалобы (только для админов) ---
+@api_router.get(
+    "/admin/reports",
+    response_model=List[Dict[str, Any]]
+)
+async def get_all_reports(
+    status_filter: Optional[str] = Query(None, description="Фильтр по статусу: pending, reviewed, resolved, rejected"),
+    limit: int = Query(50, ge=1, le=200),
+    skip: int = Query(0, ge=0),
+    access_token: str = Cookie(None),
+    db: Session = Depends(get_session)
+):
+    """
+    Получить все жалобы (только для админов и поддержки).
+    Возвращает жалобы с информацией о посте.
+    """
+    # Проверка прав доступа (внутри уже есть проверка на admin/support)
+    user_data = check_admin_access(access_token)
+    
+    # Строим запрос
+    query = select(PostReport)
+    
+    if status_filter:
+        query = query.where(PostReport.status == status_filter)
+    
+    query = query.order_by(PostReport.created_at.desc()).offset(skip).limit(limit)
+    
+    reports = db.exec(query).all()
+    
+    # Обогащаем данные информацией о постах
+    result = []
+    for report in reports:
+        post = get_post(db, report.post_id)
+        result.append({
+            "id": report.id,
+            "post_id": report.post_id,
+            "post_model": post.model if post else "Удалено",
+            "post_active": post.active if post else False,
+            "reporter_id": report.reporter_id,
+            "reporter_ip": report.reporter_ip,
+            "reason": report.reason,
+            "details": report.details,
+            "status": report.status,
+            "created_at": report.created_at.isoformat(),
+            "reviewed_at": report.reviewed_at.isoformat() if report.reviewed_at else None,
+            "reviewed_by": report.reviewed_by
+        })
+    
+    return result
+
+
+# --- PUT Обновить статус жалобы (только для админов) ---
+@api_router.put(
+    "/admin/reports/{report_id}",
+    response_model=Dict[str, str]
+)
+async def update_report_status(
+    report_id: int,
+    new_status: str = Query(..., description="Новый статус: reviewed, resolved, rejected"),
+    action: Optional[str] = Query(None, description="Действие: deactivate_post, none"),
+    access_token: str = Cookie(None),
+    db: Session = Depends(get_session)
+):
+    """
+    Обновить статус жалобы и опционально деактивировать пост.
+    Только для админов и поддержки.
+    """
+    # Проверка прав доступа (внутри уже есть проверка на admin/support)
+    user_data = check_admin_access(access_token)
+    
+    # Проверяем валидность статуса
+    valid_statuses = ["pending", "reviewed", "resolved", "rejected"]
+    if new_status not in valid_statuses:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Некорректный статус. Допустимые: {', '.join(valid_statuses)}"
+        )
+    
+    # Получаем жалобу
+    report = db.get(PostReport, report_id)
+    if not report:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Жалоба не найдена"
+        )
+    
+    # Обновляем статус
+    report.status = new_status
+    report.reviewed_at = datetime.utcnow()
+    report.reviewed_by = user_data["user_id"]
+    
+    # Выполняем действие если указано
+    if action == "deactivate_post":
+        post = get_post(db, report.post_id)
+        if post:
+            post.active = False
+            db.add(post)
+    
+    db.add(report)
+    db.commit()
+    
+    print(f"[ADMIN] Report #{report_id} updated by User#{user_data['user_id']} | Status: {new_status} | Action: {action}")
+    
+    return {
+        "status": "success",
+        "message": f"Жалоба #{report_id} обновлена",
+        "new_status": new_status
+    }
+
+
+# --- PUT Деактивировать пост (только для админов) ---
+@api_router.put(
+    "/admin/posts/{post_id}/deactivate",
+    response_model=Dict[str, str]
+)
+async def deactivate_post(
+    post_id: int,
+    access_token: str = Cookie(None),
+    db: Session = Depends(get_session)
+):
+    """
+    Деактивировать объявление (скрыть из публичного доступа).
+    Только для админов и поддержки.
+    """
+    # Проверка прав доступа (внутри уже есть проверка на admin/support)
+    user_data = check_admin_access(access_token)
+    
+    # Получаем пост
+    post = get_post(db, post_id)
+    if not post:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Объявление не найдено"
+        )
+    
+    # Деактивируем
+    post.active = False
+    db.add(post)
+    db.commit()
+    
+    print(f"[ADMIN] Post #{post_id} deactivated by User#{user_data['user_id']}")
+    
+    return {
+        "status": "success",
+        "message": f"Объявление #{post_id} деактивировано"
+    }
+
+
+# --- PUT Активировать пост (только для админов) ---
+@api_router.put(
+    "/admin/posts/{post_id}/activate",
+    response_model=Dict[str, str]
+)
+async def activate_post(
+    post_id: int,
+    access_token: str = Cookie(None),
+    db: Session = Depends(get_session)
+):
+    """
+    Активировать объявление (вернуть в публичный доступ).
+    Только для админов и поддержки.
+    """
+    # Проверка прав доступа (внутри уже есть проверка на admin/support)
+    user_data = check_admin_access(access_token)
+    
+    # Получаем пост
+    post = get_post(db, post_id)
+    if not post:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Объявление не найдено"
+        )
+    
+    # Активируем
+    post.active = True
+    db.add(post)
+    db.commit()
+    
+    print(f"[ADMIN] Post #{post_id} activated by User#{user_data['user_id']}")
+    
+    return {
+        "status": "success",
+        "message": f"Объявление #{post_id} активировано"
+    }

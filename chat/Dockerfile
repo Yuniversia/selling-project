@@ -16,12 +16,16 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Копируем код приложения
 COPY . .
 
+# Переменные окружения по умолчанию
+ENV PORT=4000
+ENV BACKEND_HOST=0.0.0.0
+
 # Открываем порт
 EXPOSE 4000
 
 # Healthcheck
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:4000/health || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost:${PORT}/health || exit 1
 
 # Запуск приложения
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "4000"]
+CMD ["sh", "-c", "uvicorn main:app --host ${BACKEND_HOST} --port ${PORT}"]

@@ -1,12 +1,45 @@
 /**
  * Cache Manager
  * Управление кешированием API запросов для снижения нагрузки на сервер
+ * Использует localStorage для сохранения между перезагрузками страницы
  */
 
 class CacheManager {
     constructor() {
-        this.cache = new Map();
+        this.storageKey = 'api_cache';
         this.defaultTTL = 5 * 60 * 1000; // 5 минут по умолчанию
+        this.cleanExpired(); // Очищаем устаревшие записи при инициализации
+    }
+
+    /**
+     * Получить весь кеш из localStorage
+     * @returns {Object} - Объект с кешем
+     */
+    _getCache() {
+        try {
+            const cached = localStorage.getItem(this.storageKey);
+            return cached ? JSON.parse(cached) : {};
+        } catch (e) {
+            console.error('[Cache] Ошибка чтения кеша:', e);
+            return {};
+        }
+    }
+
+    /**
+     * Сохранить весь кеш в localStorage
+     * @param {Object} cache - Объект с кешем
+     */
+    _saveCache(cache) {
+        try {
+            localStorage.setItem(this.storageKey, JSON.stringify(cache));
+        } catch (e) {
+            console.error('[Cache] Ошибка сохранения кеша:', e);
+            // Если переполнение localStorage - очищаем старые записи
+            if (e.name === 'QuotaExceededError') {
+                console.warn('[Cache] localStorage переполнен, очищаем...');
+                this.clear();
+            }
+        }
     }
 
     /**
@@ -15,7 +48,8 @@ class CacheManager {
      * @returns {any|null} - Данные или null если кеш истек/не найден
      */
     get(key) {
-        const cached = this.cache.get(key);
+        const cache = this._getCache();
+        const cached = cache[key];
         
         if (!cached) {
             return null;
@@ -24,7 +58,7 @@ class CacheManager {
         const now = Date.now();
         if (now > cached.expires) {
             // Кеш истек
-            this.cache.delete(key);
+            this.delete(key);
             return null;
         }
         
@@ -39,8 +73,10 @@ class CacheManager {
      * @param {number} ttl - Время жизни в миллисекундах (опционально)
      */
     set(key, data, ttl = this.defaultTTL) {
+        const cache = this._getCache();
         const expires = Date.now() + ttl;
-        this.cache.set(key, { data, expires });
+        cache[key] = { data, expires };
+        this._saveCache(cache);
         console.log(`[Cache] SET: ${key} (TTL: ${ttl/1000}s)`);
     }
 
@@ -49,7 +85,9 @@ class CacheManager {
      * @param {string} key - Ключ кеша
      */
     delete(key) {
-        this.cache.delete(key);
+        const cache = this._getCache();
+        delete cache[key];
+        this._saveCache(cache);
         console.log(`[Cache] DELETE: ${key}`);
     }
 
@@ -57,15 +95,70 @@ class CacheManager {
      * Очистить весь кеш
      */
     clear() {
-        this.cache.clear();
+        localStorage.removeItem(this.storageKey);
         console.log('[Cache] CLEAR: Весь кеш очищен');
+    }
+
+    /**
+     * Очистить только пользовательские данные из кеша
+     * Сохраняет системные настройки (уведомления, cookies и т.д.)
+     */
+    clearUserData() {
+        const cache = this._getCache();
+        const userDataPatterns = [
+            /^GET:.*\/auth\//,           // Данные авторизации
+            /^GET:.*\/posts\//,          // Посты пользователя
+            /^GET:.*\/profile/,          // Профиль
+            /^GET:.*\/admin\//,          // Админ данные
+            /^GET:.*\/reports/,          // Жалобы
+            /^GET:.*\/messages/,         // Сообщения
+            /^GET:.*\/chats/,            // Чаты
+            /user/i,                     // Любые ключи с 'user'
+            /profile/i                   // Любые ключи с 'profile'
+        ];
+        
+        let cleaned = 0;
+        Object.keys(cache).forEach(key => {
+            // Проверяем, соответствует ли ключ паттернам пользовательских данных
+            const isUserData = userDataPatterns.some(pattern => pattern.test(key));
+            if (isUserData) {
+                delete cache[key];
+                cleaned++;
+            }
+        });
+        
+        if (cleaned > 0) {
+            this._saveCache(cache);
+            console.log(`[Cache] Очищено пользовательских записей: ${cleaned}`);
+        }
+    }
+
+    /**
+     * Очистить устаревшие записи
+     */
+    cleanExpired() {
+        const cache = this._getCache();
+        const now = Date.now();
+        let cleaned = 0;
+        
+        Object.keys(cache).forEach(key => {
+            if (now > cache[key].expires) {
+                delete cache[key];
+                cleaned++;
+            }
+        });
+        
+        if (cleaned > 0) {
+            this._saveCache(cache);
+            console.log(`[Cache] Очищено устаревших записей: ${cleaned}`);
+        }
     }
 
     /**
      * Получить размер кеша
      */
     size() {
-        return this.cache.size;
+        return Object.keys(this._getCache()).length;
     }
 }
 

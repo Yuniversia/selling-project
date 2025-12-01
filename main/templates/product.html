@@ -4,10 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MacBook Air M2 - Lais</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='/styles2.css') }}?v=13">
-    <script src="{{ url_for('static', path='/notifications.js') }}?v=13" defer></script>
-    <script src="{{ url_for('static', path='/notification-prompt.js') }}?v=13" defer></script>
-    <script src="{{ url_for('static', path='/chat.js') }}?v=13" defer></script>
+    <link rel="stylesheet" href="{{ url_for('static', path='/styles2.css') }}?v=15">
+    <script src="{{ url_for('static', path='/cache-manager.js') }}?v=15"></script>
+    <script src="{{ url_for('static', path='/notifications.js') }}?v=15" defer></script>
+    <script src="{{ url_for('static', path='/notification-prompt.js') }}?v=15" defer></script>
+    <script src="{{ url_for('static', path='/chat.js') }}?v=15" defer></script>
 </head>
 <body>
 
@@ -64,6 +65,47 @@
             </div>
         </div>
 
+        <!-- Report Modal -->
+        <div id="reportModal" class="modal">
+            <div class="modal-content" style="max-width: 450px;">
+                <h2 style="margin-bottom: 20px;">Пожаловаться на объявление</h2>
+                <p style="color: var(--color-text-light); font-size: 14px; margin-bottom: 20px;">
+                    Ваша жалоба будет рассмотрена администрацией. Пожалуйста, укажите причину.
+                </p>
+                <form id="reportForm">
+                    <div class="form-group">
+                        <label class="label">Причина жалобы *</label>
+                        <select id="reportReason" class="input" required>
+                            <option value="">Выберите причину</option>
+                            <option value="Мошенничество">Мошенничество</option>
+                            <option value="Поддельное устройство">Поддельное устройство</option>
+                            <option value="Украденный телефон">Украденный телефон</option>
+                            <option value="Неверная информация">Неверная информация</option>
+                            <option value="Дубликат объявления">Дубликат объявления</option>
+                            <option value="Неприемлемый контент">Неприемлемый контент</option>
+                            <option value="Спам">Спам</option>
+                            <option value="Другое">Другое</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="label">Дополнительная информация (необязательно)</label>
+                        <textarea id="reportDetails" class="input" rows="4" placeholder="Опишите подробнее проблему..." maxlength="500"></textarea>
+                        <div style="font-size: 12px; color: var(--color-text-light); margin-top: 4px;">
+                            <span id="reportDetailsCount">0</span>/500 символов
+                        </div>
+                    </div>
+                    <div id="reportSuccess" style="color: #34c759; margin-bottom: 16px; display: none; padding: 12px; background: #e8f5e9; border-radius: 8px; text-align: center;">
+                        ✓ Жалоба успешно отправлена
+                    </div>
+                    <div id="reportError" style="color: #ff3b30; margin-bottom: 16px; display: none; padding: 12px; background: #ffebee; border-radius: 8px; text-align: center;"></div>
+                    <div style="display: flex; gap: 12px;">
+                        <button type="button" class="btn btn-outline" style="flex: 1;" onclick="closeReportModal()">Отмена</button>
+                        <button type="submit" class="btn btn-primary" style="flex: 1; background: #ff3b30;" id="submitReportBtn">Отправить</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
         <div class="product-page-layout">
             
             <div class="gallery-container">
@@ -108,6 +150,39 @@
                 <div style="margin-top: 20px;">
                     <button id="BuyButon" style="width: 100%; padding-top: 20px; padding-bottom: 20px;"  class="btn btn-primary">Купить</button>
                 </div>
+
+                <!-- Кнопка жалобы (ненавязчивая) -->
+                <div style="margin-top: 15px; text-align: center;">
+                    <button id="reportBtn" class="btn-report" style="background: none; border: none; color: #999; font-size: 13px; cursor: pointer; padding: 8px 16px; border-radius: 6px; transition: all 0.2s;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 4px;">
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                            <line x1="12" y1="9" x2="12" y2="13"></line>
+                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                        </svg>
+                        Пожаловаться
+                    </button>
+                </div>
+
+                <!-- Админ-панель (только для admin/support) -->
+                {% if user and (user.user_type == 'admin' or user.user_type == 'support') %}
+                <div id="adminControls" style="margin-top: 20px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px;">
+                    <div style="color: white; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2">
+                            <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"></path>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                        </svg>
+                        Панель модератора
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button id="deactivatePostBtn" class="btn btn-outline" style="flex: 1; background: white; color: #ff3b30; border: none; font-weight: 600;">
+                            Деактивировать
+                        </button>
+                        <button id="activatePostBtn" class="btn btn-outline" style="flex: 1; background: white; color: #34c759; border: none; font-weight: 600; display: none;">
+                            Активировать
+                        </button>
+                    </div>
+                </div>
+                {% endif %}
 
 
                 <div class="specs-list" id="specsList">
@@ -171,10 +246,16 @@
     </main>
 
     <script>
+        // Проверка доступности cachedFetch
+        console.log('[Product] cachedFetch доступен:', typeof window.cachedFetch);
+        console.log('[Product] cacheManager доступен:', typeof window.cacheManager);
+        
         // Получаем ID поста из URL параметров
         const urlParams = new URLSearchParams(window.location.search);
         const postId = urlParams.get('id');
         let currentImages = [];
+
+        let currentPostData = null; // Хранение данных поста глобально
 
         async function loadPostData() {
             if (!postId) {
@@ -185,7 +266,12 @@
 
             try {
                 console.log(`Загружаем данные поста с ID: ${postId}`);
-                const response = await fetch(`http://localhost:3000/api/v1/iphone?id=${postId}`);
+                // Кешируем данные объявления на 10 минут
+                const response = await cachedFetch(
+                    `http://localhost:3000/api/v1/iphone?id=${postId}`,
+                    {},
+                    10 * 60 * 1000
+                );
                 
                 if (!response.ok) {
                     console.error('Ошибка при загрузке поста:', response.status);
@@ -193,16 +279,19 @@
                     return;
                 }
 
-                const postData = await response.json();
-                console.log('Данные поста получены:', postData);
+                currentPostData = await response.json();
+                console.log('Данные поста получены:', currentPostData);
                 
                 // Отображаем информацию о посте
-                updateProductDisplay(postData);
+                updateProductDisplay(currentPostData);
                 
                 // Загружаем информацию об авторе
-                if (postData.author_id) {
-                    await loadAuthorInfo(postData.author_id);
+                if (currentPostData.author_id) {
+                    await loadAuthorInfo(currentPostData.author_id);
                 }
+                
+                // Показываем админские кнопки если пост загружен
+                updateAdminControls();
                 
             } catch (error) {
                 console.error('Ошибка при загрузке данных:', error);
@@ -330,8 +419,12 @@
         async function loadAuthorInfo(authorId) {
             try {
                 console.log(`Загружаем информацию об авторе с ID: ${authorId}`);
-                // Запрашиваем информацию об авторе из auth сервиса
-                const response = await fetch(`http://localhost:8000/auth/user?id=${authorId}`);
+                // Кешируем данные автора на 15 минут
+                const response = await cachedFetch(
+                    `http://localhost:8000/auth/user?id=${authorId}`,
+                    {},
+                    15 * 60 * 1000
+                );
                 
                 if (response.ok) {
                     const authorData = await response.json();
@@ -525,9 +618,10 @@
         // Загрузка данных пользователя для автозаполнения
         async function loadUserProfileData() {
             try {
-                const response = await fetch('http://localhost:8000/auth/me', {
+                // Кешируем данные профиля на 5 минут
+                const response = await cachedFetch('http://localhost:8000/auth/me', {
                     credentials: 'include'
-                });
+                }, 5 * 60 * 1000);
                 
                 if (response.ok) {
                     const userData = await response.json();
@@ -606,26 +700,30 @@
         document.getElementById('BuyButon').addEventListener('click', openPurchaseModal);
         
         // Обработчик кнопки чата
-        document.getElementById('openChatBtn').addEventListener('click', () => {
+        document.getElementById('openChatBtn').addEventListener('click', async () => {
             if (!postId) {
                 alert('ID товара не найден');
                 return;
             }
             
-            // Получаем ID продавца из загруженных данных
-            fetch(`http://localhost:3000/api/v1/iphone?id=${postId}`)
-                .then(response => response.json())
-                .then(postData => {
-                    if (postData.author_id && window.chatManager) {
-                        window.chatManager.openChat(postData.author_id, parseInt(postId));
-                    } else {
-                        alert('Не удалось открыть чат');
-                    }
-                })
-                .catch(error => {
-                    console.error('Ошибка при открытии чата:', error);
-                    alert('Ошибка при открытии чата');
-                });
+            try {
+                // Получаем ID продавца из кешированных данных
+                const response = await cachedFetch(
+                    `http://localhost:3000/api/v1/iphone?id=${postId}`,
+                    {},
+                    10 * 60 * 1000
+                );
+                const postData = await response.json();
+                
+                if (postData.author_id && window.chatManager) {
+                    window.chatManager.openChat(postData.author_id, parseInt(postId));
+                } else {
+                    alert('Не удалось открыть чат');
+                }
+            } catch (error) {
+                console.error('Ошибка при открытии чата:', error);
+                alert('Ошибка при открытии чата');
+            }
         });
 
         // Закрытие модальных окон по клику вне их
@@ -634,6 +732,188 @@
                 closePurchaseModal();
             }
         });
+
+        document.getElementById('reportModal').addEventListener('click', (e) => {
+            if (e.target.id === 'reportModal') {
+                closeReportModal();
+            }
+        });
+
+        // === ФУНКЦИОНАЛ ЖАЛОБ ===
+        
+        // Открытие модального окна жалобы
+        document.getElementById('reportBtn').addEventListener('click', async () => {
+            // Проверяем, не отправлял ли пользователь уже жалобу
+            try {
+                const response = await fetch(`http://localhost:3000/api/v1/report/check/${postId}`, {
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.has_reported) {
+                        alert('Вы уже отправили жалобу на это объявление');
+                        return;
+                    }
+                }
+            } catch (error) {
+                console.log('Не удалось проверить статус жалобы');
+            }
+            
+            document.getElementById('reportModal').style.display = 'flex';
+            document.getElementById('reportSuccess').style.display = 'none';
+            document.getElementById('reportError').style.display = 'none';
+        });
+
+        // Закрытие модального окна жалобы
+        function closeReportModal() {
+            document.getElementById('reportModal').style.display = 'none';
+            document.getElementById('reportForm').reset();
+            document.getElementById('reportDetailsCount').textContent = '0';
+        }
+
+        // Счетчик символов в textarea
+        document.getElementById('reportDetails').addEventListener('input', (e) => {
+            document.getElementById('reportDetailsCount').textContent = e.target.value.length;
+        });
+
+        // Hover эффект для кнопки жалобы
+        const reportBtn = document.getElementById('reportBtn');
+        reportBtn.addEventListener('mouseenter', () => {
+            reportBtn.style.background = '#f5f5f5';
+            reportBtn.style.color = '#ff3b30';
+        });
+        reportBtn.addEventListener('mouseleave', () => {
+            reportBtn.style.background = 'none';
+            reportBtn.style.color = '#999';
+        });
+
+        // Обработка отправки формы жалобы
+        document.getElementById('reportForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const submitBtn = document.getElementById('submitReportBtn');
+            const errorDiv = document.getElementById('reportError');
+            const successDiv = document.getElementById('reportSuccess');
+            
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Отправка...';
+            errorDiv.style.display = 'none';
+            successDiv.style.display = 'none';
+            
+            const reportData = {
+                post_id: parseInt(postId),
+                reason: document.getElementById('reportReason').value,
+                details: document.getElementById('reportDetails').value || null
+            };
+            
+            try {
+                const response = await fetch('http://localhost:3000/api/v1/report', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify(reportData)
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log('Жалоба отправлена:', result);
+                    
+                    // Показываем успешное сообщение
+                    successDiv.style.display = 'block';
+                    document.getElementById('reportForm').style.display = 'none';
+                    
+                    // Закрываем модальное окно через 2 секунды
+                    setTimeout(() => {
+                        closeReportModal();
+                        document.getElementById('reportForm').style.display = 'block';
+                    }, 2000);
+                    
+                } else {
+                    const error = await response.json();
+                    errorDiv.textContent = error.detail || 'Не удалось отправить жалобу';
+                    errorDiv.style.display = 'block';
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Отправить';
+                }
+            } catch (error) {
+                console.error('Ошибка при отправке жалобы:', error);
+                errorDiv.textContent = 'Ошибка сети. Попробуйте позже.';
+                errorDiv.style.display = 'block';
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Отправить';
+            }
+        });
+
+        // === АДМИНСКАЯ ПАНЕЛЬ ===
+        {% if user and (user.user_type == 'admin' or user.user_type == 'support') %}
+        
+        function updateAdminControls() {
+            // Показываем нужную кнопку в зависимости от статуса поста
+            if (currentPostData && currentPostData.active) {
+                document.getElementById('deactivatePostBtn').style.display = 'block';
+                document.getElementById('activatePostBtn').style.display = 'none';
+            } else if (currentPostData) {
+                document.getElementById('deactivatePostBtn').style.display = 'none';
+                document.getElementById('activatePostBtn').style.display = 'block';
+            }
+        }
+
+        // Обработчик кнопки деактивации
+        document.getElementById('deactivatePostBtn')?.addEventListener('click', async () => {
+            if (!confirm('Вы уверены, что хотите деактивировать это объявление?')) return;
+            
+            try {
+                const response = await fetch(`http://localhost:3000/api/v1/admin/posts/${postId}/deactivate`, {
+                    method: 'PUT',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    alert('✓ Объявление успешно деактивировано');
+                    location.reload();
+                } else {
+                    const error = await response.json();
+                    alert('Ошибка: ' + (error.detail || 'Не удалось деактивировать'));
+                }
+            } catch (error) {
+                console.error('Ошибка:', error);
+                alert('Ошибка подключения');
+            }
+        });
+
+        // Обработчик кнопки активации
+        document.getElementById('activatePostBtn')?.addEventListener('click', async () => {
+            if (!confirm('Активировать это объявление?')) return;
+            
+            try {
+                const response = await fetch(`http://localhost:3000/api/v1/admin/posts/${postId}/activate`, {
+                    method: 'PUT',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    alert('✓ Объявление успешно активировано');
+                    location.reload();
+                } else {
+                    const error = await response.json();
+                    alert('Ошибка: ' + (error.detail || 'Не удалось активировать'));
+                }
+            } catch (error) {
+                console.error('Ошибка:', error);
+                alert('Ошибка подключения');
+            }
+        });
+        
+        {% else %}
+        
+        function updateAdminControls() {
+            // Пользователь не админ - ничего не делаем
+        }
+        
+        {% endif %}
 
         // Загружаем данные при загрузке страницы
         window.addEventListener('load', loadPostData);

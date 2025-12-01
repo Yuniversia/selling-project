@@ -1,5 +1,6 @@
 # main.py (для микросервиса Posts API)
 
+import os
 from fastapi import FastAPI
 from post_router import api_router
 from bought_router import bought_router
@@ -18,17 +19,10 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
+# CORS - разрешаем все для локальной сети
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:8080",
-        "http://localhost:8000",
-        "http://localhost:3000",
-        "http://localhost:5500",
-        "http://127.0.0.1:8080",
-        "http://127.0.0.1:8000",
-        "http://127.0.0.1:3000",
-    ],
+    allow_origins=["*"],  # В продакшене замените на конкретные домены
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Проверка IMEI - Lais</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/styles2.css') }}?v=15">
+    <script src="{{ url_for('static', path='/cache-manager.js') }}?v=15"></script>
+    <style>
+        /* Основной контейнер с боковой рекламой */
+        .page-wrapper {
+            display: flex;
+            max-width: 1400px;
+            margin: 0 auto;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        /* Боковая реклама */
+        .side-ad {
+            display: none; /* Скрыто по умолчанию для мобильных */
+            width: 160px;
+            flex-shrink: 0;
+            position: sticky;
+            top: 100px;
+            height: fit-content;
+        }
+
+        /* Показываем боковую рекламу на больших экранах */
+        @media (min-width: 1200px) {
+            .side-ad {
+                display: block;
+            }
+        }
+
+        .ad-block {
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 20px;
+            min-height: 600px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            font-size: 12px;
+            text-align: center;
+        }
+
+        .imei-checker-container {
+            flex: 1;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .imei-input-section {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            border: 1px solid var(--color-border);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .imei-input {
+            width: 100%;
+            max-width: 400px;
+            padding: 15px 20px;
+            font-size: 18px;
+            border: 2px solid var(--color-border);
+            border-radius: 12px;
+            text-align: center;
+            letter-spacing: 1px;
+            transition: var(--transition);
+        }
+
+        .imei-input:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 4px rgba(13, 138, 188, 0.1);
+        }
+
+        .check-button {
+            margin-top: 20px;
+            padding: 15px 50px;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .loading-container {
+            display: none;
+            background: white;
+            padding: 60px 40px;
+            border-radius: 20px;
+            border: 1px solid var(--color-border);
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--color-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--color-primary), #00c853);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .result-container {
+            display: none;
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            border: 1px solid var(--color-border);
+            margin-bottom: 30px;
+        }
+
+        .result-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid var(--color-border);
+        }
+
+        .result-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            flex-shrink: 0;
+        }
+
+        .result-icon.success {
+            background: #e8f5e9;
+            color: #4caf50;
+        }
+
+        .result-icon.warning {
+            background: #fff3e0;
+            color: #ff9800;
+        }
+
+        .result-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .result-item {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+        }
+
+        .result-label {
+            font-size: 13px;
+            color: var(--color-text-light);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .result-value {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--color-text);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .status-badge.success {
+            background: #e8f5e9;
+            color: #4caf50;
+        }
+
+        .status-badge.danger {
+            background: #ffebee;
+            color: #f44336;
+        }
+
+        .ad-container {
+            min-height: 250px;
+            background: #f0f0f0;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            font-size: 14px;
+            margin: 30px 0;
+            border: 2px dashed #ddd;
+        }
+
+        .similar-products {
+            margin-top: 40px;
+            padding: 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+        }
+
+        .similar-products h2 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            text-align: center;
+            color: white;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .similar-products p {
+            color: rgba(255, 255, 255, 0.95);
+            text-align: center;
+            margin-bottom: 25px;
+            font-size: 16px;
+        }
+
+        /* Переопределяем стили карточек для IMEI страницы - делаем их заметнее */
+        .similar-products .product-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        .similar-products .post-card {
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+        }
+
+        .similar-products .post-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+        }
+
+        /* Мобильные устройства - 1 колонка, крупные карточки */
+        @media (max-width: 768px) {
+            .similar-products .product-grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+
+            .similar-products {
+                padding: 25px 15px;
+                margin-top: 30px;
+            }
+
+            .similar-products h2 {
+                font-size: 24px;
+            }
+        }
+
+        /* Планшеты - 2 колонки */
+        @media (min-width: 769px) and (max-width: 1023px) {
+            .similar-products .product-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* Десктоп - 4 колонки */
+        @media (min-width: 1024px) {
+            .similar-products .product-grid {
+                grid-template-columns: repeat(4, 1fr);
+                gap: 20px;
+            }
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            padding: 20px;
+            border-radius: 12px;
+            border-left: 4px solid #2196f3;
+            margin-bottom: 30px;
+        }
+
+        .info-box p {
+            margin: 0;
+            line-height: 1.6;
+            color: #1565c0;
+        }
+    </style>
+</head>
+<body>
+    <header class="header-fixed">
+        <div class="nav-container">
+            <a href="/" class="logo">lais</a>
+            <div class="header-controls">
+                <a href="/terms" class="btn btn-outline" style="margin-right: 10px;">Правила</a>
+                <a href="/" class="btn btn-outline">На главную</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-container" style="padding-top: 100px;">
+        <div class="page-wrapper">
+            <!-- Левая реклама (только ПК) -->
+            <aside class="side-ad">
+                <div class="ad-block">
+                    <!-- Google AdSense - Левый блок 160x600 (Wide Skyscraper) -->
+                    <div>
+                        Реклама<br>160×600
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Основной контент -->
+            <div class="imei-checker-container">
+                <h1 style="font-size: 40px; text-align: center; margin-bottom: 15px;">Проверка IMEI</h1>
+                <p style="text-align: center; color: var(--color-text-light); margin-bottom: 40px; font-size: 16px;">
+                    Проверьте статус iPhone по IMEI перед покупкой
+                </p>
+
+            <div class="info-box">
+                <p>
+                    <strong>💡 Совет:</strong> Всегда проверяйте IMEI перед покупкой б/у iPhone. 
+                    Это поможет убедиться, что устройство не числится в розыске и не заблокировано оператором.
+                </p>
+            </div>
+
+            <!-- Форма ввода IMEI -->
+            <div id="inputSection" class="imei-input-section">
+                <h2 style="margin-bottom: 20px;">Введите IMEI номер</h2>
+                <input 
+                    type="text" 
+                    id="imeiInput" 
+                    class="imei-input" 
+                    placeholder="Например: 352964100000000"
+                    maxlength="15"
+                    pattern="[0-9]*"
+                >
+                <p style="color: var(--color-text-light); font-size: 13px; margin-top: 10px;">
+                    IMEI состоит из 15 цифр. Найти его можно в Настройки → Основные → Об этом устройстве
+                </p>
+                <button id="checkButton" class="btn btn-primary check-button">
+                    Проверить IMEI
+                </button>
+            </div>
+
+            <!-- Реклама Google AdSense (верхний блок) -->
+            <div class="ad-container">
+                <!-- Здесь будет ваш код Google AdSense -->
+                <div>Реклама Google AdSense</div>
+            </div>
+
+            <!-- Состояние загрузки -->
+            <div id="loadingSection" class="loading-container">
+                <div class="loading-spinner"></div>
+                <h3 id="loadingText">Проверяем устройство...</h3>
+                <p style="color: var(--color-text-light); margin-top: 10px;" id="loadingSubtext">
+                    Запрос информации из базы данных
+                </p>
+                <div class="progress-bar">
+                    <div id="progressFill" class="progress-fill"></div>
+                </div>
+                <p style="color: var(--color-text-light); font-size: 13px;">
+                    Это может занять несколько секунд...
+                </p>
+            </div>
+
+            <!-- Результаты проверки -->
+            <div id="resultSection" class="result-container">
+                <div class="result-header">
+                    <div id="resultIcon" class="result-icon success">✓</div>
+                    <div>
+                        <h2 style="margin: 0 0 5px 0;" id="resultTitle">Устройство проверено</h2>
+                        <p style="margin: 0; color: var(--color-text-light);" id="resultSubtitle">
+                            Информация получена из официальных источников
+                        </p>
+                    </div>
+                </div>
+
+                <div class="result-grid">
+                    <div class="result-item">
+                        <div class="result-label">IMEI</div>
+                        <div class="result-value" id="resultIMEI">—</div>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-label">Модель</div>
+                        <div class="result-value" id="resultModel">—</div>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-label">Цвет</div>
+                        <div class="result-value" id="resultColor">—</div>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-label">Память</div>
+                        <div class="result-value" id="resultMemory">—</div>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-label">Find My iPhone</div>
+                        <div class="result-value" id="resultFMI">—</div>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-label">Активация</div>
+                        <div class="result-value" id="resultActivation">—</div>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-label">Блокировка по sim</div>
+                        <div class="result-value" id="resultSimlock">—</div>
+                    </div>
+                </div>
+
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+                    <h3 style="margin-bottom: 15px;">Дополнительная информация</h3>
+                    <div style="display: grid; gap: 10px;">
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="color: var(--color-text-light);">Серийный номер:</span>
+                            <span style="font-weight: 600;" id="resultSerial">—</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="color: var(--color-text-light);">Дата покупки:</span>
+                            <span style="font-weight: 600;" id="resultPurchaseDate">—</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="color: var(--color-text-light);">Гарантия:</span>
+                            <span style="font-weight: 600;" id="resultWarranty">—</span>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="btn btn-outline" onclick="resetChecker()" style="width: 100%;">
+                    Проверить другой IMEI
+                </button>
+            </div>
+
+            <!-- ✅ ПРИОРИТЕТ #1: Наши предложения (перед рекламой!) -->
+            <div id="similarProducts" class="similar-products" style="display: none;">
+                <h2 style="margin-bottom: 10px;">📱 Доступные iPhone на Lais</h2>
+                <p style="text-align: center; margin-bottom: 25px;">
+                    Проверенные устройства с гарантией безопасности
+                </p>
+                <div id="similarProductsGrid" class="product-grid">
+                    <!-- Динамически загружаемые карточки -->
+                </div>
+                <div style="text-align: center; margin-top: 30px;">
+                    <a href="/" class="btn btn-primary" style="display: inline-block; padding: 16px 48px; font-size: 18px; font-weight: 600; background: white; color: #667eea; border: none; text-decoration: none; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); transition: all 0.3s ease;">
+                        Смотреть все объявления →
+                    </a>
+                </div>
+            </div>
+
+            <!-- Реклама Google AdSense (после наших товаров) -->
+            <div class="ad-container">
+                <!-- Здесь будет ваш код Google AdSense -->
+                <div>Реклама Google AdSense</div>
+            </div>
+            </div>
+
+            <!-- Правая реклама (только ПК) -->
+            <aside class="side-ad">
+                <div class="ad-block">
+                    <!-- Google AdSense - Правый блок 160x600 (Wide Skyscraper) -->
+                    <div>
+                        Реклама<br>160×600
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </main>
+
+    <footer style="background: #f8f9fa; padding: 30px 0; margin-top: 50px; text-align: center; border-top: 1px solid var(--color-border);">
+        <p style="color: var(--color-text-light); margin: 0 0 10px 0;">
+            © 2025 Lais. Все права защищены.
+        </p>
+        <p style="color: var(--color-text-light); margin: 0;">
+            <a href="/terms" style="color: var(--color-primary); text-decoration: none;">Правила использования</a>
+        </p>
+    </footer>
+
+    <script>
+        const imeiInput = document.getElementById('imeiInput');
+        const checkButton = document.getElementById('checkButton');
+        
+        // Разрешаем только цифры
+        imeiInput.addEventListener('input', (e) => {
+            e.target.value = e.target.value.replace(/[^0-9]/g, '');
+        });
+
+        // Обработчик проверки IMEI
+        checkButton.addEventListener('click', async () => {
+            const imei = imeiInput.value.trim();
+            
+            if (!imei || imei.length !== 15) {
+                alert('Пожалуйста, введите корректный IMEI (15 цифр)');
+                return;
+            }
+
+            await checkIMEI(imei);
+        });
+
+        // Enter для отправки
+        imeiInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                checkButton.click();
+            }
+        });
+
+        async function checkIMEI(imei) {
+            // Скрываем форму ввода
+            document.getElementById('inputSection').style.display = 'none';
+            
+            // Показываем загрузку
+            const loadingSection = document.getElementById('loadingSection');
+            loadingSection.style.display = 'block';
+            
+            const progressFill = document.getElementById('progressFill');
+            const loadingText = document.getElementById('loadingText');
+            const loadingSubtext = document.getElementById('loadingSubtext');
+
+            // Анимация прогресса с задержкой для показа рекламы
+            const stages = [
+                { progress: 20, text: 'Подключение к базе данных...', subtext: 'Проверяем IMEI в системе', delay: 1000 },
+                { progress: 40, text: 'Запрос информации об устройстве...', subtext: 'Получаем данные из Apple', delay: 2000 },
+                { progress: 60, text: 'Проверка Find My iPhone...', subtext: 'Проверяем статус блокировки', delay: 2000 },
+                { progress: 80, text: 'Получение дополнительных данных...', subtext: 'Загружаем информацию о гарантии', delay: 2000 },
+                { progress: 100, text: 'Финализация проверки...', subtext: 'Почти готово!', delay: 1500 }
+            ];
+
+            for (const stage of stages) {
+                await new Promise(resolve => setTimeout(resolve, stage.delay));
+                progressFill.style.width = stage.progress + '%';
+                loadingText.textContent = stage.text;
+                loadingSubtext.textContent = stage.subtext;
+            }
+
+            // Запрашиваем данные с сервера
+            try {
+                const response = await fetch(`http://localhost:8080/api/check-imei?imei=${imei}`);
+                
+                if (!response.ok) {
+                    throw new Error('Не удалось получить данные');
+                }
+
+                const data = await response.json();
+                
+                // Скрываем загрузку
+                loadingSection.style.display = 'none';
+                
+                // Показываем результаты
+                displayResults(data);
+                
+                // Загружаем похожие товары
+                await loadSimilarProducts(data.model, data.memory);
+                
+            } catch (error) {
+                console.error('Ошибка проверки IMEI:', error);
+                loadingSection.style.display = 'none';
+                alert('Ошибка при проверке IMEI. Попробуйте позже.');
+                document.getElementById('inputSection').style.display = 'block';
+            }
+        }
+
+        function displayResults(data) {
+            const resultSection = document.getElementById('resultSection');
+            const resultIcon = document.getElementById('resultIcon');
+            const resultTitle = document.getElementById('resultTitle');
+            
+            // Определяем статус устройства
+            const isSafe = !data.find_my_iphone && data.activation_lock === false;
+            
+            if (isSafe) {
+                resultIcon.className = 'result-icon success';
+                resultIcon.textContent = '✓';
+                resultTitle.textContent = 'Устройство безопасно для покупки';
+            } else {
+                resultIcon.className = 'result-icon warning';
+                resultIcon.textContent = '⚠';
+                resultTitle.textContent = 'Обнаружены предупреждения';
+            }
+
+            // Заполняем данные
+            document.getElementById('resultIMEI').textContent = data.imei || '—';
+            document.getElementById('resultModel').textContent = data.model || '—';
+            document.getElementById('resultColor').textContent = data.color || '—';
+            document.getElementById('resultMemory').textContent = data.memory ? `${data.memory}GB` : '—';
+            
+            // Find My iPhone статус
+            const fmiElement = document.getElementById('resultFMI');
+            if (data.find_my_iphone) {
+                fmiElement.innerHTML = '<span class="status-badge danger">Включен</span>';
+            } else {
+                fmiElement.innerHTML = '<span class="status-badge success">Выключен</span>';
+            }
+            
+            // Статус активации
+            const activationElement = document.getElementById('resultActivation');
+            if (data.activation_lock) {
+                activationElement.innerHTML = '<span class="status-badge danger">Заблокирован</span>';
+            } else {
+                activationElement.innerHTML = '<span class="status-badge success">Свободен</span>';
+            }
+
+            // Статус симлок
+            const simlockElement = document.getElementById('resultSimlock');
+            if (data.sim_lock) {
+                simlockElement.innerHTML = '<span class="status-badge danger">Заблокирован</span>';
+            } else {
+                simlockElement.innerHTML = '<span class="status-badge success">Разблокирован</span>';
+            }
+            
+            document.getElementById('resultSerial').textContent = data.serial_number || 'Не найден';
+            document.getElementById('resultPurchaseDate').textContent = data.purchase_date || 'Неизвестна';
+            document.getElementById('resultWarranty').textContent = data.warranty_status || 'Истекла';
+
+            resultSection.style.display = 'block';
+        }
+
+        async function loadSimilarProducts(model, memory) {
+            try {
+                console.log('[Similar Products] Ищем похожие товары:', { model, memory });
+                
+                // Извлекаем число из строки памяти (например "256GB" -> 256)
+                const memoryValue = memory ? parseInt(memory.replace(/[^0-9]/g, '')) : null;
+                
+                // Определяем количество товаров в зависимости от устройства
+                const isMobile = window.innerWidth <= 768;
+                const limit = isMobile ? 6 : 8; // Мобильные: 6 товаров (по 1 в ряд), Десктоп: 8 товаров (по 4 в ряд)
+                
+                // Просто показываем любые активные товары (без фильтра по модели)
+                // Это страница привлечения клиентов - важнее показать ЧТО-НИБУДЬ
+                let url = `http://localhost:3000/api/v1/iphone/list?limit=${limit}`;
+                
+                console.log('[Similar Products] URL запроса:', url);
+                
+                // Получаем похожие товары с кешем 5 минут
+                const response = await cachedFetch(url, {}, 5 * 60 * 1000);
+                
+                if (!response.ok) {
+                    console.error('[Similar Products] Ошибка ответа:', response.status);
+                    return;
+                }
+                
+                const products = await response.json();
+                console.log('[Similar Products] Получено товаров:', products.length);
+                
+                if (products && products.length > 0) {
+                    const similarSection = document.getElementById('similarProducts');
+                    const grid = document.getElementById('similarProductsGrid');
+                    
+                    grid.innerHTML = products.map(product => `
+                        <div class="post-card" style="display: flex; flex-direction: column; height: 100%;">
+                            <div style="aspect-ratio: 4/3; background: #f0f0f0; border-radius: 12px 12px 0 0; overflow: hidden; flex-shrink: 0; position: relative;">
+                                ${product.images_url ? `
+                                    <img src="${product.images_url.split(',')[0]}" alt="${product.model}" 
+                                         style="width: 100%; height: 100%; object-fit: cover;">
+                                ` : `
+                                    <div style="display: flex; align-items: center; justify-content: center; height: 100%;">
+                                        <svg width="48" height="48" fill="#ccc" viewBox="0 0 24 24">
+                                            <rect x="2" y="3" width="20" height="14" rx="2" stroke="currentColor" fill="none"/>
+                                        </svg>
+                                    </div>
+                                `}
+                            </div>
+                            <div style="padding: 15px; flex-grow: 1; display: flex; flex-direction: column;">
+                                <div style="font-size: 20px; font-weight: 700; color: var(--color-primary); margin-bottom: 8px;">
+                                    ${product.price} EUR
+                                </div>
+                                <div style="font-weight: 600; margin-bottom: 4px; min-height: 21px;">
+                                    ${product.model || 'iPhone'}
+                                </div>
+                                <div style="font-size: 13px; color: var(--color-text-light); margin-top: auto;">
+                                    ${product.memory ? product.memory + 'GB' : ''} ${product.color || ''}
+                                </div>
+                                <a href="/product?id=${product.id}" class="btn btn-primary" style="margin-top: 12px; text-align: center; text-decoration: none;">
+                                    Посмотреть
+                                </a>
+                            </div>
+                        </div>
+                    `).join('');
+                    
+                    similarSection.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Ошибка загрузки похожих товаров:', error);
+            }
+        }
+
+        function resetChecker() {
+            document.getElementById('resultSection').style.display = 'none';
+            document.getElementById('similarProducts').style.display = 'none';
+            document.getElementById('inputSection').style.display = 'block';
+            document.getElementById('imeiInput').value = '';
+            document.getElementById('progressFill').style.width = '0%';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>

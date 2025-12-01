@@ -23,6 +23,7 @@ env/
 *.sqlite3
 
 # Environment variables (локальные)
+.env
 .env.local
 .env.*.local
 
@@ -44,12 +45,6 @@ docker-compose.override.yml
 
 # Backups
 backup_*.sql
-
-# Configs (если содержат секреты)
-auth/configs.py
-posts/configs.py
-photos_service/configs.py
-iphone_checker/configs.py
 
 # Service-specific
 photos_service/__pycache__

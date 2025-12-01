@@ -19,10 +19,11 @@ COPY . .
 # Переменные окружения по умолчанию
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8080
+ENV BACKEND_HOST=0.0.0.0
 
 # Healthcheck (используем wget вместо requests)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost:${PORT}/health || exit 1
 
 # Запуск приложения
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT}"]
+CMD ["sh", "-c", "uvicorn main:app --host ${BACKEND_HOST} --port ${PORT}"]

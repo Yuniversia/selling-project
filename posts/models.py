@@ -4,6 +4,7 @@ from sqlmodel import Field, SQLModel
 from pydantic import BaseModel, Field as PydanticField, field_validator
 from typing import Optional
 from datetime import datetime
+from enum import Enum
 
 # --- Модель Pydantic для входных данных (для POST запроса) ---
 # Эта модель используется для валидации данных, пришедших из формы/JSON.
@@ -106,4 +107,59 @@ class IphonePublic(BaseModel):
     has_cable: bool = False
     has_receipt: bool = False
     has_warranty: bool = False
+    created_at: datetime
+
+
+# --- Модель для уникальных просмотров ---
+class PostView(SQLModel, table=True):
+    """Таблица для отслеживания уникальных просмотров постов"""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    post_id: int = Field(foreign_key="iphone.id", index=True)
+    viewer_id: Optional[int] = Field(default=None, index=True)  # ID авторизованного пользователя (может быть None)
+    viewer_ip: str = Field(max_length=45, index=True)  # IP адрес (IPv4 или IPv6)
+    user_agent: Optional[str] = Field(default=None, max_length=500)  # User-Agent браузера
+    viewed_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+# --- Enum для причин жалоб ---
+class ReportReason(str, Enum):
+    FRAUD = "Мошенничество"
+    FAKE_DEVICE = "Поддельное устройство"
+    STOLEN = "Украденный телефон"
+    WRONG_INFO = "Неверная информация"
+    DUPLICATE = "Дубликат объявления"
+    INAPPROPRIATE = "Неприемлемый контент"
+    SPAM = "Спам"
+    OTHER = "Другое"
+
+
+# --- Модель для жалоб ---
+class PostReport(SQLModel, table=True):
+    """Таблица для жалоб на посты"""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    post_id: int = Field(foreign_key="iphone.id", index=True)
+    reporter_id: Optional[int] = Field(default=None, index=True)  # ID пользователя, подавшего жалобу
+    reporter_ip: str = Field(max_length=45)  # IP адрес (для анонимных жалоб)
+    reason: str = Field(max_length=50)  # Причина из ReportReason
+    details: Optional[str] = Field(default=None, max_length=500)  # Дополнительные детали
+    status: str = Field(default="pending", max_length=20)  # pending, reviewed, resolved, rejected
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    reviewed_at: Optional[datetime] = Field(default=None)
+    reviewed_by: Optional[int] = Field(default=None)  # ID модератора, рассмотревшего жалобу
+
+
+# --- Pydantic модели для API ---
+class ReportCreate(BaseModel):
+    """Модель для создания жалобы"""
+    post_id: int = PydanticField(..., description="ID объявления")
+    reason: ReportReason = PydanticField(..., description="Причина жалобы")
+    details: Optional[str] = PydanticField(None, max_length=500, description="Дополнительные детали")
+
+
+class ReportResponse(BaseModel):
+    """Модель ответа после создания жалобы"""
+    id: int
+    post_id: int
+    reason: str
+    status: str
     created_at: datetime

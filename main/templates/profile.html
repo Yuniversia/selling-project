@@ -4,11 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Мой профиль - Lais</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='/styles2.css') }}?v=13">
-    <script src="{{ url_for('static', path='/notifications.js') }}?v=13" defer></script>
-    <script src="{{ url_for('static', path='/notification-prompt.js') }}?v=13" defer></script>
-    <script src="{{ url_for('static', path='/chat.js') }}?v=13" defer></script>
-    <script src="{{ url_for('static', path='/seller-chats.js') }}?v=13" defer></script>
+    <link rel="stylesheet" href="{{ url_for('static', path='/styles2.css') }}?v=15">
+    <script src="{{ url_for('static', path='/cache-manager.js') }}?v=15"></script>
+    <script src="{{ url_for('static', path='/notifications.js') }}?v=15" defer></script>
+    <script src="{{ url_for('static', path='/notification-prompt.js') }}?v=15" defer></script>
+    <script src="{{ url_for('static', path='/chat.js') }}?v=15" defer></script>
+    <script src="{{ url_for('static', path='/seller-chats.js') }}?v=15" defer></script>
     <style>
         /* Специфичные стили для профиля */
         .profile-layout {
@@ -140,6 +141,86 @@
                 padding: 24px;
             }
         }
+
+        /* Стили для админ-панели жалоб */
+        .filter-btn {
+            padding: 8px 16px;
+            border: 1px solid var(--color-border);
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .filter-btn:hover {
+            background: #f5f5f7;
+        }
+
+        .filter-btn.active {
+            background: var(--color-primary);
+            color: white;
+            border-color: var(--color-primary);
+        }
+
+        .report-card {
+            background: white;
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .report-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+
+        .report-card.pending {
+            border-left: 4px solid #ff3b30;
+        }
+
+        .report-card.reviewed {
+            border-left: 4px solid #007aff;
+        }
+
+        .report-card.resolved {
+            border-left: 4px solid #34c759;
+        }
+
+        .report-card.rejected {
+            border-left: 4px solid #999;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-badge.pending {
+            background: #ffebee;
+            color: #ff3b30;
+        }
+
+        .status-badge.reviewed {
+            background: #e3f2fd;
+            color: #007aff;
+        }
+
+        .status-badge.resolved {
+            background: #e8f5e9;
+            color: #34c759;
+        }
+
+        .status-badge.rejected {
+            background: #f5f5f5;
+            color: #999;
+        }
     </style>
 </head>
 <body id="profilePage">
@@ -192,6 +273,21 @@
                         <span class="stat-label">Продаж</span>
                     </div>
                 </div>
+
+                <!-- Кнопка для админов/поддержки -->
+                {% if user and (user.user_type == 'admin' or user.user_type == 'support') %}
+                <div id="adminPanel" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--color-border);">
+                    <button id="reportsBtn" class="btn btn-primary" style="width: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); font-weight: 600;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 6px;">
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                            <line x1="12" y1="9" x2="12" y2="13"></line>
+                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                        </svg>
+                        Жалобы
+                        <span id="pendingReportsCount" style="background: #fff; color: #667eea; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 700; margin-left: 8px;">0</span>
+                    </button>
+                </div>
+                {% endif %}
             </aside>
 
             <section class="settings-card">
@@ -241,6 +337,55 @@
         </div>
 
     </main>
+
+    <!-- Модальное окно управления жалобами (для админов) -->
+    <div id="reportsModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 1200px; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0;">Управление жалобами</h2>
+                <button onclick="closeReportsModal()" style="background: none; border: none; font-size: 28px; cursor: pointer; color: #999;">×</button>
+            </div>
+
+            <!-- Фильтры -->
+            <div style="display: flex; gap: 12px; margin-bottom: 20px;">
+                <button class="filter-btn active" data-filter="all" onclick="filterReports('all')">Все</button>
+                <button class="filter-btn" data-filter="pending" onclick="filterReports('pending')">На рассмотрении</button>
+                <button class="filter-btn" data-filter="reviewed" onclick="filterReports('reviewed')">Просмотренные</button>
+                <button class="filter-btn" data-filter="resolved" onclick="filterReports('resolved')">Решенные</button>
+                <button class="filter-btn" data-filter="rejected" onclick="filterReports('rejected')">Отклоненные</button>
+            </div>
+
+            <!-- Список жалоб -->
+            <div id="reportsList" style="flex: 1; overflow-y: auto; border: 1px solid var(--color-border); border-radius: 12px; padding: 20px;">
+                <div style="text-align: center; color: var(--color-text-light);">Загрузка...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно детальной информации о жалобе -->
+    <div id="reportDetailModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 700px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0;">Жалоба #<span id="reportDetailId">0</span></h2>
+                <button onclick="closeReportDetailModal()" style="background: none; border: none; font-size: 28px; cursor: pointer; color: #999;">×</button>
+            </div>
+
+            <div id="reportDetailContent">
+                <!-- Динамически загружаемый контент -->
+            </div>
+
+            <div style="display: flex; gap: 12px; margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--color-border);">
+                <button onclick="goToPost()" class="btn btn-outline" style="flex: 1;">Перейти к объявлению</button>
+                <button onclick="deactivatePostFromReport()" class="btn btn-outline" style="flex: 1; color: #ff3b30; border-color: #ff3b30;">Деактивировать пост</button>
+            </div>
+
+            <div style="display: flex; gap: 12px; margin-top: 12px;">
+                <button onclick="updateReportStatus('reviewed')" class="btn btn-outline" style="flex: 1;">Просмотрено</button>
+                <button onclick="updateReportStatus('resolved')" class="btn btn-primary" style="flex: 1; background: #34c759;">Решено</button>
+                <button onclick="updateReportStatus('rejected')" class="btn btn-outline" style="flex: 1; color: #999;">Отклонить</button>
+            </div>
+        </div>
+    </div>
 
     <script>
         // Функция инициализации профиля
@@ -295,12 +440,57 @@
         document.getElementById('logoutBtn').addEventListener('click', async () => {
             try {
                 await fetch('http://localhost:8000/auth/logout', { method: 'POST', credentials: 'include' });
+                
+                // Очищаем только пользовательские данные, сохраняя настройки
+                clearUserData();
+                
                 window.location.href = '/';
             } catch (e) {
                 console.error(e);
+                
+                // Очищаем даже при ошибке
+                clearUserData();
+                
                 window.location.href = '/';
             }
         });
+
+        // Функция для очистки только пользовательских данных
+        function clearUserData() {
+            // Очищаем кэш API (используем новый метод clearUserData)
+            if (window.cacheManager && typeof cacheManager.clearUserData === 'function') {
+                cacheManager.clearUserData();
+            }
+            
+            // Очищаем пользовательские данные из localStorage, сохраняя настройки
+            const keysToKeep = [
+                'lais_cookie_consent',      // Согласие на cookies
+                'lais_push_permission',     // Разрешение на push-уведомления
+                'filters_collapsed',        // Состояние фильтров
+                'theme_preference',         // Тема оформления
+                'api_cache'                 // Кэш API (очищается через cacheManager.clearUserData)
+            ];
+            const itemsToKeep = {};
+            
+            // Сохраняем нужные ключи
+            keysToKeep.forEach(key => {
+                const value = localStorage.getItem(key);
+                if (value !== null) {
+                    itemsToKeep[key] = value;
+                }
+            });
+            
+            // Очищаем весь localStorage и sessionStorage
+            localStorage.clear();
+            sessionStorage.clear();
+            
+            // Восстанавливаем сохраненные настройки
+            Object.keys(itemsToKeep).forEach(key => {
+                localStorage.setItem(key, itemsToKeep[key]);
+            });
+            
+            console.log('[Logout] Пользовательские данные очищены, настройки сохранены');
+        }
 
         // Обработка загрузки аватара
         document.getElementById('avatarInput').addEventListener('change', async (e) => {
@@ -440,6 +630,311 @@
 
         // Запуск
         initProfile();
+
+
+        // === АДМИН-ПАНЕЛЬ ЖАЛОБ ===
+
+        let allReports = [];
+        let currentFilter = 'all';
+        let currentReportId = null;
+        let currentPostId = null;
+
+        // Проверка прав и загрузка жалоб
+        function getUserTypeFromToken() {
+            const token = document.cookie
+                .split('; ')
+                .find(row => row.startsWith('access_token='))
+                ?.split('=')[1];
+            
+            if (!token) return null;
+            
+            try {
+                // Декодируем JWT (base64 decode payload)
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                return payload.user_type || null;
+            } catch (error) {
+                console.error('Ошибка декодирования токена:', error);
+                return null;
+            }
+        }
+
+        // Загрузка количества ожидающих жалоб
+        async function loadPendingReportsCount() {
+            try {
+                const response = await fetch('http://localhost:3000/api/v1/admin/reports?status_filter=pending', {
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const reports = await response.json();
+                    document.getElementById('pendingReportsCount').textContent = reports.length;
+                }
+            } catch (error) {
+                console.log('Не удалось загрузить счетчик жалоб');
+            }
+        }
+
+        // Открытие модального окна жалоб
+        document.getElementById('reportsBtn')?.addEventListener('click', async () => {
+            document.getElementById('reportsModal').style.display = 'flex';
+            await loadReports();
+        });
+
+        // Закрытие модального окна
+        function closeReportsModal() {
+            document.getElementById('reportsModal').style.display = 'none';
+        }
+
+        // Загрузка всех жалоб
+        async function loadReports() {
+            try {
+                const response = await fetch('http://localhost:3000/api/v1/admin/reports?limit=200', {
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    allReports = await response.json();
+                    displayReports();
+                } else {
+                    document.getElementById('reportsList').innerHTML = 
+                        '<div style="text-align: center; color: var(--color-error);">Ошибка загрузки жалоб</div>';
+                }
+            } catch (error) {
+                console.error('Ошибка загрузки жалоб:', error);
+                document.getElementById('reportsList').innerHTML = 
+                    '<div style="text-align: center; color: var(--color-error);">Ошибка подключения</div>';
+            }
+        }
+
+        // Фильтрация жалоб
+        function filterReports(filter) {
+            currentFilter = filter;
+            
+            // Обновляем активные кнопки
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`[data-filter="${filter}"]`).classList.add('active');
+            
+            displayReports();
+        }
+
+        // Отображение жалоб
+        function displayReports() {
+            const container = document.getElementById('reportsList');
+            
+            let filtered = allReports;
+            if (currentFilter !== 'all') {
+                filtered = allReports.filter(r => r.status === currentFilter);
+            }
+            
+            if (filtered.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: var(--color-text-light); padding: 40px;">Жалоб не найдено</div>';
+                return;
+            }
+            
+            container.innerHTML = filtered.map(report => {
+                const statusText = {
+                    'pending': 'На рассмотрении',
+                    'reviewed': 'Просмотрено',
+                    'resolved': 'Решено',
+                    'rejected': 'Отклонено'
+                }[report.status];
+                
+                const date = new Date(report.created_at).toLocaleString('ru-RU', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                
+                return `
+                    <div class="report-card ${report.status}" onclick="openReportDetail(${report.id})">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+                            <div>
+                                <div style="font-weight: 600; margin-bottom: 4px;">
+                                    Жалоба #${report.id} на объявление #${report.post_id}
+                                </div>
+                                <div style="font-size: 13px; color: var(--color-text-light);">
+                                    ${report.post_model || 'Модель неизвестна'}
+                                </div>
+                            </div>
+                            <span class="status-badge ${report.status}">${statusText}</span>
+                        </div>
+                        <div style="font-size: 14px; color: var(--color-text-light); margin-bottom: 8px;">
+                            <strong>Причина:</strong> ${report.reason}
+                        </div>
+                        ${report.details ? `
+                            <div style="font-size: 13px; color: var(--color-text-light); margin-bottom: 8px; padding: 8px; background: #f5f5f7; border-radius: 6px;">
+                                ${report.details.substring(0, 100)}${report.details.length > 100 ? '...' : ''}
+                            </div>
+                        ` : ''}
+                        <div style="font-size: 12px; color: var(--color-text-light);">
+                            ${date} • ${report.reporter_id ? `User #${report.reporter_id}` : report.reporter_ip}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Открытие детальной информации о жалобе
+        async function openReportDetail(reportId) {
+            const report = allReports.find(r => r.id === reportId);
+            if (!report) return;
+            
+            currentReportId = reportId;
+            currentPostId = report.post_id;
+            
+            document.getElementById('reportDetailId').textContent = reportId;
+            
+            const statusText = {
+                'pending': 'На рассмотрении',
+                'reviewed': 'Просмотрено',
+                'resolved': 'Решено',
+                'rejected': 'Отклонено'
+            }[report.status];
+            
+            const date = new Date(report.created_at).toLocaleString('ru-RU', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            
+            document.getElementById('reportDetailContent').innerHTML = `
+                <div style="display: grid; gap: 16px;">
+                    <div>
+                        <div style="font-size: 13px; color: var(--color-text-light); margin-bottom: 4px;">Объявление</div>
+                        <div style="font-weight: 600;">
+                            #${report.post_id} - ${report.post_model || 'Неизвестно'}
+                            <span style="margin-left: 12px; padding: 4px 8px; background: ${report.post_active ? '#e8f5e9' : '#ffebee'}; color: ${report.post_active ? '#34c759' : '#ff3b30'}; border-radius: 6px; font-size: 12px;">
+                                ${report.post_active ? 'Активно' : 'Неактивно'}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <div style="font-size: 13px; color: var(--color-text-light); margin-bottom: 4px;">Причина</div>
+                        <div style="font-weight: 600;">${report.reason}</div>
+                    </div>
+                    
+                    ${report.details ? `
+                        <div>
+                            <div style="font-size: 13px; color: var(--color-text-light); margin-bottom: 4px;">Дополнительная информация</div>
+                            <div style="padding: 12px; background: #f5f5f7; border-radius: 8px; white-space: pre-wrap;">${report.details}</div>
+                        </div>
+                    ` : ''}
+                    
+                    <div>
+                        <div style="font-size: 13px; color: var(--color-text-light); margin-bottom: 4px;">Отправитель</div>
+                        <div>${report.reporter_id ? `Пользователь #${report.reporter_id}` : `Анонимный (${report.reporter_ip})`}</div>
+                    </div>
+                    
+                    <div>
+                        <div style="font-size: 13px; color: var(--color-text-light); margin-bottom: 4px;">Статус</div>
+                        <span class="status-badge ${report.status}">${statusText}</span>
+                    </div>
+                    
+                    <div>
+                        <div style="font-size: 13px; color: var(--color-text-light); margin-bottom: 4px;">Дата создания</div>
+                        <div>${date}</div>
+                    </div>
+                    
+                    ${report.reviewed_at ? `
+                        <div>
+                            <div style="font-size: 13px; color: var(--color-text-light); margin-bottom: 4px;">Рассмотрено</div>
+                            <div>${new Date(report.reviewed_at).toLocaleString('ru-RU')} ${report.reviewed_by ? `(Модератор #${report.reviewed_by})` : ''}</div>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+            
+            document.getElementById('reportDetailModal').style.display = 'flex';
+        }
+
+        // Закрытие детального модального окна
+        function closeReportDetailModal() {
+            document.getElementById('reportDetailModal').style.display = 'none';
+        }
+
+        // Переход к объявлению
+        function goToPost() {
+            if (currentPostId) {
+                window.open(`/product?id=${currentPostId}`, '_blank');
+            }
+        }
+
+        // Деактивация поста из жалобы
+        async function deactivatePostFromReport() {
+            if (!currentPostId) return;
+            
+            if (!confirm('Вы уверены, что хотите деактивировать это объявление?')) return;
+            
+            try {
+                const response = await fetch(`http://localhost:3000/api/v1/admin/posts/${currentPostId}/deactivate`, {
+                    method: 'PUT',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    alert('Объявление успешно деактивировано');
+                    await loadReports();
+                    closeReportDetailModal();
+                } else {
+                    const error = await response.json();
+                    alert('Ошибка: ' + (error.detail || 'Не удалось деактивировать'));
+                }
+            } catch (error) {
+                console.error('Ошибка деактивации:', error);
+                alert('Ошибка подключения');
+            }
+        }
+
+        // Обновление статуса жалобы
+        async function updateReportStatus(newStatus) {
+            if (!currentReportId) return;
+            
+            try {
+                const response = await fetch(`http://localhost:3000/api/v1/admin/reports/${currentReportId}?new_status=${newStatus}&action=none`, {
+                    method: 'PUT',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    alert('Статус жалобы обновлен');
+                    await loadReports();
+                    await loadPendingReportsCount();
+                    closeReportDetailModal();
+                } else {
+                    const error = await response.json();
+                    alert('Ошибка: ' + (error.detail || 'Не удалось обновить статус'));
+                }
+            } catch (error) {
+                console.error('Ошибка обновления статуса:', error);
+                alert('Ошибка подключения');
+            }
+        }
+
+        // Закрытие модальных окон по клику вне их
+        document.getElementById('reportsModal').addEventListener('click', (e) => {
+            if (e.target.id === 'reportsModal') {
+                closeReportsModal();
+            }
+        });
+
+        document.getElementById('reportDetailModal').addEventListener('click', (e) => {
+            if (e.target.id === 'reportDetailModal') {
+                closeReportDetailModal();
+            }
+        });
+
+        // Проверяем админ-доступ при загрузке
+        // Загружаем счетчик жалоб если админ
+        {% if user and (user.user_type == 'admin' or user.user_type == 'support') %}
+        loadPendingReportsCount();
+        {% endif %}
     </script>
 
 </body>

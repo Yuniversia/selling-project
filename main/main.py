@@ -1,9 +1,14 @@
 # main.py (для микросервиса Frontend)
 
+import os
 from fastapi import FastAPI
 from frontend_router import frontend_router
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
+
+# Загружаем конфигурацию
+BACKEND_HOST = os.getenv("BACKEND_HOST", "0.0.0.0")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:8080")
 
 def configure_static(app: FastAPI):
     app.mount("/templates/static", StaticFiles(directory="templates/static"), name="static")
@@ -18,17 +23,10 @@ app = FastAPI(
 )
 configure_static(app)
 
+# Настройка CORS - разрешаем все origins для локальной сети
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:8080",
-        "http://localhost:8000",
-        "http://localhost:3000",
-        "http://localhost:5500",
-        "http://127.0.0.1:8080",
-        "http://127.0.0.1:8000",
-        "http://127.0.0.1:3000",
-    ],
+    allow_origins=["*"],  # Разрешаем все origins для локальной сети
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -37,6 +35,51 @@ app.add_middleware(
 
 # Подключаем роутер для отдачи страниц
 app.include_router(frontend_router)
+
+# API для проверки IMEI
+@app.get("/api/check-imei")
+async def check_imei(imei: str):
+    """Проверка IMEI через iphone_checker сервис"""
+    import httpx
+    import os
+    
+    # URL сервиса из переменной окружения или localhost
+    imei_service_url = os.getenv("IMEI_CHECKER_URL", "http://localhost:5001")
+    
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            # Запрос к сервису проверки IMEI
+            response = await client.get(f"{imei_service_url}/check/{imei}")
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                return {
+                    "error": "IMEI не найден",
+                    "imei": imei,
+                    "model": "Неизвестно",
+                    "color": "—",
+                    "memory": None,
+                    "find_my_iphone": None,
+                    "activation_lock": None,
+                    "serial_number": "—",
+                    "purchase_date": "—",
+                    "warranty_status": "—"
+                }
+    except Exception as e:
+        print(f"Ошибка проверки IMEI: {e}")
+        return {
+            "error": "Ошибка подключения к сервису проверки",
+            "imei": imei,
+            "model": "Неизвестно",
+            "color": "—",
+            "memory": None,
+            "find_my_iphone": None,
+            "activation_lock": None,
+            "serial_number": "—",
+            "purchase_date": "—",
+            "warranty_status": "—"
+        }
 
 # Health check endpoint для Docker
 @app.get("/health")

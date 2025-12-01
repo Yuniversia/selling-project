@@ -152,6 +152,8 @@ make db-shell
 - `user` - Пользователи (auth)
 - `iphone` - Объявления (posts)
 - `bought` - Покупки (posts)
+- `postreport` - Жалобы на объявления (moderation)
+- `postview` - Уникальные просмотры (analytics)
 
 ### Подключение:
 ```bash
@@ -161,6 +163,33 @@ docker-compose exec postgres psql -U postgres -d lais_marketplace
 # Локально (если PostgreSQL установлен)
 psql -U postgres -h localhost -p 5432 -d lais_marketplace
 ```
+
+## 👑 Управление администраторами
+
+### Быстрый способ (Python скрипт):
+```bash
+# Установка зависимостей (один раз)
+pip install tabulate
+
+# Показать всех пользователей
+python admin_manager.py list
+
+# Назначить админа
+python admin_manager.py set admin username
+
+# Назначить модератора
+python admin_manager.py set support username
+
+# Убрать права
+python admin_manager.py set regular username
+```
+
+### GUI программы для PostgreSQL:
+- **pgAdmin 4** (рекомендуется): https://www.pgadmin.org/download/
+- **DBeaver**: https://dbeaver.io/download/
+- **TablePlus**: https://tableplus.com/
+
+**Подробная инструкция**: [ADMIN_GUIDE.md](./ADMIN_GUIDE.md)
 
 ## 🔐 Переменные окружения (`.env`)
 

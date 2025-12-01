@@ -1,5 +1,6 @@
 # main.py
 
+import os
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from starlette.middleware.sessions import SessionMiddleware
@@ -27,23 +28,19 @@ app = FastAPI(
     lifespan=lifespan # Регистрируем контекстный менеджер
 )
 
+# CORS - разрешаем все для локальной сети
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:8080",
-        "http://localhost:8000",
-        "http://localhost:3000",
-        "http://localhost:5500",
-        "http://127.0.0.1:8080",
-        "http://127.0.0.1:8000",
-        "http://127.0.0.1:3000",
-    ],
+    allow_origins=["*"],  # В продакшене замените на конкретные домены
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"],
 )
-app.add_middleware(SessionMiddleware, secret_key="ANY_RANDOM_STRING_FOR_SESSION")
+
+# Session middleware
+SESSION_SECRET = os.getenv('SESSION_SECRET', 'ANY_RANDOM_STRING_FOR_SESSION')
+app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET)
 
 # Подключаем роутер аутентификации
 app.include_router(auth_router)
