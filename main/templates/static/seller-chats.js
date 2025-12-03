@@ -56,7 +56,7 @@ class SellerChatsManager {
         
         try {
             console.log('[SellerChats] Запрос авторизации к auth-service...');
-            const response = await fetch('http://localhost:8000/auth/me', {
+            const response = await fetch('/api/v1/auth/me', {
                 credentials: 'include'
             });
             
@@ -278,7 +278,7 @@ class SellerChatsManager {
         console.log('[SellerChats] Загрузка чатов для продавца:', this.userId);
         
         try {
-            const url = `http://localhost:4000/api/chat/chats/seller/${this.userId}/grouped`;
+            const url = `/api/v1/chat/chats/seller/${this.userId}/grouped`;
             console.log('[SellerChats] Запрос к:', url);
             
             // Загружаем чаты продавца, сгруппированные по объявлениям
@@ -463,7 +463,7 @@ class SellerChatsManager {
         
         try {
             // Получаем данные чата
-            const response = await fetch(`http://localhost:4000/api/chat/chats/${chatId}/info`);
+            const response = await fetch(`/api/v1/chat/chats/${chatId}/info`);
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             
             const chat = await response.json();
@@ -512,7 +512,7 @@ class SellerChatsManager {
         container.innerHTML = '<div class="chat-loading">Загрузка сообщений...</div>';
         
         try {
-            const response = await fetch(`http://localhost:4000/api/chat/chats/${chatId}/messages`);
+            const response = await fetch(`/api/v1/chat/chats/${chatId}/messages`);
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             
             const messages = await response.json();
@@ -558,7 +558,9 @@ class SellerChatsManager {
             this.ws.close();
         }
         
-        const wsUrl = `ws://localhost:4000/api/chat/ws/${chatId}?user_id=${this.userId}`;
+        // Определяем протокол WebSocket (ws или wss) на основе текущего протокола страницы
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${wsProtocol}//${window.location.host}/api/v1/chat/ws/${chatId}?user_id=${this.userId}`;
         console.log('[SellerChats] Подключение к WebSocket:', wsUrl);
         this.ws = new WebSocket(wsUrl);
         
@@ -673,7 +675,7 @@ class SellerChatsManager {
     
     async markAsRead(chatId) {
         try {
-            await fetch(`http://localhost:4000/api/chat/chats/${chatId}/read?user_id=${this.userId}`, {
+            await fetch(`/api/v1/chat/chats/${chatId}/read?user_id=${this.userId}`, {
                 method: 'POST'
             });
             this.loadChats(); // Обновляем счётчики
@@ -738,7 +740,7 @@ class SellerChatsManager {
             async () => {
                 try {
                     const response = await fetch(
-                        `http://localhost:4000/api/chat/chats/${this.selectedChatId}`,
+                        `/api/v1/chat/chats/${this.selectedChatId}`,
                         { method: 'DELETE' }
                     );
                     
@@ -766,7 +768,7 @@ class SellerChatsManager {
         }
         
         try {
-            const response = await fetch(`http://localhost:3000/api/v1/iphone?id=${iphoneId}`);
+            const response = await fetch(`/api/v1/posts/iphone?id=${iphoneId}`);
             if (response.ok) {
                 const data = await response.json();
                 this.cachedIphoneData[iphoneId] = data; // Сохраняем в кэш

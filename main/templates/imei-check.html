@@ -4,8 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Проверка IMEI - Lais</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='/styles2.css') }}?v=15">
-    <script src="{{ url_for('static', path='/cache-manager.js') }}?v=15"></script>
+    <link rel="stylesheet" href="/templates/static/styles2.css?v=16">
+    <script src="/templates/static/cache-manager.js?v=16"></script>
+    <script>
+        // API Configuration - использование относительных путей
+        const POSTS_API = "/api/v1";
+        console.log('🔧 POSTS API URL:', POSTS_API);
+    </script>
     <style>
         /* Основной контейнер с боковой рекламой */
         .page-wrapper {
@@ -562,7 +567,7 @@
 
             // Запрашиваем данные с сервера
             try {
-                const response = await fetch(`http://localhost:8080/api/check-imei?imei=${imei}`);
+                const response = await fetch(`/api/v1/imei/check-imei?imei=${imei}`);
                 
                 if (!response.ok) {
                     throw new Error('Не удалось получить данные');
@@ -655,7 +660,7 @@
                 
                 // Просто показываем любые активные товары (без фильтра по модели)
                 // Это страница привлечения клиентов - важнее показать ЧТО-НИБУДЬ
-                let url = `http://localhost:3000/api/v1/iphone/list?limit=${limit}`;
+                let url = `${POSTS_API}/iphone/list?limit=${limit}`;
                 
                 console.log('[Similar Products] URL запроса:', url);
                 
@@ -723,3 +728,4 @@
     </script>
 </body>
 </html>
+

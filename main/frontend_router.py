@@ -10,12 +10,20 @@ from typing import Optional
 # Инициализация Jinja2Templates. 
 # Указываем, где искать HTML-шаблоны (в папке 'templates')
 templates = Jinja2Templates(directory="templates")
+# Отключаем кеширование шаблонов для корректной работы
+templates.env.auto_reload = True
 
 frontend_router = APIRouter(tags=["Frontend Pages"])
 
 # Секретный ключ для JWT (должен совпадать с auth-service)
 SECRET_KEY = os.getenv('SECRET_KEY', "My secret key")
 ALGORITHM = os.getenv('TOKEN_ALGORITHM', "HS256")
+
+# API URLs для передачи в шаблоны
+AUTH_API_URL = os.getenv('AUTH_SERVICE_URL', 'http://localhost:8000')
+POSTS_API_URL = os.getenv('POSTS_SERVICE_URL', 'http://localhost:3000')
+CHAT_API_URL = os.getenv('CHAT_SERVICE_URL', 'http://localhost:4000')
+IMEI_API_URL = os.getenv('IMEI_SERVICE_URL', 'http://localhost:5001')
 
 def get_user_from_token(request: Request) -> Optional[dict]:
     """Извлекает данные пользователя из JWT токена в cookies."""
@@ -35,67 +43,95 @@ def get_user_from_token(request: Request) -> Optional[dict]:
     except jwt.InvalidTokenError:
         return None
 
+def get_template_context(request: Request, title: str = "") -> dict:
+    """Возвращает базовый контекст для всех шаблонов с API URLs."""
+    user = get_user_from_token(request)
+    return {
+        "request": request,
+        "title": title,
+        "user": user,
+        # API URLs
+        "AUTH_API": AUTH_API_URL,
+        "POSTS_API": POSTS_API_URL,
+        "CHAT_API": CHAT_API_URL,
+        "IMEI_API": IMEI_API_URL
+    }
+
 @frontend_router.get("/", name="index")
 def index_page(request: Request):
     """Отдает главную страницу."""
-    user = get_user_from_token(request)
-    return templates.TemplateResponse(
+    response = templates.TemplateResponse(
         "index2.html", 
-        {"request": request, "title": "Главная", "user": user}
+        get_template_context(request, "Главная")
     )
+    # Отключаем кеширование HTML в браузере
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 @frontend_router.get("/product", name="product")
 def products_page(request: Request):
     """Отдает страницу со списком продуктов."""
-    user = get_user_from_token(request)
     return templates.TemplateResponse(
         "product.html", 
-        {"request": request, "title": "Продукты", "user": user}
+        get_template_context(request, "Продукты")
     )
 
 @frontend_router.get("/seller", name="seller")
 def author_page(request: Request):
     """Отдает страницу об продавце."""
-    user = get_user_from_token(request)
     return templates.TemplateResponse(
         "seller.html", 
-        {"request": request, "title": "Об продавце", "user": user}
+        get_template_context(request, "Об продавце")
     )
 
 @frontend_router.get("/profile", name="profile")
 def profile_page(request: Request):
     """Отдает страницу профиля пользователя."""
-    user = get_user_from_token(request)
     return templates.TemplateResponse(
         "profile.html", 
-        {"request": request, "title": "Мой Профиль", "user": user}
+        get_template_context(request, "Мой Профиль")
     )
 
 @frontend_router.get("/post-ad", name="post_ad")
 def post_ad_page(request: Request):
     """Отдает страницу подачи объявления."""
-    user = get_user_from_token(request)
     return templates.TemplateResponse(
         "post-ad.html", 
-        {"request": request, "title": "Подать объявление", "user": user}
+        get_template_context(request, "Подать объявление")
     )
 
 @frontend_router.get("/terms", name="terms")
 def terms_page(request: Request):
     """Отдает страницу правил использования."""
-    user = get_user_from_token(request)
     return templates.TemplateResponse(
         "terms.html", 
-        {"request": request, "title": "Правила использования", "user": user}
+        get_template_context(request, "Правила использования")
     )
 
 @frontend_router.get("/imei-check", name="imei_check")
 def imei_check_page(request: Request):
     """Отдает страницу проверки IMEI."""
-    user = get_user_from_token(request)
     return templates.TemplateResponse(
         "imei-check.html", 
-        {"request": request, "title": "Проверка IMEI", "user": user}
+        get_template_context(request, "Проверка IMEI")
+    )
+
+@frontend_router.get("/my-orders", name="my_orders")
+def my_orders_page(request: Request):
+    """Отдает страницу заказов покупателя."""
+    return templates.TemplateResponse(
+        "my-orders.html", 
+        get_template_context(request, "Мои заказы")
+    )
+
+@frontend_router.get("/my-sales", name="my_sales")
+def my_sales_page(request: Request):
+    """Отдает страницу продаж продавца."""
+    return templates.TemplateResponse(
+        "my-sales.html", 
+        get_template_context(request, "Мои продажи")
     )
 
 @frontend_router.get("/debug/token", name="debug_token")

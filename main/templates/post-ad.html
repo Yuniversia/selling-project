@@ -4,7 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
     <title>Новое объявление</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='/styles2.css') }}">
+    <link rel="stylesheet" href="/templates/static/styles2.css?v=16">
+    <script>
+        // API Configuration - единый стандарт /api/v1/<service>
+        const API_V1 = "/api/v1";
+        const POSTS_API = `${API_V1}/posts`;
+        console.log('🔧 API BASE:', API_V1);
+    </script>
     <style>
         .post-container { max-width: 700px; margin: 40px auto; background: #fff; padding: 40px; border-radius: 24px; border: 1px solid var(--color-border); }
         @media(max-width: 768px) { .post-container { margin: 0; border-radius: 0; border: none; padding: 20px; } }
@@ -556,7 +562,7 @@
                 updateProgress(progressBar, progressText, progressPercent, 75, 'Отправляем данные...');
                 
                 console.log('Отправляем данные на Posts API...');
-                const response = await fetch('http://localhost:3000/api/v1/iphone', {
+                const response = await fetch(`${POSTS_API}/iphone`, {
                     method: 'POST',
                     body: formData,
                     credentials: 'include' // Отправляем cookies с JWT токеном
@@ -570,7 +576,7 @@
                     setTimeout(() => {
                         alert(`Пост опубликован! ID: ${data.id}`);
                         // Редирект на страницу продукта
-                        window.location.href = `http://localhost:5500/product?id=${data.id}`;
+                        window.location.href = `/product?id=${data.id}`;
                     }, 500);
                 } else {
                     const error = await response.json();
@@ -611,7 +617,7 @@
                     try {
                         // Для каждой фотографии получаем свой URL загрузки
                         console.log(`Запрашиваем URL для загрузки фото ${i + 1}/${photosArray.length}...`);
-                        const urlResponse = await fetch('http://localhost:3000/api/v1/r2_link');
+                        const urlResponse = await fetch(`${POSTS_API}/r2_link`);
                         
                         if (!urlResponse.ok) {
                             throw new Error(`Ошибка получения URL: ${urlResponse.status}`);

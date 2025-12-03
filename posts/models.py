@@ -163,3 +163,156 @@ class ReportResponse(BaseModel):
     reason: str
     status: str
     created_at: datetime
+
+
+# =============================================================================
+# МОДЕЛИ ДЛЯ СИСТЕМЫ ПОКУПКИ И ДОСТАВКИ
+# =============================================================================
+
+# --- Enum для способов доставки ---
+class DeliveryMethod(str, Enum):
+    PICKUP = "pickup"  # Забрать лично
+    DPD = "dpd"  # Доставка DPD
+    OMNIVA = "omniva"  # Доставка Omniva
+
+
+# --- Enum для статусов заказа ---
+class OrderStatus(str, Enum):
+    PENDING_PAYMENT = "pending_payment"  # Ожидает оплаты
+    PAID = "paid"  # Оплачен
+    PROCESSING = "processing"  # В обработке
+    SHIPPED = "shipped"  # Отправлен
+    DELIVERED = "delivered"  # Доставлен в пакомат/на адрес
+    COMPLETED = "completed"  # Получен и подтвержден покупателем
+    CANCELLED = "cancelled"  # Отменен
+    REFUNDED = "refunded"  # Возврат средств
+
+
+# --- Модель заказа в БД ---
+class Order(SQLModel, table=True):
+    """Таблица заказов"""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    
+    # Связи
+    post_id: int = Field(foreign_key="iphone.id", index=True)  # Какой товар куплен
+    buyer_id: Optional[int] = Field(default=None, index=True)  # ID покупателя (None для анонимов)
+    seller_id: int = Field(index=True)  # ID продавца
+    
+    # Финансы
+    price: float = Field(description="Цена товара на момент покупки")
+    
+    # Способ доставки
+    delivery_method: str = Field(max_length=20)  # pickup, dpd, omniva
+    
+    # Данные покупателя
+    buyer_first_name: str = Field(max_length=100)
+    buyer_last_name: str = Field(max_length=100)
+    buyer_email: str = Field(max_length=255, index=True)
+    buyer_phone: str = Field(max_length=20)
+    
+    # Адрес доставки (заполняется только если не pickup)
+    delivery_address: Optional[str] = Field(default=None, max_length=500)
+    delivery_city: Optional[str] = Field(default=None, max_length=100)
+    delivery_zip: Optional[str] = Field(default=None, max_length=20)
+    delivery_country: Optional[str] = Field(default=None, max_length=100)
+    
+    # Код для получения из пакомата (генерируется после оплаты)
+    pickup_code: Optional[str] = Field(default=None, max_length=10)
+    
+    # Трекинг-номер для отслеживания доставки
+    tracking_number: Optional[str] = Field(default=None, max_length=100)
+    
+    # Статус заказа
+    status: str = Field(default="pending_payment", max_length=20, index=True)
+    
+    # Временные метки
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    paid_at: Optional[datetime] = Field(default=None)
+    shipped_at: Optional[datetime] = Field(default=None)
+    delivered_at: Optional[datetime] = Field(default=None)
+    completed_at: Optional[datetime] = Field(default=None)
+    
+    # Подтверждение получения
+    confirmed_by_buyer: bool = Field(default=False)
+    rejected_by_buyer: bool = Field(default=False)  # Отклонено покупателем
+    
+    # Отзыв
+    review_rating: Optional[int] = Field(default=None, ge=0, le=5)  # Оценка 0-5
+    review_text: Optional[str] = Field(default=None, max_length=500)  # Текст отзыва
+
+
+# --- Pydantic модели для создания заказа ---
+class OrderCreate(BaseModel):
+    """Данные для создания заказа"""
+    post_id: int = PydanticField(..., description="ID товара")
+    delivery_method: DeliveryMethod = PydanticField(..., description="Способ доставки")
+    
+    # Данные покупателя
+    first_name: str = PydanticField(..., min_length=2, max_length=100)
+    last_name: str = PydanticField(..., min_length=2, max_length=100)
+    email: str = PydanticField(..., description="Email для отправки кода")
+    phone: str = PydanticField(..., min_length=8, max_length=20)
+    
+    # Адрес доставки (обязателен для DPD и Omniva)
+    delivery_address: Optional[str] = PydanticField(None, max_length=500)
+    delivery_city: Optional[str] = PydanticField(None, max_length=100)
+    delivery_zip: Optional[str] = PydanticField(None, max_length=20)
+    delivery_country: Optional[str] = PydanticField(default="Latvia", max_length=100)
+
+
+class OrderResponse(BaseModel):
+    """Ответ после создания заказа - БЕЗ ЛИЧНЫХ ДАННЫХ"""
+    id: int
+    post_id: int
+    status: str
+    delivery_method: str
+    price: float
+    created_at: datetime
+    
+    # Для покупателя - только его заказ
+    buyer_first_name: Optional[str] = None
+    buyer_last_name: Optional[str] = None
+    
+    # Для продавца - только имя покупателя (без email/phone/адреса)
+    buyer_name: Optional[str] = None
+    
+    # Временные метки
+    paid_at: Optional[datetime] = None
+    shipped_at: Optional[datetime] = None
+    delivered_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    
+    # Отзыв (если есть)
+    review_rating: Optional[int] = None
+    review_text: Optional[str] = None
+
+
+class OrderConfirmation(BaseModel):
+    """Подтверждение получения товара + отзыв"""
+    order_id: int = PydanticField(..., description="ID заказа")
+    accepted: bool = PydanticField(..., description="Принять (True) или отклонить (False)")
+    rating: int = PydanticField(..., ge=0, le=5, description="Оценка от 0 до 5 звёзд")
+    review_text: Optional[str] = PydanticField(None, max_length=500, description="Текст отзыва")
+
+
+# =============================================================================
+# МОДЕЛЬ USER (для обновления статистики продавца)
+# =============================================================================
+
+class User(SQLModel, table=True):
+    """Копия модели User из auth-service для обновления статистики"""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    username: str = Field(index=True, unique=True, max_length=50)
+    email: str = Field(index=True, unique=True, max_length=150)
+    hashed_password: Optional[str]
+    status: str = Field(default="active", index=True)
+    user_type: str = Field(default="regular", index=True)
+    
+    avatar_url: Optional[str] = Field(default=None)
+    name: Optional[str] = Field(default=None, max_length=150)
+    surname: Optional[str] = Field(default=None, max_length=150)
+    phone: Optional[str] = Field(default=None, max_length=20)
+    posts_count: int = Field(default=0)
+    sells_count: int = Field(default=0)  # Количество успешных продаж
+    rating: float = Field(default=5.0, ge=0, le=5)  # Рейтинг продавца
+    created_at: datetime = Field(default_factory=datetime.utcnow)

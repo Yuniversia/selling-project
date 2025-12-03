@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function fetchProfileData() {
         try {
             // Пытаемся получить данные с защищенного эндпоинта
-            const response = await fetch("/auth/me", {
+            const response = await fetch("/api/v1/auth/me", {
                 method: "GET",
                 headers: {
                     "Authorization": `Bearer ${token}`

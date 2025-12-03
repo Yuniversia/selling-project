@@ -28,10 +28,17 @@ app = FastAPI(
     lifespan=lifespan # Регистрируем контекстный менеджер
 )
 
-# CORS - разрешаем все для локальной сети
+# CORS - разрешаем конкретные origins для работы с credentials
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # В продакшене замените на конкретные домены
+    allow_origins=[
+        "http://localhost",
+        "http://localhost:8080",
+        "http://127.0.0.1",
+        "http://127.0.0.1:8080",
+        "http://136.169.38.242",  # Wi-Fi IP через Nginx (порт 80)
+        "http://136.169.38.242:8080",  # Wi-Fi IP напрямую
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -9,6 +9,7 @@ itsdangerous
 python-multipart
 psycopg2-binary  # PostgreSQL driver
 python-dotenv    # For .env file support
+aiosmtplib==3.0.0
 
 # For checker.py
 requests

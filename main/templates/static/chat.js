@@ -50,7 +50,7 @@ class ChatManager {
      */
     async checkAuth() {
         try {
-            const response = await fetch('http://localhost:8000/auth/me', {
+            const response = await fetch('/api/v1/auth/me', {
                 credentials: 'include'
             });
             
@@ -227,7 +227,7 @@ class ChatManager {
         console.log('[Chat] Поиск существующего чата...');
         try {
             const response = await fetch(
-                `http://localhost:4000/api/chat/chats/find?iphone_id=${iphoneId}&seller_id=${sellerId}&buyer_id=${this.userId}`
+                `/api/v1/chat/chats/find?iphone_id=${iphoneId}&seller_id=${sellerId}&buyer_id=${this.userId}`
             );
             
             if (response.ok) {
@@ -288,7 +288,7 @@ class ChatManager {
      */
     async getOrCreateChat() {
         try {
-            const response = await fetch('http://localhost:4000/api/chat/chats', {
+            const response = await fetch('/api/v1/chat/chats', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -320,7 +320,7 @@ class ChatManager {
     async loadMessages() {
         try {
             const response = await fetch(
-                `http://localhost:4000/api/chat/chats/${this.chatId}/messages`
+                `/api/v1/chat/chats/${this.chatId}/messages`
             );
             
             if (response.ok) {
@@ -391,29 +391,45 @@ class ChatManager {
             this.ws.close();
         }
         
-        const wsUrl = `ws://localhost:4000/api/chat/ws/${this.chatId}?user_id=${this.userId}`;
-        console.log('Подключение к WebSocket:', wsUrl);
+        // Определяем протокол WebSocket (ws или wss) на основе текущего протокола страницы
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${wsProtocol}//${window.location.host}/api/v1/chat/ws/${this.chatId}?user_id=${this.userId}`;
+        console.log('[WebSocket] Попытка подключения...');
+        console.log('[WebSocket] Protocol:', wsProtocol);
+        console.log('[WebSocket] Host:', window.location.host);
+        console.log('[WebSocket] Full URL:', wsUrl);
+        console.log('[WebSocket] ChatId:', this.chatId, 'UserId:', this.userId);
         
-        this.ws = new WebSocket(wsUrl);
+        try {
+            this.ws = new WebSocket(wsUrl);
+            console.log('[WebSocket] WebSocket объект создан, readyState:', this.ws.readyState);
+        } catch (error) {
+            console.error('[WebSocket] Ошибка при создании WebSocket:', error);
+            return;
+        }
         
         this.ws.onopen = () => {
-            console.log('WebSocket подключен');
+            console.log('[WebSocket] ✅ Соединение установлено! ReadyState:', this.ws.readyState);
             this.updateOnlineStatus(true);
             this.reconnectAttempts = 0;
         };
         
         this.ws.onmessage = (event) => {
+            console.log('[WebSocket] 📩 Получено сообщение:', event.data);
             const data = JSON.parse(event.data);
             this.handleWebSocketMessage(data);
         };
         
         this.ws.onerror = (error) => {
-            console.error('WebSocket ошибка:', error);
+            console.error('[WebSocket] ❌ Ошибка соединения:', error);
+            console.error('[WebSocket] ReadyState при ошибке:', this.ws.readyState);
             this.updateOnlineStatus(false);
         };
         
-        this.ws.onclose = () => {
-            console.log('WebSocket закрыт');
+        this.ws.onclose = (event) => {
+            console.log('[WebSocket] 🔌 Соединение закрыто');
+            console.log('[WebSocket] Close code:', event.code, 'Reason:', event.reason);
+            console.log('[WebSocket] Was clean:', event.wasClean);
             this.updateOnlineStatus(false);
             
             // Переподключение
@@ -533,7 +549,7 @@ class ChatManager {
     async markAsRead() {
         try {
             await fetch(
-                `http://localhost:4000/api/chat/chats/${this.chatId}/read?user_id=${this.userId}`,
+                `/api/v1/chat/chats/${this.chatId}/read?user_id=${this.userId}`,
                 { method: 'POST' }
             );
         } catch (error) {

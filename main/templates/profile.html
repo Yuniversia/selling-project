@@ -4,12 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Мой профиль - Lais</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='/styles2.css') }}?v=15">
-    <script src="{{ url_for('static', path='/cache-manager.js') }}?v=15"></script>
-    <script src="{{ url_for('static', path='/notifications.js') }}?v=15" defer></script>
-    <script src="{{ url_for('static', path='/notification-prompt.js') }}?v=15" defer></script>
-    <script src="{{ url_for('static', path='/chat.js') }}?v=15" defer></script>
-    <script src="{{ url_for('static', path='/seller-chats.js') }}?v=15" defer></script>
+    <link rel="stylesheet" href="/templates/static/styles2.css?v=16">
+    <script src="/templates/static/cache-manager.js?v=16"></script>
+    <script src="/templates/static/notifications.js?v=16" defer></script>
+    <script src="/templates/static/notification-prompt.js?v=16" defer></script>
+    <script src="/templates/static/chat.js?v=16" defer></script>
+    <script>
+        // API Configuration - единый стандарт /api/v1/<service>
+        const API_V1 = "/api/v1";
+        const AUTH_API = `${API_V1}/auth`;
+        const POSTS_API = `${API_V1}/posts`;
+        const CHAT_API = `${API_V1}/chat`;
+        const IMEI_API = `${API_V1}/imei`;
+        console.log('🔧 API BASE:', API_V1);
+    </script>
+    <script src="/templates/static/seller-chats.js?v=16" defer></script>
     <style>
         /* Специфичные стили для профиля */
         .profile-layout {
@@ -274,6 +283,16 @@
                     </div>
                 </div>
 
+                <!-- Кнопки заказов и продаж -->
+                <div style="margin-top: 20px; display: flex; flex-direction: column; gap: 10px;">
+                    <a href="/my-orders" class="btn btn-outline" style="width: 100%; text-decoration: none; text-align: center; padding: 12px;">
+                        🛒 Мои заказы
+                    </a>
+                    <a href="/my-sales" class="btn btn-outline" style="width: 100%; text-decoration: none; text-align: center; padding: 12px;">
+                        💰 Мои продажи
+                    </a>
+                </div>
+
                 <!-- Кнопка для админов/поддержки -->
                 {% if user and (user.user_type == 'admin' or user.user_type == 'support') %}
                 <div id="adminPanel" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--color-border);">
@@ -392,7 +411,7 @@
         async function initProfile() {
             try {
                 // 1. Запрашиваем данные текущего пользователя
-                const response = await fetch('http://localhost:8000/auth/me', {
+                const response = await fetch(`${AUTH_API}/me`, {
                     method: 'GET',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include' // Важно для HttpOnly cookies
@@ -439,7 +458,7 @@
         // Логика кнопки Выхода
         document.getElementById('logoutBtn').addEventListener('click', async () => {
             try {
-                await fetch('http://localhost:8000/auth/logout', { method: 'POST', credentials: 'include' });
+                await fetch(`${AUTH_API}/logout`, { method: 'POST', credentials: 'include' });
                 
                 // Очищаем только пользовательские данные, сохраняя настройки
                 clearUserData();
@@ -515,7 +534,7 @@
                 avatarDisplay.style.opacity = '0.5';
 
                 // Получаем URL для загрузки
-                const linkResponse = await fetch('http://localhost:3000/api/v1/r2_link');
+                const linkResponse = await fetch(`${POSTS_API}/r2_link`);
                 const linkData = await linkResponse.json();
 
                 // Загружаем файл в Cloudflare
@@ -536,7 +555,7 @@
                 const newAvatarUrl = `${linkData.image_delivery_base}/${imageId}/public`;
 
                 // Обновляем профиль с новым аватаром
-                const updateResponse = await fetch('http://localhost:8000/auth/me', {
+                const updateResponse = await fetch(`${AUTH_API}/me`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -583,7 +602,7 @@
                     phone: document.getElementById('phoneInput').value
                 };
 
-                const response = await fetch('http://localhost:8000/auth/me', {
+                const response = await fetch(`${AUTH_API}/me`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -661,7 +680,7 @@
         // Загрузка количества ожидающих жалоб
         async function loadPendingReportsCount() {
             try {
-                const response = await fetch('http://localhost:3000/api/v1/admin/reports?status_filter=pending', {
+                const response = await fetch(`${POSTS_API}/admin/reports?status_filter=pending`, {
                     credentials: 'include'
                 });
                 
@@ -688,7 +707,7 @@
         // Загрузка всех жалоб
         async function loadReports() {
             try {
-                const response = await fetch('http://localhost:3000/api/v1/admin/reports?limit=200', {
+                const response = await fetch(`${POSTS_API}/admin/reports?limit=200`, {
                     credentials: 'include'
                 });
                 
@@ -873,7 +892,7 @@
             if (!confirm('Вы уверены, что хотите деактивировать это объявление?')) return;
             
             try {
-                const response = await fetch(`http://localhost:3000/api/v1/admin/posts/${currentPostId}/deactivate`, {
+                const response = await fetch(`${POSTS_API}/admin/posts/${currentPostId}/deactivate`, {
                     method: 'PUT',
                     credentials: 'include'
                 });
@@ -897,7 +916,7 @@
             if (!currentReportId) return;
             
             try {
-                const response = await fetch(`http://localhost:3000/api/v1/admin/reports/${currentReportId}?new_status=${newStatus}&action=none`, {
+                const response = await fetch(`${POSTS_API}/admin/reports/${currentReportId}?new_status=${newStatus}&action=none`, {
                     method: 'PUT',
                     credentials: 'include'
                 });

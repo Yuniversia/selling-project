@@ -118,16 +118,16 @@ def handle_register(user_data: UserCreate, db: Session = Depends(get_session), r
             key="access_token",
             value=access_token,
             httponly=True,
-            secure=True,
-            samesite="lax",
+            secure=Configs.cookie_secure,
+            samesite="none" if Configs.cookie_secure else "lax",
             max_age=1800  # 30 минут
         )
         response.set_cookie(
             key="refresh_token",
             value=refresh_token,
             httponly=True,
-            secure=True,
-            samesite="lax",
+            secure=Configs.cookie_secure,
+            samesite="none" if Configs.cookie_secure else "lax",
             max_age=604800  # 7 дней
         )
         return response
@@ -186,16 +186,16 @@ async def handle_login(user_data: UserLogin, db: Session = Depends(get_session))
         key="access_token",
         value=access_token,
         httponly=True,
-        secure=True,
-        samesite="lax",
+        secure=Configs.cookie_secure,
+        samesite="none" if Configs.cookie_secure else "lax",
         max_age=1800  # 30 минут
     )
     response.set_cookie(
         key="refresh_token",
         value=refresh_token,
         httponly=True,
-        secure=True,
-        samesite="lax",
+        secure=Configs.cookie_secure,
+        samesite="none" if Configs.cookie_secure else "lax",
         max_age=604800  # 7 дней
     )
     return response
@@ -267,8 +267,8 @@ async def refresh_token_endpoint(
         key="access_token",
         value=new_access_token,
         httponly=True,
-        secure=True,
-        samesite="lax",
+        secure=Configs.cookie_secure,
+        samesite="none" if Configs.cookie_secure else "lax",
         max_age=1800  # 30 минут
     )
     return response
@@ -395,8 +395,9 @@ async def login_via_google(request: Request):
     """
     Открывает страницу входа через Google OAuth 2.0.
     """
-    redirec_url = Configs.auth_doamin + "/auth/google/callback"
-    return await oauth.google.authorize_redirect(request, redirec_url)
+    # Используем публичный домен для OAuth redirect
+    redirect_url = Configs.public_domain + "/api/v1/auth/google/callback"
+    return await oauth.google.authorize_redirect(request, redirect_url)
 
 # 2. Роут Callback (Сюда Google возвращает пользователя)
 @auth_router.get("/google/callback", name="auth_google_callback")
@@ -441,21 +442,21 @@ async def auth_google_callback(request: Request, db: Session = Depends(get_sessi
         access_token = create_access_token(data={"username": user.username, "user_id": user.id, "user_type": user.user_type})
         refresh_token = create_refresh_token(data={"username": user.username, "user_id": user.id, "user_type": user.user_type})
 
-        response = RedirectResponse(url="http://localhost:8080", status_code=status.HTTP_302_FOUND)
+        response = RedirectResponse(url="https://test.yuniversia.eu/", status_code=status.HTTP_302_FOUND)
         response.set_cookie(
             key="access_token",
             value=access_token,
             httponly=True,
-            secure=True,
-            samesite="lax",
+            secure=Configs.cookie_secure,
+            samesite="none" if Configs.cookie_secure else "lax",
             max_age=1800  # 30 минут
         )
         response.set_cookie(
             key="refresh_token",
             value=refresh_token,
             httponly=True,
-            secure=True,
-            samesite="lax",
+            secure=Configs.cookie_secure,
+            samesite="none" if Configs.cookie_secure else "lax",
             max_age=604800  # 7 дней
         )
         return response
