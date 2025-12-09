@@ -110,6 +110,14 @@ def terms_page(request: Request):
         get_template_context(request, "Правила использования")
     )
 
+@frontend_router.get("/policy", name="policy")
+def policy_page(request: Request):
+    """Отдает страницу политики конфиденциальности."""
+    return templates.TemplateResponse(
+        "policy.html", 
+        get_template_context(request, "Политика конфиденциальности")
+    )
+
 @frontend_router.get("/imei-check", name="imei_check")
 def imei_check_page(request: Request):
     """Отдает страницу проверки IMEI."""

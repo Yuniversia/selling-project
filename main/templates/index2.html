@@ -35,22 +35,22 @@
             <h1 class="hero-title">Будь уверенным в том, что берёшь</h1>
             <p class="hero-text">Каждое объявление проходит модерацию, а продавцы проверяются. Деньги защищены до получения товара. Мы создали безопасное пространство для сделок с техникой в Латвии.</p>
             <div class="hero-features">
-                <div class="hero-feature">
+                <a href="/terms" class="hero-feature">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
                     <span>Защита от мошенников</span>
-                </div>
-                <div class="hero-feature">
+                </a>
+                <a href="/terms" class="hero-feature">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
                     <span>Гарантия возврата</span>
-                </div>
-                <div class="hero-feature">
+                </a>
+                <a href="/terms" class="hero-feature">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
                     <span>Проверка по базам</span>
-                </div>
-                <div class="hero-feature">
+                </a>
+                <a href="/terms" class="hero-feature">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
                     <span>Быстрая доставка</span>
-                </div>
+                </a>
             </div>
         </div>
     </section>
@@ -584,11 +584,26 @@
         font-size: 14px;
         color: #1d1d1f;
         font-weight: 500;
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        padding: 8px 12px;
+        border-radius: 8px;
+    }
+
+    .hero-feature:hover {
+        background: rgba(0, 113, 227, 0.08);
+        color: #0071e3;
     }
 
     .hero-feature svg {
         stroke: #0071e3;
         flex-shrink: 0;
+        transition: transform 0.2s ease;
+    }
+
+    .hero-feature:hover svg {
+        transform: scale(1.1);
     }
 
     /* Sticky Sidebar - прилипает при скролле */
