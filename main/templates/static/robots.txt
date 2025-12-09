@@ -1,0 +1,18 @@
+# robots.txt for LAIS Marketplace
+
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /auth/login
+Disallow: /auth/register
+Disallow: /profile
+Disallow: /my-orders
+Disallow: /my-sales
+Disallow: /post-ad
+
+# Sitemap
+Sitemap: https://test.yuniversia.eu/sitemap.xml
+
+# Crawl-delay (optional, helps prevent server overload)
+Crawl-delay: 1

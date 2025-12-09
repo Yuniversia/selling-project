@@ -183,3 +183,46 @@ def service_worker():
             "Service-Worker-Allowed": "/"
         }
     )
+
+@frontend_router.get("/robots.txt", name="robots")
+def robots_txt():
+    """Отдает robots.txt для поисковых роботов."""
+    robots_path = os.path.join("templates", "static", "robots.txt")
+    return FileResponse(
+        robots_path,
+        media_type="text/plain",
+        headers={"Cache-Control": "public, max-age=86400"}
+    )
+
+@frontend_router.get("/sitemap.xml", name="sitemap")
+async def sitemap_xml():
+    """Отдает динамический sitemap.xml для поисковых систем."""
+    from sitemap_generator import generate_dynamic_sitemap
+    from fastapi.responses import Response
+    
+    try:
+        # Генерируем динамический sitemap с актуальными товарами
+        sitemap_content = await generate_dynamic_sitemap(POSTS_API_URL)
+        return Response(
+            content=sitemap_content,
+            media_type="application/xml",
+            headers={"Cache-Control": "public, max-age=3600"}
+        )
+    except Exception as e:
+        print(f"Error generating sitemap: {e}")
+        # Fallback на статический файл
+        sitemap_path = os.path.join("templates", "static", "sitemap.xml")
+        return FileResponse(
+            sitemap_path,
+            media_type="application/xml",
+            headers={"Cache-Control": "public, max-age=3600"}
+        )
+
+@frontend_router.get("/404", name="not_found")
+def not_found_page(request: Request):
+    """Отдает кастомную 404 страницу."""
+    return templates.TemplateResponse(
+        "404.html",
+        {"request": request},
+        status_code=404
+    )

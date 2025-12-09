@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Мой профиль - Lais</title>
+    {% set page_title = "Мой профиль - LAIS Marketplace" %}
+    {% set page_description = "Управляйте своим профилем, просматривайте заказы и объявления на LAIS Marketplace" %}
+    {% include 'seo_meta.html' %}
+    <title>{{ page_title }}</title>
     <link rel="stylesheet" href="/templates/static/styles2.css?v=16">
     <script src="/templates/static/cache-manager.js?v=16"></script>
     <script src="/templates/static/notifications.js?v=16" defer></script>

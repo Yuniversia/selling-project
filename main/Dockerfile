@@ -5,6 +5,7 @@ WORKDIR /app
 
 # Устанавливаем системные зависимости
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
 # Копируем requirements
@@ -20,10 +21,6 @@ COPY . .
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8080
 ENV BACKEND_HOST=0.0.0.0
-
-# Healthcheck (используем wget вместо requests)
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:${PORT}/health || exit 1
 
 # Запуск приложения
 CMD ["sh", "-c", "uvicorn main:app --host ${BACKEND_HOST} --port ${PORT}"]

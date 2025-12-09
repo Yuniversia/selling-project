@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+    
+    <!-- Главная страница -->
+    <url>
+        <loc>https://test.yuniversia.eu/</loc>
+        <lastmod>2025-12-04</lastmod>
+        <changefreq>daily</changefreq>
+        <priority>1.0</priority>
+    </url>
+
+    <!-- Страница условий использования -->
+    <url>
+        <loc>https://test.yuniversia.eu/terms</loc>
+        <lastmod>2025-12-04</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.5</priority>
+    </url>
+
+    <!-- Страница проверки IMEI -->
+    <url>
+        <loc>https://test.yuniversia.eu/imei-check</loc>
+        <lastmod>2025-12-04</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.8</priority>
+    </url>
+
+    <!-- 
+    Динамические страницы товаров будут добавлены через backend
+    Пример:
+    <url>
+        <loc>https://test.yuniversia.eu/product?id=1</loc>
+        <lastmod>2025-12-04</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.9</priority>
+        <image:image>
+            <image:loc>https://imagedelivery.net/...</image:loc>
+            <image:title>iPhone 13 Pro 128GB</image:title>
+        </image:image>
+    </url>
+    -->
+</urlset>

@@ -236,11 +236,18 @@ def router_list(
     memory: Optional[str] = Query(None, description="Минимальный объем памяти в GB (64, 128, 256, 512, 1024)"),
     price_min: Optional[float] = Query(None, ge=0, description="Минимальная цена"),
     price_max: Optional[float] = Query(None, ge=0, description="Максимальная цена"),
+    sort_price: Optional[str] = Query(None, description="Сортировка по цене: asc (дешевые первыми), desc (дорогие первыми)"),
+    sort_date: Optional[str] = Query(None, description="Сортировка по дате: desc (новые первыми), asc (старые первыми)"),
     db: Session = Depends(get_session)
 ):
     """
-    Получает список iPhone постов с поддержкой фильтрации и пагинации.
-    Возвращает только активные посты, отсортированные по дате создания (новые первыми).
+    Получает список iPhone постов с поддержкой фильтрации, сортировки и пагинации.
+    Возвращает только активные посты.
+    
+    Сортировка:
+    - По умолчанию: по дате создания (новые первыми)
+    - sort_price: asc (от дешевых) или desc (от дорогих)
+    - sort_date: desc (новые первыми) или asc (старые первыми)
     """
     # Начинаем с базового запроса активных постов
     statement = select(Iphone).where(Iphone.active == True)
@@ -281,11 +288,42 @@ def router_list(
     if filters:
         statement = statement.where(and_(*filters))
     
-    # Сортируем по дате создания (новые первыми) и применяем пагинацию
-    statement = statement.order_by(Iphone.created_at.desc()).offset(skip).limit(limit)
+    # Применяем сортировку
+    # Приоритет: сначала по дате (если указана), затем по цене (если указана)
+    order_clauses = []
+    
+    print(f"[SORT DEBUG] sort_date={sort_date}, sort_price={sort_price}")
+    
+    if sort_date:
+        if sort_date.lower() == "asc":
+            order_clauses.append(Iphone.created_at.asc())
+            print("[SORT DEBUG] Added created_at ASC")
+        elif sort_date.lower() == "desc":
+            order_clauses.append(Iphone.created_at.desc())
+            print("[SORT DEBUG] Added created_at DESC")
+    
+    if sort_price:
+        if sort_price.lower() == "asc":
+            order_clauses.append(Iphone.price.asc())
+            print("[SORT DEBUG] Added price ASC")
+        elif sort_price.lower() == "desc":
+            order_clauses.append(Iphone.price.desc())
+            print("[SORT DEBUG] Added price DESC")
+    
+    # Если нет сортировки - сортируем по ID (порядок добавления)
+    if not order_clauses:
+        order_clauses.append(Iphone.id.desc())
+        print("[SORT DEBUG] No sort params, using ID DESC")
+    
+    print(f"[SORT DEBUG] Total order clauses: {len(order_clauses)}")
+    statement = statement.order_by(*order_clauses)
+    
+    # Применяем пагинацию
+    statement = statement.offset(skip).limit(limit)
     
     try:
         posts = db.exec(statement).all()
+        print(f"[FILTER] Found {len(posts)} posts | Filters: model={model}, price={sort_price}, date={sort_date}")
         return posts
     except Exception as e:
         raise HTTPException(

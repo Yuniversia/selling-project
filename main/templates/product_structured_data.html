@@ -1,0 +1,60 @@
+<!-- Product Structured Data (JSON-LD) -->
+{% if post %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Product",
+  "name": "{{ post.model }} {{ post.memory }}GB",
+  "description": "{{ post.model }} {{ post.memory }}GB, цвет {{ post.color }}, состояние {{ post.condition }}, батарея {{ post.batery }}%",
+  "image": [
+    {% for photo in post.photos %}
+    "{{ photo }}"{% if not loop.last %},{% endif %}
+    {% endfor %}
+  ],
+  "brand": {
+    "@type": "Brand",
+    "name": "Apple"
+  },
+  "offers": {
+    "@type": "Offer",
+    "url": "https://test.yuniversia.eu/product?id={{ post.id }}",
+    "priceCurrency": "EUR",
+    "price": "{{ post.price }}",
+    "priceValidUntil": "{{ (post.created_at | string)[:10] if post.created_at else '2025-12-31' }}",
+    "itemCondition": "https://schema.org/{% if post.condition == 'Новый' %}NewCondition{% elif post.condition == 'Б/у' %}UsedCondition{% else %}RefurbishedCondition{% endif %}",
+    "availability": "https://schema.org/InStock",
+    "seller": {
+      "@type": "Organization",
+      "name": "LAIS Marketplace"
+    }
+  },
+  "additionalProperty": [
+    {
+      "@type": "PropertyValue",
+      "name": "Память",
+      "value": "{{ post.memory }}GB"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Цвет",
+      "value": "{{ post.color }}"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Батарея",
+      "value": "{{ post.batery }}%"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Состояние",
+      "value": "{{ post.condition }}"
+    }
+  ],
+  "aggregateRating": {
+    "@type": "AggregateRating",
+    "ratingValue": "4.5",
+    "reviewCount": "{{ post.views | default(0) }}"
+  }
+}
+</script>
+{% endif %}

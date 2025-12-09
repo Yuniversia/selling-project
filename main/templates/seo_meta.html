@@ -1,0 +1,75 @@
+<!-- SEO Meta Tags Partial -->
+{% set page_title = page_title | default("LAIS Marketplace - Купить iPhone в Латвии") %}
+{% set page_description = page_description | default("LAIS Marketplace - лучшая платформа для покупки и продажи iPhone в Латвии. Безопасные сделки, проверка IMEI, гарантия качества.") %}
+{% set page_image = page_image | default("https://test.yuniversia.eu/static/images/og-default.jpg") %}
+{% set page_url = page_url | default(request.url if request else "https://test.yuniversia.eu/") %}
+
+<!-- Basic Meta Tags -->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="{{ page_description }}">
+<meta name="keywords" content="iPhone, купить iPhone, продать iPhone, Латвия, LAIS, marketplace, б/у iPhone, проверка IMEI">
+<meta name="author" content="LAIS Marketplace">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ page_url }}">
+
+<!-- Open Graph / Facebook -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ page_url }}">
+<meta property="og:title" content="{{ page_title }}">
+<meta property="og:description" content="{{ page_description }}">
+<meta property="og:image" content="{{ page_image }}">
+<meta property="og:site_name" content="LAIS Marketplace">
+<meta property="og:locale" content="ru_RU">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:url" content="{{ page_url }}">
+<meta name="twitter:title" content="{{ page_title }}">
+<meta name="twitter:description" content="{{ page_description }}">
+<meta name="twitter:image" content="{{ page_image }}">
+
+<!-- Additional SEO -->
+<meta name="theme-color" content="#4F46E5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+<!-- Favicon -->
+<link rel="icon" type="image/png" href="/static/favicon.ico">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+
+<!-- JSON-LD Structured Data for Organization -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "LAIS Marketplace",
+  "url": "https://test.yuniversia.eu",
+  "logo": "https://test.yuniversia.eu/static/images/logo.png",
+  "description": "Платформа для безопасной покупки и продажи iPhone в Латвии",
+  "sameAs": [
+    "https://www.facebook.com/laismarketplace",
+    "https://www.instagram.com/laismarketplace"
+  ],
+  "contactPoint": {
+    "@type": "ContactPoint",
+    "contactType": "Customer Service",
+    "availableLanguage": ["Russian", "Latvian", "English"]
+  }
+}
+</script>
+
+<!-- JSON-LD for WebSite -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "LAIS Marketplace",
+  "url": "https://test.yuniversia.eu",
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": "https://test.yuniversia.eu/?search={search_term_string}",
+    "query-input": "required name=search_term_string"
+  }
+}
+</script>

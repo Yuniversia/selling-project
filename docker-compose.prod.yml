@@ -62,6 +62,12 @@ services:
     networks:
       - lais-network
     restart: always
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "-O", "/dev/null", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     deploy:
       resources:
         limits:
@@ -100,10 +106,16 @@ services:
       postgres:
         condition: service_healthy
       auth-service:
-        condition: service_started
+        condition: service_healthy
     networks:
       - lais-network
     restart: always
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "-O", "/dev/null", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     deploy:
       resources:
         limits:
@@ -136,12 +148,18 @@ services:
       postgres:
         condition: service_healthy
       auth-service:
-        condition: service_started
+        condition: service_healthy
       posts-service:
-        condition: service_started
+        condition: service_healthy
     networks:
       - lais-network
     restart: always
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "-O", "/dev/null", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     deploy:
       resources:
         limits:
@@ -192,13 +210,23 @@ services:
     expose:
       - "8080"
     depends_on:
-      - auth-service
-      - posts-service
-      - chat-service
-      - imei-checker-service
+      auth-service:
+        condition: service_healthy
+      posts-service:
+        condition: service_healthy
+      chat-service:
+        condition: service_healthy
+      imei-checker-service:
+        condition: service_started
     networks:
       - lais-network
     restart: always
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "-O", "/dev/null", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     deploy:
       resources:
         limits:

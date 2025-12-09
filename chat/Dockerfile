@@ -23,9 +23,5 @@ ENV BACKEND_HOST=0.0.0.0
 # Открываем порт
 EXPOSE 4000
 
-# Healthcheck
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:${PORT}/health || exit 1
-
 # Запуск приложения
 CMD ["sh", "-c", "uvicorn main:app --host ${BACKEND_HOST} --port ${PORT}"]

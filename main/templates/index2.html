@@ -1,11 +1,10 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Lais</title>
-    <link rel="stylesheet" href="/templates/static/styles2.css?v=16">
-    <script src="/templates/static/cache-manager.js?v=16"></script>
+    {% include 'seo_meta.html' %}
+    <title>LAIS Marketplace - Купить и продать iPhone в Латвии</title>
+    <link rel="stylesheet" href="/templates/static/styles2.css?v=18">
+    <script src="/templates/static/cache-manager.js?v=19"></script>
     <script>
         // API Configuration - единый стандарт /api/v1/<service>
         // Nginx проксирует эти пути к соответствующим микросервисам
@@ -32,8 +31,28 @@
     </header>
 
     <section class="hero-section">
-        <h1 class="hero-title">Купи. Продай. Обновись.</h1>
-        <p class="hero-text">Лучшее место для техники Apple и не только.</p>
+        <div class="hero-content">
+            <h1 class="hero-title">Будь уверенным в том, что берёшь</h1>
+            <p class="hero-text">Каждое объявление проходит модерацию, а продавцы проверяются. Деньги защищены до получения товара. Мы создали безопасное пространство для сделок с техникой в Латвии.</p>
+            <div class="hero-features">
+                <div class="hero-feature">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                    <span>Защита от мошенников</span>
+                </div>
+                <div class="hero-feature">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                    <span>Гарантия возврата</span>
+                </div>
+                <div class="hero-feature">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+                    <span>Проверка по базам</span>
+                </div>
+                <div class="hero-feature">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+                    <span>Быстрая доставка</span>
+                </div>
+            </div>
+        </div>
     </section>
 
     <!-- <div class="category-scroll">
@@ -154,8 +173,34 @@
             </div>
 
             <div class="filter-group">
-                <label>Цена (€)</label>
+                <label>&nbsp;</label>
                 <input type="number" id="filterPriceMax" placeholder="До" min="0">
+            </div>
+
+            <div class="filter-group">
+                <label>
+                    <!-- sort icon -->
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; margin-right:6px;"><path d="M11 5h10M11 9h7M11 13h4"/><path d="M3 17l3 3 3-3M6 18V4"/></svg>
+                    Сортировка
+                </label>
+                <select id="filterSortPrice">
+                    <option value="">По умолчанию</option>
+                    <option value="asc">Цена: от дешевых</option>
+                    <option value="desc">Цена: от дорогих</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label>
+                    <!-- calendar icon -->
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; margin-right:6px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                    Публикация
+                </label>
+                <select id="filterSortDate">
+                    <option value="">Все</option>
+                    <option value="desc">Сначала новые</option>
+                    <option value="asc">Сначала старые</option>
+                </select>
             </div>
         </div>
 
@@ -167,6 +212,38 @@
         </div>
         
     </div>
+
+    <!-- Sticky Info Sidebar (только для Desktop) -->
+    <aside class="sticky-info-sidebar">
+        <div class="info-card">
+            <div class="info-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+            </div>
+            <h3>О LAIS Marketplace</h3>
+            <div class="info-content">
+                <div class="info-item">
+                    <span class="info-label">🛡️ Безопасность</span>
+                    <p>Модерация всех объявлений и проверка продавцов</p>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">💰 Защита денег</span>
+                    <p>Средства удерживаются до подтверждения получения товара</p>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">📱 Проверка IMEI</span>
+                    <p>Бесплатная проверка iPhone по международным базам</p>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">🚚 Доставка</span>
+                    <p>Быстрая доставка по всей Латвии с гарантией</p>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">💵 Комиссия 5%</span>
+                    <p>Минимальная комиссия за полную безопасность сделки</p>
+                </div>
+            </div>
+        </div>
+    </aside>
 
     <main class="main-container">
         <div class="product-grid" id="productGrid">
@@ -270,7 +347,6 @@
         align-items: center;
         justify-content: space-between;
         gap: 12px;
-        margin-bottom: 8px;
     }
 
     .filters-title {
@@ -460,6 +536,154 @@
     
     .logout-btn {
         color: #ff3b30 !important;
+    }
+
+    /* Hero Section - Apple style */
+    .hero-section {
+        background: linear-gradient(180deg, #f5f5f7 0%, #ffffff 100%);
+        padding: 40px 20px;
+        margin-bottom: 20px;
+        border-bottom: 1px solid #d2d2d7;
+    }
+
+    .hero-content {
+        max-width: 900px;
+        margin: 0 auto;
+        text-align: center;
+    }
+
+    .hero-title {
+        font-size: 44px;
+        font-weight: 600;
+        margin: 0 0 20px 0;
+        color: #1d1d1f;
+        line-height: 1.1;
+        letter-spacing: -0.5px;
+    }
+
+    .hero-text {
+        font-size: 17px;
+        color: #6e6e73;
+        margin: 0 auto 32px auto;
+        line-height: 1.6;
+        font-weight: 400;
+        max-width: 700px;
+    }
+
+    .hero-features {
+        display: flex;
+        justify-content: center;
+        gap: 24px;
+        flex-wrap: wrap;
+    }
+
+    .hero-feature {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        color: #1d1d1f;
+        font-weight: 500;
+    }
+
+    .hero-feature svg {
+        stroke: #0071e3;
+        flex-shrink: 0;
+    }
+
+    /* Sticky Sidebar - прилипает при скролле */
+    .sticky-info-sidebar {
+        position: sticky;
+        float: left;
+        margin-left: 20px;
+        margin-right: 20px;
+        top: 80px;
+        width: 320px;
+        height: fit-content;
+        z-index: 100;
+    }
+
+    .info-card {
+        background: white;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        border: 1px solid #e5e5e7;
+        pointer-events: auto;
+    }
+
+    .info-icon {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 16px;
+    }
+
+    .info-icon svg {
+        stroke: #0071e3;
+    }
+
+    .info-card h3 {
+        font-size: 16px;
+        font-weight: 600;
+        color: #1d1d1f;
+        margin: 0 0 16px 0;
+        text-align: center;
+    }
+
+    .info-content {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .info-item {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .info-label {
+        font-size: 13px;
+        font-weight: 600;
+        color: #1d1d1f;
+    }
+
+    .info-item p {
+        font-size: 12px;
+        color: #6e6e73;
+        margin: 0;
+        line-height: 1.4;
+    }
+
+    /* Main container adjustment for sidebar */
+    .main-container {
+        margin: 0 auto;
+        max-width: 1200px;
+        padding: 0 20px;
+    }
+
+    @media (max-width: 1400px) {
+        .sticky-info-sidebar {
+            display: none;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .hero-title {
+            font-size: 32px;
+        }
+
+        .hero-text {
+            font-size: 15px;
+        }
+
+        .hero-features {
+            gap: 16px;
+        }
+
+        .hero-feature {
+            font-size: 13px;
+        }
     }
 </style>
 
@@ -820,6 +1044,21 @@
         const filterMemory = document.getElementById('filterMemory');
         const filterPriceMin = document.getElementById('filterPriceMin');
         const filterPriceMax = document.getElementById('filterPriceMax');
+        const filterSortPrice = document.getElementById('filterSortPrice');
+        const filterSortDate = document.getElementById('filterSortDate');
+
+        // Активация фильтров по нажатию Enter
+        const allFilters = [filterModel, filterBateryMin, filterBateryMax, filterCondition, filterColor, filterMemory, filterPriceMin, filterPriceMax, filterSortPrice, filterSortDate];
+        allFilters.forEach(filter => {
+            if (filter) {
+                filter.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        loadPosts();
+                    }
+                });
+            }
+        });
 
         // Функция для форматирования даты
         function formatDate(dateString) {
@@ -857,12 +1096,14 @@
                 if (filterMemory.value) params.append('memory', filterMemory.value);
                 if (filterPriceMin.value) params.append('price_min', filterPriceMin.value);
                 if (filterPriceMax.value) params.append('price_max', filterPriceMax.value);
+                if (filterSortPrice.value && filterSortPrice.value !== '' && filterSortPrice.value !== 'all') params.append('sort_price', filterSortPrice.value);
+                if (filterSortDate.value && filterSortDate.value !== '' && filterSortDate.value !== 'all') params.append('sort_date', filterSortDate.value);
 
-                // Запрашиваем посты с фильтрами (кешируем на 2 минуты)
+                // Запрашиваем посты с фильтрами (БЕЗ кеширования для корректной сортировки)
                 const url = `${POSTS_API}/iphone/list?${params}`;
                 console.log('Загружаем посты с URL:', url);
 
-                const response = await cachedFetch(url, {}, 2 * 60 * 1000);
+                const response = await fetch(url);
                 
                 if (!response.ok) {
                     throw new Error(`Ошибка при загрузке постов: ${response.status}`);
@@ -946,6 +1187,8 @@
             filterMemory.value = '';
             filterPriceMin.value = '';
             filterPriceMax.value = '';
+            filterSortPrice.value = '';
+            filterSortDate.value = '';
             loadPosts();
         });
 
