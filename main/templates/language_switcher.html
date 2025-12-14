@@ -1,0 +1,63 @@
+<!-- language_switcher.html - Компонент переключателя языков -->
+<div class="language-switcher">
+    <button class="lang-btn {% if lang == 'ru' %}active{% endif %}" onclick="setLanguage('ru')" title="Русский">
+        🇷🇺 RU
+    </button>
+    <button class="lang-btn {% if lang == 'lv' %}active{% endif %}" onclick="setLanguage('lv')" title="Latviešu">
+        🇱🇻 LV
+    </button>
+    <button class="lang-btn {% if lang == 'en' %}active{% endif %}" onclick="setLanguage('en')" title="English">
+        🇬🇧 EN
+    </button>
+</div>
+
+<style>
+    .language-switcher {
+        display: flex;
+        gap: 4px;
+        align-items: center;
+        background: #f5f5f7;
+        border-radius: 10px;
+        padding: 4px;
+    }
+
+    .lang-btn {
+        padding: 6px 12px;
+        border: none;
+        background: transparent;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        color: var(--color-text-light, #666);
+    }
+
+    .lang-btn:hover {
+        background: rgba(0, 122, 255, 0.1);
+        color: var(--color-primary, #0071e3);
+    }
+
+    .lang-btn.active {
+        background: white;
+        color: var(--color-primary, #0071e3);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    @media (max-width: 768px) {
+        .lang-btn {
+            padding: 4px 8px;
+            font-size: 12px;
+        }
+    }
+</style>
+
+<script>
+    function setLanguage(lang) {
+        // Устанавливаем cookie
+        document.cookie = `lang=${lang}; path=/; max-age=${365*24*60*60}; SameSite=Lax`;
+        
+        // Перезагружаем страницу
+        window.location.reload();
+    }
+</script>

@@ -46,6 +46,8 @@ services:
       - POSTGRES_PORT=5432
       - POSTGRES_DB=${POSTGRES_DB}
       - PORT=8000
+      - AUTH_SERVICE_URL=http://auth-service:8000
+      - POSTS_SERVICE_URL=http://posts-service:3000
       - PUBLIC_DOMAIN=${PUBLIC_DOMAIN}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
@@ -91,6 +93,7 @@ services:
       - POSTGRES_PORT=5432
       - POSTGRES_DB=${POSTGRES_DB}
       - PORT=3000
+      - AUTH_SERVICE_URL=http://auth-service:8000
       - SECRET_KEY=${SECRET_KEY}
       - TOKEN_ALGORITHM=${TOKEN_ALGORITHM}
       - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES}
@@ -142,6 +145,8 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
       - DOCKER_ENV=true
       - PORT=4000
+      - AUTH_SERVICE_URL=http://auth-service:8000
+      - POSTS_SERVICE_URL=http://posts-service:3000
     expose:
       - "4000"
     depends_on:

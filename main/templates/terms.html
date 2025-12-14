@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="{{ lang }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Условия использования - Lais</title>
+    <title>{{ t.terms_of_use }} - Lais</title>
     <link rel="stylesheet" href="/templates/static/styles2.css?v=18">
     <style>
         .legal-list { list-style-type: disc; padding-left: 20px; line-height: 1.6; margin-bottom: 15px; color: var(--color-text); }
@@ -20,114 +20,22 @@
         <div class="nav-container">
             <a href="/" class="logo">lais</a>
             <div class="header-controls">
-                <a href="/" class="btn btn-outline">На главную</a>
+                {% include 'language_switcher.html' %}
+                <a href="/" class="btn btn-outline">{{ t.back_to_home }}</a>
             </div>
         </div>
     </header>
 
     <main class="main-container" style="padding-top: 100px;">
         <div style="max-width: 900px; margin: 0 auto; padding: 20px;">
-            <h1 style="font-size: 32px; margin-bottom: 10px;">Условия использования (Lietošanas noteikumi)</h1>
-            <p style="color: #666; margin-bottom: 30px;">Последнее обновление: Декабрь 2025</p>
+            <h1 style="font-size: 32px; margin-bottom: 10px;">{{ t.terms_of_use }}</h1>
+            <p style="color: #666; margin-bottom: 30px;">{{ t.last_updated }}: {% if lang == 'ru' %}Декабрь{% elif lang == 'lv' %}Decembris{% else %}December{% endif %} 2025</p>
 
-            <section style="background: white; padding: 30px; border-radius: 16px; margin-bottom: 20px; border: 1px solid var(--color-border);">
-                <h2 style="font-size: 24px; margin-bottom: 15px;">1. Основные положения</h2>
-                <p style="line-height: 1.8; color: var(--color-text); margin-bottom: 15px;">
-                    Платформа <strong>Lais</strong> предоставляет услуги по проведению безопасных сделок купли-продажи электроники. 
-                    Мы гарантируем, что деньги Продавцу будут переведены только при условии выполнения условий сделки, 
-                    а Покупатель получит товар, соответствующий описанию.
-                </p>
-                <div class="info-box">
-                    <p style="line-height: 1.6; color: #0d47a1; margin: 0;">
-                        <strong>Комиссия сервиса:</strong> Lais удерживает <strong>5%</strong> от суммы сделки за услуги гаранта, проверку IMEI и техническую поддержку. Эта комиссия является оплатой услуг Платформы.
-                    </p>
-                </div>
-            </section>
-
-            <section style="background: white; padding: 30px; border-radius: 16px; margin-bottom: 20px; border: 1px solid var(--color-border);">
-                <h2 style="font-size: 24px; margin-bottom: 15px;">2. Оплата и хранение средств</h2>
-                <ul class="legal-list">
-                    <li>Покупатель вносит 100% предоплату на защищенный транзитный счет (Escrow).</li>
-                    <li>Деньги не поступают напрямую Продавцу или Администрации сайта, а замораживаются до окончания сделки.</li>
-                    <li>Выплата Продавцу (95%) производится автоматически после того, как Покупатель подтвердил получение и проверку товара, либо истек срок защиты (2 дня).</li>
-                </ul>
-            </section>
-
-            <section style="background: white; padding: 30px; border-radius: 16px; margin-bottom: 20px; border: 1px solid var(--color-border);">
-                <h2 style="font-size: 24px; margin-bottom: 15px;">3. Правила проверки (2 дня)</h2>
-                <div class="warning-box">
-                    <p style="line-height: 1.6; color: #856404; margin: 0;">
-                        У Покупателя есть <strong>48 часов</strong> с момента доставки посылки в пакомат на проверку устройства. В этот период необходимо проверить IMEI, работоспособность и соответствие описанию.
-                    </p>
-                </div>
-                <h3>Обязательное требование (Видео):</h3>
-                <p style="line-height: 1.8; color: var(--color-text);">
-                    При получении товара Покупатель обязан вести <strong>непрерывную видеосъемку распаковки</strong>. Если будет обнаружено, что пришел "кирпич", пустая коробка или разбитый телефон, претензия принимается <strong>только</strong> при наличии видео, где видно неповрежденную упаковку до вскрытия.
-                </p>
-            </section>
-
-            <section style="background: white; padding: 30px; border-radius: 16px; margin-bottom: 20px; border: 1px solid var(--color-border);">
-                <h2 style="font-size: 24px; margin-bottom: 15px;">4. Ответственность за доставку</h2>
-                <p style="line-height: 1.8; color: var(--color-text);">
-                    Lais сотрудничает с DPD/Omniva, предоставляя техническую возможность отправки.
-                </p>
-                <ul class="legal-list">
-                    <li>Отправителем является Продавец. Он обязан надежно упаковать товар.</li>
-                    <li>Lais не выплачивает компенсации за утерю или порчу товара службой доставки. Мы помогаем оформить претензию, но финансовую ответственность несет перевозчик.</li>
-                </ul>
-            </section>
-
-            <section style="background: white; padding: 30px; border-radius: 16px; margin-bottom: 20px; border: 1px solid var(--color-border);">
-                <h2 style="font-size: 24px; margin-bottom: 15px;">5. Разрешение споров и Возвраты</h2>
-                <p style="line-height: 1.8; color: var(--color-text); margin-bottom: 15px;">
-                    Мы защищаем сделку, но не поощряем безосновательные возвраты.
-                </p>
-
-                <h3>5.1. Товар надлежащего качества (Без дефектов)</h3>
-                <p style="line-height: 1.8; color: var(--color-text);">
-                    Если телефон полностью соответствует описанию и фото, <strong>возврат невозможен</strong>. 
-                    Аргументы "передумал", "в жизни он не такой красивый" или "нашел дешевле" не являются основанием для спора.
-                    В этом случае сделка считается успешной, и Продавец получает свои средства.
-                </p>
-
-                <h3>5.2. Товар с дефектом (Спор)</h3>
-                <p style="line-height: 1.8; color: var(--color-text);">
-                    Если обнаружен <strong>скрытый дефект</strong>, не указанный в объявлении, открывается Спор (Dispute). Решение принимается на основе доказательств (фото/видео). Возможны два исхода:
-                </p>
-                <ul class="legal-list">
-                    <li><strong>Полный возврат (Return):</strong> Покупатель отправляет товар назад. После того, как Продавец подтвердит получение того же устройства (по IMEI и состоянию), Покупателю возвращается 100% суммы.</li>
-                    <li><strong>Частичная компенсация (Partial Refund):</strong> Покупатель оставляет товар себе, но Продавец соглашается сделать скидку на устранение дефекта. <br>
-                    <em>Пример распределения средств:</em> Покупателю возвращается согласованная часть (например, 20%), Lais удерживает комиссию 5% от общей суммы сделки, Продавец получает остаток (75%).</li>
-                </ul>
-            </section>
-
-            <section style="background: white; padding: 30px; border-radius: 16px; margin-bottom: 20px; border: 1px solid var(--color-border);">
-                <h2 style="font-size: 24px; margin-bottom: 15px;">6. Безопасность и Данные (Data & Safety)</h2>
-                <p style="line-height: 1.8; color: var(--color-text); margin-bottom: 15px;">
-                    Мы серьезно относимся к безопасности. Подробное описание обработки данных доступно в нашей <a href="/policy" style="color: var(--color-primary); font-weight: bold;">Политике конфиденциальности</a>.
-                </p>
-                
-                <div class="security-box">
-                    <h3 style="margin-top: 0; color: #bf360c;">⚠️ Борьба с мошенничеством</h3>
-                    <p style="line-height: 1.6; color: #3e2723;">
-                        Для защиты честных пользователей мы применяем строгие меры:
-                    </p>
-                    <ul class="legal-list" style="color: #3e2723;">
-                        <li><strong>Блокировка:</strong> Администрация имеет право без предупреждения заблокировать пользователя по Email, номеру телефона, IP-адресу или отпечатку устройства при подозрении на мошенничество.</li>
-                        <li><strong>Доступ к чатам:</strong> Мы уважаем тайну переписки, но в случае открытия Спора (Dispute) или жалобы на мошенничество, сотрудники Lais имеют право просматривать чаты между участниками сделки для установления истины.</li>
-                        <li><strong>Сотрудничество с полицией:</strong> В случае попытки сбыта краденых устройств, подмены товара или финансового мошенничества, мы передаем ВСЕ данные (IP, логи переписок, номера карт, IMEI устройств) правоохранительным органам Латвии (Valsts policija).</li>
-                    </ul>
-                </div>
-
-                <h3>Хранение информации</h3>
-                <p style="line-height: 1.8; color: var(--color-text);">
-                    Удаление приложения не означает удаление следов. История сделок, переписки, данные об объявлениях и IMEI проданных устройств <strong>сохраняются в нашей базе данных</strong>. Это необходимо для решения возможных юридических вопросов в будущем и предотвращения повторных регистраций мошенников.
-                </p>
-            </section>
+            {% include 'terms_content.html' %}
 
             <div style="text-align: center; padding: 30px 0;">
                 <a href="/" class="btn btn-primary" style="display: inline-block; padding: 15px 40px;">
-                    Вернуться на главную
+                    {{ t.back_to_home }}
                 </a>
             </div>
         </div>
@@ -135,10 +43,10 @@
 
     <footer style="background: #f8f9fa; padding: 30px 0; margin-top: 50px; text-align: center; border-top: 1px solid var(--color-border);">
         <p style="margin-bottom: 10px;">
-            <a href="/policy" style="color: var(--color-text); text-decoration: underline;">Политика конфиденциальности (Privacy Policy)</a>
+            <a href="/policy" style="color: var(--color-text); text-decoration: underline;">{{ t.privacy_policy }}</a>
         </p>
         <p style="color: var(--color-text-light); margin: 0;">
-            © 2025 Lais. Все права защищены.
+            © 2025 Lais. {{ t.all_rights_reserved }}
         </p>
     </footer>
 </body>

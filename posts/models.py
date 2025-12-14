@@ -16,9 +16,9 @@ class IphonePostData(BaseModel):
         max_length=15, 
         description="IMEI телефона (15 цифр)"
     )
-    # Batery: Целое число от 0 до 100.
+    # Batery: Целое число от 0 до 100, обязательно.
     batery: int = PydanticField(
-        ..., 
+        ...,
         ge=0, # minimum value 0
         le=100, # maximum value 100
         description="Уровень заряда батареи (0-100)"
@@ -54,7 +54,7 @@ class Iphone(SQLModel, table=True):
     price: Optional[float] = Field(default=None)
 
     # Поля, которые приходят из запроса (IphonePostData)
-    imei: str = Field(max_length=15) # Изменено на str, чтобы хранить ведущие нули, если нужно
+    imei: str = Field(max_length=15) # str, чтобы хранить ведущие нули, если нужно
     batery: int = Field(index=True)
     description: Optional[str] = Field(default=None, max_length=1000)
     condition : Optional[str] = Field(default=None, max_length=100)  # Новое поле для состояния телефона

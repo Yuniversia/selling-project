@@ -1,14 +1,96 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="{{ lang }}">
 <head>
-    {% set page_title = "Мой профиль - LAIS Marketplace" %}
-    {% set page_description = "Управляйте своим профилем, просматривайте заказы и объявления на LAIS Marketplace" %}
+    {% set page_title = t.my_profile + " - LAIS Marketplace" %}
+    {% set page_description = t.manage_ads %}
     {% include 'seo_meta.html' %}
     <title>{{ page_title }}</title>
     <link rel="stylesheet" href="/templates/static/styles2.css?v=16">
     <script src="/templates/static/cache-manager.js?v=16"></script>
     <script src="/templates/static/notifications.js?v=16" defer></script>
     <script src="/templates/static/notification-prompt.js?v=16" defer></script>
+    <script>
+        // Global translations object for JavaScript
+        window.i18n = {
+            loading: "{{ t.loading }}",
+            chatWithSeller: "{{ t.js_chat_with_seller }}",
+            writeMessage: "{{ t.writeMessage }}",
+            insufficientData: "{{ t.js_chat_insufficient_data }}",
+            startDialog: "{{ t.js_chat_start_dialog }}",
+            createFailed: "{{ t.js_chat_create_failed }}",
+            loadMessagesFailed: "{{ t.js_chat_load_messages_failed }}",
+            connectionFailed: "{{ t.js_chat_connection_failed }}",
+            seller: "{{ t.js_chat_seller }}",
+            online: "{{ t.js_chat_online }}",
+            offline: "{{ t.js_chat_offline }}",
+            // Seller chats
+            initialization: "{{ t.initialization }}",
+            user_data: "{{ t.user_data }}",
+            my_chats: "{{ t.my_chats }}",
+            select_chat: "{{ t.select_chat }}",
+            buyer: "{{ t.buyer }}",
+            product: "{{ t.product }}",
+            hide_chat: "{{ t.hide_chat }}",
+            delete_chat: "{{ t.delete_chat }}",
+            back: "{{ t.back }}",
+            no_messages: "{{ t.no_messages }}",
+            anonymous_buyer: "{{ t.anonymous_buyer }}",
+            no_messages_yet: "{{ t.no_messages_yet }}",
+            listing: "{{ t.listing }}",
+            messages_load_error: "{{ t.messages_load_error }}",
+            ws_not_connected: "{{ t.ws_not_connected }}",
+            send_error: "{{ t.send_error }}",
+            yes: "{{ t.yes }}",
+            cancel: "{{ t.cancel }}",
+            hide_chat_feature: "{{ t.hide_chat_feature }}",
+            delete_chat_confirm: "{{ t.delete_chat_confirm }}",
+            success: "{{ t.success }}",
+            chat_deleted: "{{ t.chat_deleted }}",
+            delete_error: "{{ t.delete_error }}",
+            yesterday: "{{ t.yesterday }}",
+            chatsLoading: "{{ t.chatsLoading }}",
+            messagesLoading: "{{ t.messagesLoading }}",
+            chatsLoadFailed: "{{ t.chatsLoadFailed }}",
+            chatsConnectionError: "{{ t.chatsConnectionError }}",
+            chatsOpenFailed: "{{ t.chatsOpenFailed }}",
+            messagesLoadFailed: "{{ t.messagesLoadFailed }}",
+            connectionLost: "{{ t.connectionLost }}",
+            sendFailed: "{{ t.sendFailed }}",
+            deleteFailed: "{{ t.deleteFailed }}",
+            error: "{{ t.error }}",
+            // Notifications
+            js_notif_not_supported: "{{ t.js_notif_not_supported }}",
+            js_notif_sw_registered: "{{ t.js_notif_sw_registered }}",
+            js_notif_sw_active: "{{ t.js_notif_sw_active }}",
+            js_notif_sw_error: "{{ t.js_notif_sw_error }}",
+            js_notif_permission_granted: "{{ t.js_notif_permission_granted }}",
+            js_notif_permission_denied: "{{ t.js_notif_permission_denied }}",
+            js_notif_permission_error: "{{ t.js_notif_permission_error }}",
+            js_notif_no_permission: "{{ t.js_notif_no_permission }}",
+            js_notif_shown: "{{ t.js_notif_shown }}",
+            js_notif_show_error: "{{ t.js_notif_show_error }}",
+            js_notif_new_message: "{{ t.js_notif_new_message }}",
+            js_notif_default_body: "{{ t.js_notif_default_body }}",
+            js_notif_window_active: "{{ t.js_notif_window_active }}",
+            js_notif_new_message_from: "{{ t.js_notif_new_message_from }}",
+            js_notif_open_chat: "{{ t.js_notif_open_chat }}",
+            js_notif_close: "{{ t.js_notif_close }}",
+            js_notif_permission_already: "{{ t.js_notif_permission_already }}",
+            js_notif_prompt_title: "{{ t.js_notif_prompt_title }}",
+            js_notif_prompt_description: "{{ t.js_notif_prompt_description }}",
+            js_notif_enabled: "{{ t.js_notif_enabled }}",
+            js_sw_installed: "{{ t.js_sw_installed }}",
+            js_sw_activated: "{{ t.js_sw_activated }}",
+            js_sw_push_received: "{{ t.js_sw_push_received }}",
+            js_sw_notification_click: "{{ t.js_sw_notification_click }}",
+            js_sw_notification_closed: "{{ t.js_sw_notification_closed }}",
+            js_sw_open: "{{ t.js_sw_open }}",
+            // Profile auth
+            js_auth_required: "{{ t.js_auth_required }}",
+            js_session_expired: "{{ t.js_session_expired }}",
+            js_data_saved_console: "{{ t.js_data_saved_console }}"
+        };
+    </script>
     <script src="/templates/static/chat.js?v=16" defer></script>
     <script>
         // API Configuration - единый стандарт /api/v1/<service>
@@ -239,15 +321,15 @@
         <div class="nav-container">
             <a href="/" class="logo">lais</a>
             <div class="header-controls">
-                <a href="/" class="btn btn-text">На главную</a>
-                <button id="logoutBtn" class="btn btn-outline" style="color: var(--color-error); border-color: var(--color-error);">Выйти</button>
+                <a href="/" class="btn btn-text">{{ t.home_page }}</a>
+                <button id="logoutBtn" class="btn btn-outline" style="color: var(--color-error); border-color: var(--color-error);">{{ t.sign_out }}</button>
             </div>
         </div>
     </header>
 
     <main class="main-container">
         
-        <h1 style="font-size: 32px; font-weight: 800; margin-bottom: 10px;">Мой профиль</h1>
+        <h1 style="font-size: 32px; font-weight: 800; margin-bottom: 10px;">{{ t.my_profile_title }}</h1>
         
         <div class="profile-layout">
             
@@ -258,7 +340,7 @@
                 <div>
                     <input type="file" id="avatarInput" accept="image/*" style="display: none;">
                     <button class="btn btn-text" style="font-size: 13px; padding: 6px 12px; margin-bottom: 12px;" onclick="document.getElementById('avatarInput').click()">
-                        Изменить фото
+                        {{ t.change_photo }}
                     </button>
                 </div>
                 
@@ -270,27 +352,27 @@
 
                 
 
-                <h2 class="profile-name" id="usernameDisplay">Загрузка...</h2>
-                <div class="profile-tag">На Lais с <span id="joinedDateDisplay">...</span></div>
+                <h2 class="profile-name" id="usernameDisplay">{{ t.reports_loading }}</h2>
+                <div class="profile-tag">{{ t.on_lais_since }} <span id="joinedDateDisplay">...</span></div>
 
                 <div class="stats-grid">
                     <div class="stat-item">
                         <span class="stat-value" id="adsCountDisplay">0</span>
-                        <span class="stat-label">Объявлений</span>
+                        <span class="stat-label">{{ t.ads_count }}</span>
                     </div>
                     <div class="stat-item">
                         <span class="stat-value" id="sellsCountDisplay">0</span>
-                        <span class="stat-label">Продаж</span>
+                        <span class="stat-label">{{ t.sales_count }}</span>
                     </div>
                 </div>
 
                 <!-- Кнопки заказов и продаж -->
                 <div style="margin-top: 20px; display: flex; flex-direction: column; gap: 10px;">
                     <a href="/my-orders" class="btn btn-outline" style="width: 100%; text-decoration: none; text-align: center; padding: 12px;">
-                        🛒 Мои заказы
+                        {{ t.my_orders }}
                     </a>
                     <a href="/my-sales" class="btn btn-outline" style="width: 100%; text-decoration: none; text-align: center; padding: 12px;">
-                        💰 Мои продажи
+                        {{ t.my_sales }}
                     </a>
                 </div>
 
@@ -303,7 +385,7 @@
                             <line x1="12" y1="9" x2="12" y2="13"></line>
                             <line x1="12" y1="17" x2="12.01" y2="17"></line>
                         </svg>
-                        Жалобы
+                        {{ t.reports_title }}
                         <span id="pendingReportsCount" style="background: #fff; color: #667eea; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 700; margin-left: 8px;">0</span>
                     </button>
                 </div>
@@ -311,43 +393,43 @@
             </aside>
 
             <section class="settings-card">
-                <h3 class="section-title">Личные данные</h3>
+                <h3 class="section-title">{{ t.personal_data }}</h3>
                 
                 <form id="profileForm" onsubmit="event.preventDefault();">
                     
                     <div class="form-row">
                         <div class="form-group">
-                            <label class="form-label">Имя</label>
-                            <input type="text" class="form-input" id="firstNameInput" placeholder="Ваше имя">
+                            <label class="form-label">{{ t.first_name }}</label>
+                            <input type="text" class="form-input" id="firstNameInput" placeholder="{{ t.your_name }}">
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Фамилия</label>
-                            <input type="text" class="form-input" id="lastNameInput" placeholder="Ваша фамилия">
+                            <label class="form-label">{{ t.last_name }}</label>
+                            <input type="text" class="form-input" id="lastNameInput" placeholder="{{ t.your_surname }}">
                         </div>
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label">Никнейм (@)</label>
+                        <label class="form-label">{{ t.username }}</label>
                         <input type="text" class="form-input" id="usernameInput" readonly style="background: #f5f5f7; color: #888; cursor: not-allowed;">
-                        <span style="font-size: 12px; color: var(--color-text-light); margin-top: 4px; display: block;">Никнейм нельзя изменить</span>
+                        <span style="font-size: 12px; color: var(--color-text-light); margin-top: 4px; display: block;">{{ t.username_readonly }}</span>
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label">Email</label>
+                        <label class="form-label">{{ t.email }}</label>
                         <input type="email" class="form-input" id="emailInput" placeholder="example@mail.com">
                         <span id="emailError" style="font-size: 12px; color: #f44336; margin-top: 4px; display: none;"></span>
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label">Телефон</label>
+                        <label class="form-label">{{ t.phone }}</label>
                         <input type="tel" class="form-input" id="phoneInput" placeholder="+371 12345678">
                         <span id="phoneError" style="font-size: 12px; color: #f44336; margin-top: 4px; display: none;"></span>
                     </div>
 
                     <div class="form-group" style="margin-top: 30px;">
-                        <button type="submit" class="btn btn-primary" style="padding: 14px 32px;">Сохранить изменения</button>
+                        <button type="submit" class="btn btn-primary" style="padding: 14px 32px;">{{ t.save_changes }}</button>
                         <div id="successMessage" style="display: none; margin-top: 12px; padding: 12px; background: #d4edda; color: #155724; border-radius: 8px; font-size: 14px;">
-                            ✓ Профиль успешно обновлен
+                            {{ t.profile_updated }}
                         </div>
                     </div>
 
@@ -362,15 +444,15 @@
     <div id="reportsModal" class="modal" style="display: none;">
         <div class="modal-content" style="max-width: 1200px; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2 style="margin: 0;">Управление жалобами</h2>
+                <h2 style="margin: 0;">{{ t.admin_reports_management }}</h2>
                 <button onclick="closeReportsModal()" style="background: none; border: none; font-size: 28px; cursor: pointer; color: #999;">×</button>
             </div>
 
             <!-- Фильтры -->
             <div style="display: flex; gap: 12px; margin-bottom: 20px;">
-                <button class="filter-btn active" data-filter="all" onclick="filterReports('all')">Все</button>
-                <button class="filter-btn" data-filter="pending" onclick="filterReports('pending')">На рассмотрении</button>
-                <button class="filter-btn" data-filter="reviewed" onclick="filterReports('reviewed')">Просмотренные</button>
+                <button class="filter-btn active" data-filter="all" onclick="filterReports('all')">{{ t.filter_all }}</button>
+                <button class="filter-btn" data-filter="pending" onclick="filterReports('pending')">{{ t.filter_pending }}</button>
+                <button class="filter-btn" data-filter="reviewed" onclick="filterReports('reviewed')">{{ t.filter_reviewed }}</button>
                 <button class="filter-btn" data-filter="resolved" onclick="filterReports('resolved')">Решенные</button>
                 <button class="filter-btn" data-filter="rejected" onclick="filterReports('rejected')">Отклоненные</button>
             </div>
@@ -408,6 +490,46 @@
     </div>
 
     <script>
+        // Translations for JavaScript
+        window.t = {
+            js_auth_required: "{{ t.js_auth_required }}",
+            js_session_expired: "{{ t.js_session_expired }}",
+            js_file_too_large: "{{ t.js_file_too_large }}",
+            js_only_images: "{{ t.js_only_images }}",
+            js_photo_upload_failed: "{{ t.js_photo_upload_failed }}",
+            js_confirm_deactivate: "{{ t.js_confirm_deactivate }}",
+            js_post_deactivated: "{{ t.js_post_deactivated }}",
+            js_report_updated: "{{ t.js_report_updated }}",
+            js_connection_error: "{{ t.js_connection_error }}",
+            reports_loading: "{{ t.reports_loading }}",
+            loading_error: "{{ t.loading_error }}",
+            no_reports_found: "{{ t.no_reports_found }}",
+            filter_all: "{{ t.filter_all }}",
+            filter_pending: "{{ t.filter_pending }}",
+            filter_reviewed: "{{ t.filter_reviewed }}",
+            filter_resolved: "{{ t.filter_resolved }}",
+            filter_rejected: "{{ t.filter_rejected }}",
+            reports_management: "{{ t.reports_management }}",
+            go_to_post: "{{ t.go_to_post }}",
+            deactivate_post: "{{ t.deactivate_post }}",
+            status_reviewed: "{{ t.status_reviewed }}",
+            status_resolved: "{{ t.status_resolved }}",
+            status_reject: "{{ t.status_reject }}",
+            report_on_post: "{{ t.report_on_post }}",
+            model_unknown: "{{ t.model_unknown }}",
+            report_reason: "{{ t.report_reason }}",
+            additional_info: "{{ t.additional_info }}",
+            report_sender: "{{ t.report_sender }}",
+            report_status: "{{ t.report_status }}",
+            report_created: "{{ t.report_created }}",
+            report_reviewed: "{{ t.report_reviewed }}",
+            post_active: "{{ t.post_active }}",
+            post_inactive: "{{ t.post_inactive }}",
+            anonymous_reporter: "{{ t.anonymous_reporter }}",
+            user_prefix: "{{ t.user_prefix }}",
+            moderator_prefix: "{{ t.moderator_prefix }}"
+        };
+        
         // Функция инициализации профиля
         async function initProfile() {
             try {

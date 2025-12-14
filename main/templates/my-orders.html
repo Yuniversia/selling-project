@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="{{ lang }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Мои заказы - LAIS</title>
+    <title>{{ t.my_orders }} - LAIS</title>
     <link rel="stylesheet" href="/templates/static/styles2.css?v=16">
     <script>
         // API Configuration - единый стандарт /api/v1/<service>
@@ -258,13 +258,13 @@
 <body>
     <div class="orders-container">
         <div class="orders-header">
-            <h1>Мои заказы</h1>
-            <a href="/" class="btn btn-outline">← Назад на главную</a>
+            <h1>{{ t.my_orders_title }}</h1>
+            <a href="/profile" class="btn btn-outline">← {{ t.back }}</a>
         </div>
 
         <div id="ordersContainer">
             <div class="empty-state">
-                <h2>Загрузка заказов...</h2>
+                <h2>{{ t.orders_loading }}</h2>
             </div>
         </div>
     </div>
@@ -318,8 +318,8 @@
                 </form>
             </div>
             <div class="modal-actions">
-                <button type="button" class="btn btn-outline" onclick="closeConfirmModal()">Отмена</button>
-                <button type="submit" form="confirmForm" class="btn btn-primary">Отправить отзыв</button>
+                <button type="button" class="btn btn-outline" onclick="closeConfirmModal()">{{ t.cancel }}</button>
+                <button type="submit" form="confirmForm" class="btn btn-primary">{{ t.submit_review_btn }}</button>
             </div>
         </div>
     </div>
@@ -352,11 +352,11 @@
                     const data = await response.json();
                     renderOrders(data.orders || []);
                 } else {
-                    showError('Ошибка загрузки заказов');
+                    showError('{{ t.orders_load_error }}');
                 }
             } catch (error) {
-                console.error('Ошибка:', error);
-                showError('Ошибка подключения к серверу');
+                console.error('{{ t.error }}:', error);
+                showError('{{ t.server_connection_error }}');
             }
         }
 
@@ -367,8 +367,8 @@
             if (orders.length === 0) {
                 container.innerHTML = `
                     <div class="empty-state">
-                        <h2>У вас пока нет заказов</h2>
-                        <a href="/" class="btn btn-primary">Перейти к покупкам</a>
+                        <h2>{{ t.no_orders_yet }}</h2>
+                        <a href="/" class="btn btn-primary">{{ t.go_to_listings }}</a>
                     </div>
                 `;
                 return;
@@ -378,7 +378,7 @@
                 <div class="order-card">
                     <div class="order-header">
                         <div class="order-info">
-                            <h3>Заказ #${order.id}</h3>
+                            <h3>{{ t.order_hash }} #${order.id}</h3>
                             <p class="order-date">${formatDate(order.created_at)}</p>
                         </div>
                         <span class="order-status status-${order.status}">${getStatusText(order.status)}</span>
@@ -386,20 +386,20 @@
 
                     <div class="order-details">
                         <div class="detail-item">
-                            <span class="detail-label">Товар</span>
-                            <span class="detail-value">Объявление #${order.post_id}</span>
+                            <span class="detail-label">{{ t.product }}</span>
+                            <span class="detail-value">{{ t.listing }} #${order.post_id}</span>
                         </div>
                         <div class="detail-item">
-                            <span class="detail-label">Цена</span>
+                            <span class="detail-label">{{ t.price_label }}</span>
                             <span class="detail-value">${order.price} €</span>
                         </div>
                         <div class="detail-item">
-                            <span class="detail-label">Способ доставки</span>
+                            <span class="detail-label">{{ t.delivery_method }}</span>
                             <span class="detail-value">${getDeliveryText(order.delivery_method)}</span>
                         </div>
                         ${order.tracking_number ? `
                         <div class="detail-item">
-                            <span class="detail-label">Трек-номер</span>
+                            <span class="detail-label">{{ t.tracking_number }}</span>
                             <span class="detail-value">${order.tracking_number}</span>
                         </div>
                         ` : ''}
@@ -414,10 +414,10 @@
                     </div>
 
                     <div class="order-actions">
-                        <a href="/product?id=${order.post_id}" class="btn btn-outline">Посмотреть товар</a>
+                        <a href="/product?id=${order.post_id}" class="btn btn-outline">{{ t.view_product }}</a>
                         ${order.status === 'shipped' && !order.confirmed_by_buyer && !order.rejected_by_buyer ? `
                         <button class="btn btn-primary" onclick="openConfirmModal(${order.id})">
-                            ✅ Подтвердить получение + отзыв
+                            {{ t.confirm_receipt_review }}
                         </button>
                         ` : ''}
                         ${order.status === 'completed' && order.review_rating ? `
@@ -555,7 +555,7 @@
                 errorDiv.style.display = 'block';
             } finally {
                 submitBtn.disabled = false;
-                submitBtn.textContent = 'Отправить отзыв';
+                submitBtn.textContent = '{{ t.submit_review }}';
             }
         });
 
@@ -573,23 +573,23 @@
 
         function getStatusText(status) {
             const statusMap = {
-                'pending_payment': 'Ожидает оплаты',
-                'paid': 'Оплачен',
-                'processing': 'В обработке',
-                'shipped': 'Отправлен',
-                'delivered': 'Доставлен',
-                'completed': 'Завершён',
-                'cancelled': 'Отменён',
-                'refunded': 'Возврат'
+                'pending_payment': '{{ t.status_pending }}',
+                'paid': '{{ t.status_paid_label }}',
+                'processing': '{{ t.status_processing_label }}',
+                'shipped': '{{ t.status_shipped_label }}',
+                'delivered': '{{ t.status_delivered_label }}',
+                'completed': '{{ t.status_completed_label }}',
+                'cancelled': '{{ t.status_cancelled }}',
+                'refunded': '{{ t.status_refunded }}'
             };
             return statusMap[status] || status;
         }
 
         function getDeliveryText(method) {
             const methodMap = {
-                'pickup': '🚶 Забрать лично',
-                'dpd': '📦 DPD Pickup',
-                'omniva': '📮 Omniva'
+                'pickup': '{{ t.delivery_pickup }}',
+                'dpd': '{{ t.delivery_dpd }}',
+                'omniva': '{{ t.delivery_omniva }}'
             };
             return methodMap[method] || method;
         }
@@ -598,7 +598,7 @@
             document.getElementById('ordersContainer').innerHTML = `
                 <div class="empty-state">
                     <h2>${message}</h2>
-                    <button class="btn btn-primary" onclick="loadOrders()">Попробовать снова</button>
+                    <button class="btn btn-primary" onclick="loadOrders()">{{ t.try_again }}</button>
                 </div>
             `;
         }

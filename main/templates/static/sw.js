@@ -2,18 +2,18 @@
 const CACHE_NAME = 'lais-chat-v1';
 
 self.addEventListener('install', (event) => {
-    console.log('[SW] Service Worker установлен');
+    console.log('[SW] ' + (self.i18n?.js_sw_installed || 'Service Worker установлен'));
     self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-    console.log('[SW] Service Worker активирован');
+    console.log('[SW] ' + (self.i18n?.js_sw_activated || 'Service Worker активирован'));
     event.waitUntil(clients.claim());
 });
 
 // Обработка push-уведомлений
 self.addEventListener('push', (event) => {
-    console.log('[SW] Push-уведомление получено');
+    console.log('[SW] ' + (self.i18n?.js_sw_push_received || 'Push-уведомление получено'));
     
     let data = {};
     
@@ -22,7 +22,7 @@ self.addEventListener('push', (event) => {
             data = event.data.json();
         } catch (e) {
             data = {
-                title: 'Новое сообщение',
+                title: self.i18n?.js_notif_new_message || 'Новое сообщение',
                 body: event.data.text(),
                 icon: '/static/icon-192.png',
                 badge: '/static/badge-72.png'
@@ -31,7 +31,7 @@ self.addEventListener('push', (event) => {
     }
     
     const options = {
-        body: data.body || 'У вас новое сообщение в чате',
+        body: data.body || (self.i18n?.js_notif_default_body || 'У вас новое сообщение в чате'),
         icon: data.icon || '/static/icon-192.png',
         badge: data.badge || '/static/badge-72.png',
         vibrate: [200, 100, 200],
@@ -43,12 +43,12 @@ self.addEventListener('push', (event) => {
         actions: [
             {
                 action: 'open',
-                title: 'Открыть',
+                title: self.i18n?.js_sw_open || 'Открыть',
                 icon: '/static/open-icon.png'
             },
             {
                 action: 'close',
-                title: 'Закрыть',
+                title: self.i18n?.js_notif_close || 'Закрыть',
                 icon: '/static/close-icon.png'
             }
         ],
@@ -57,13 +57,13 @@ self.addEventListener('push', (event) => {
     };
     
     event.waitUntil(
-        self.registration.showNotification(data.title || 'Новое сообщение', options)
+        self.registration.showNotification(data.title || (self.i18n?.js_notif_new_message || 'Новое сообщение'), options)
     );
 });
 
 // Обработка кликов по уведомлениям
 self.addEventListener('notificationclick', (event) => {
-    console.log('[SW] Клик по уведомлению:', event.action);
+    console.log('[SW] ' + (self.i18n?.js_sw_notification_click || 'Клик по уведомлению:'), event.action);
     
     event.notification.close();
     
@@ -94,5 +94,5 @@ self.addEventListener('notificationclick', (event) => {
 
 // Обработка закрытия уведомлений
 self.addEventListener('notificationclose', (event) => {
-    console.log('[SW] Уведомление закрыто:', event.notification.tag);
+    console.log('[SW] ' + (self.i18n?.js_sw_notification_closed || 'Уведомление закрыто:'), event.notification.tag);
 });

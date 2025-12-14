@@ -1,7 +1,7 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="{{ lang }}">
 <head>
-    {% set page_title = post.model + " " + post.memory + "GB - LAIS Marketplace" if post else "Товар - LAIS Marketplace" %}
+    {% set page_title = post.model + " " + post.memory + "GB - LAIS Marketplace" if post else t.site_name %}
     {% set page_description = "Купить " + post.model + " " + post.memory + "GB, состояние " + post.condition + ", батарея " + post.batery + "%. Цена: " + post.price|string + "€" if post else "Лучшие предложения iPhone на LAIS Marketplace" %}
     {% set page_image = post.photos[0] if post and post.photos else "https://test.yuniversia.eu/static/images/og-default.jpg" %}
     {% include 'seo_meta.html' %}
@@ -11,6 +11,49 @@
     <script src="/templates/static/cache-manager.js?v=16"></script>
     <script src="/templates/static/notifications.js?v=16" defer></script>
     <script src="/templates/static/notification-prompt.js?v=16" defer></script>
+    <script>
+        // Global translations object for JavaScript
+        window.i18n = {
+            loading: "{{ t.js_chat_loading }}",
+            chatWithSeller: "{{ t.js_chat_with_seller }}",
+            writeMessage: "{{ t.js_chat_write_message }}",
+            insufficientData: "{{ t.js_chat_insufficient_data }}",
+            startDialog: "{{ t.js_chat_start_dialog }}",
+            createFailed: "{{ t.js_chat_create_failed }}",
+            loadMessagesFailed: "{{ t.js_chat_load_messages_failed }}",
+            connectionFailed: "{{ t.js_chat_connection_failed }}",
+            seller: "{{ t.js_chat_seller }}",
+            online: "{{ t.js_chat_online }}",
+            offline: "{{ t.js_chat_offline }}",
+            // Notifications
+            js_notif_not_supported: "{{ t.js_notif_not_supported }}",
+            js_notif_sw_registered: "{{ t.js_notif_sw_registered }}",
+            js_notif_sw_active: "{{ t.js_notif_sw_active }}",
+            js_notif_sw_error: "{{ t.js_notif_sw_error }}",
+            js_notif_permission_granted: "{{ t.js_notif_permission_granted }}",
+            js_notif_permission_denied: "{{ t.js_notif_permission_denied }}",
+            js_notif_permission_error: "{{ t.js_notif_permission_error }}",
+            js_notif_no_permission: "{{ t.js_notif_no_permission }}",
+            js_notif_shown: "{{ t.js_notif_shown }}",
+            js_notif_show_error: "{{ t.js_notif_show_error }}",
+            js_notif_new_message: "{{ t.js_notif_new_message }}",
+            js_notif_default_body: "{{ t.js_notif_default_body }}",
+            js_notif_window_active: "{{ t.js_notif_window_active }}",
+            js_notif_new_message_from: "{{ t.js_notif_new_message_from }}",
+            js_notif_open_chat: "{{ t.js_notif_open_chat }}",
+            js_notif_close: "{{ t.js_notif_close }}",
+            js_notif_permission_already: "{{ t.js_notif_permission_already }}",
+            js_notif_prompt_title: "{{ t.js_notif_prompt_title }}",
+            js_notif_prompt_description: "{{ t.js_notif_prompt_description }}",
+            js_notif_enabled: "{{ t.js_notif_enabled }}",
+            js_sw_installed: "{{ t.js_sw_installed }}",
+            js_sw_activated: "{{ t.js_sw_activated }}",
+            js_sw_push_received: "{{ t.js_sw_push_received }}",
+            js_sw_notification_click: "{{ t.js_sw_notification_click }}",
+            js_sw_notification_closed: "{{ t.js_sw_notification_closed }}",
+            js_sw_open: "{{ t.js_sw_open }}"
+        };
+    </script>
     <script src="/templates/static/chat.js?v=16" defer></script>
     <script>
         // API Configuration - единый стандарт /api/v1/<service>
@@ -28,7 +71,8 @@
         <div class="nav-container">
             <a href="/" class="logo">lais</a>
             <div class="header-controls">
-                <a href="/" class="btn btn-outline">Назад</a>
+                {% include 'language_switcher.html' %}
+                <a href="/" class="btn btn-outline">{{ t.back }}</a>
             </div>
         </div>
     </header>
@@ -46,81 +90,81 @@
         <!-- Purchase Modal -->
         <div id="purchaseModal" class="modal">
             <div class="modal-content" style="max-width: 600px; max-height: 90vh; overflow-y: auto;">
-                <h2 style="margin-bottom: 24px;">Оформление покупки</h2>
+                <h2 style="margin-bottom: 24px;">{{ t.purchase_title }}</h2>
                 
                 <!-- Шаг 1: Выбор способа доставки -->
                 <div id="step1" class="purchase-step">
-                    <h3 style="margin-bottom: 16px;">Выберите способ получения</h3>
+                    <h3 style="margin-bottom: 16px;">{{ t.delivery_method }}</h3>
                     <div style="display: grid; gap: 12px;">
                         <label class="delivery-option">
                             <input type="radio" name="deliveryMethod" value="pickup" checked>
                             <div class="delivery-card">
-                                <div class="delivery-title">🚶 Забрать лично</div>
-                                <div class="delivery-desc">Встреча с продавцом</div>
+                                <div class="delivery-title">🚶 {{ t.pickup }}</div>
+                                <div class="delivery-desc">{{ t.pickup_desc }}</div>
                             </div>
                         </label>
                         <label class="delivery-option">
                             <input type="radio" name="deliveryMethod" value="dpd">
                             <div class="delivery-card">
                                 <div class="delivery-title">📦 DPD Pickup</div>
-                                <div class="delivery-desc">Доставка в пакомат DPD</div>
+                                <div class="delivery-desc">{{ t.delivery_desc }}</div>
                             </div>
                         </label>
                         <label class="delivery-option">
                             <input type="radio" name="deliveryMethod" value="omniva">
                             <div class="delivery-card">
                                 <div class="delivery-title">📮 Omniva</div>
-                                <div class="delivery-desc">Доставка в пакомат Omniva</div>
+                                <div class="delivery-desc">{{ t.delivery_desc }}</div>
                             </div>
                         </label>
                     </div>
-                    <button type="button" class="btn btn-primary" style="width: 100%; margin-top: 20px;" onclick="goToStep2()">Далее</button>
+                    <button type="button" class="btn btn-primary" style="width: 100%; margin-top: 20px;" onclick="goToStep2()">{{ t.next }}</button>
                 </div>
 
                 <!-- Шаг 2: Заполнение данных -->
                 <div id="step2" class="purchase-step" style="display: none;">
-                    <button type="button" onclick="goToStep1()" style="background: none; border: none; color: var(--color-primary); margin-bottom: 16px; cursor: pointer; font-size: 14px;">← Назад</button>
-                    <h3 style="margin-bottom: 16px;">Контактные данные</h3>
+                    <button type="button" onclick="goToStep1()" style="background: none; border: none; color: var(--color-primary); margin-bottom: 16px; cursor: pointer; font-size: 14px;">← {{ t.back }}</button>
+                    <h3 style="margin-bottom: 16px;">{{ t.contact_details }}</h3>
                     
                     <form id="purchaseForm">
                         <div class="form-group">
-                            <label class="label">Имя *</label>
+                            <label class="label">{{ t.first_name }} *</label>
                             <input type="text" id="buyerFirstName" class="input" required>
                         </div>
                         <div class="form-group">
-                            <label class="label">Фамилия *</label>
+                            <label class="label">{{ t.last_name }} *</label>
                             <input type="text" id="buyerLastName" class="input" required>
                         </div>
                         <div class="form-group">
-                            <label class="label">Email *</label>
+                            <label class="label">{{ t.email_label }} *</label>
                             <input type="email" id="buyerEmail" class="input" required placeholder="example@mail.com">
-                            <small style="color: var(--color-text-light);">Код для получения будет отправлен на этот email</small>
+                            <small style="color: var(--color-text-light);">{{ t.email_hint }}</small>
                         </div>
                         <div class="form-group">
-                            <label class="label">Телефон *</label>
+                            <label class="label">{{ t.phone_label }} *</label>
                             <input type="tel" id="buyerPhone" class="input" required placeholder="+371 12345678">
-                            <small style="color: var(--color-text-light);">Для SMS-подтверждения получения</small>
+                            <small style="color: var(--color-text-light);">{{ t.phone_hint }}</small>
                         </div>
 
                         <!-- Адрес доставки (показывается только для DPD/Omniva) -->
                         <div id="deliveryAddressFields" style="display: none;">
-                            <h4 style="margin: 24px 0 16px;">Адрес доставки</h4>
+                            <h4 style="margin: 24px 0 16px;">{{ t.delivery_address_title }}</h4>
                             <div class="form-group">
-                                <label class="label">Адрес *</label>
-                                <input type="text" id="deliveryAddress" class="input" placeholder="Улица, дом, квартира">
+                                <label class="label">{{ t.address }} *</label>
+                                <input type="text" id="deliveryAddress" class="input" placeholder="{{ t.address_placeholder }}">
                             </div>
                             <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px;">
                                 <div class="form-group">
-                                    <label class="label">Город *</label>
-                                    <input type="text" id="deliveryCity" class="input" placeholder="Рига">
+                                    <label class="label">{{ t.city }} *</label>
+                                    <input type="text" id="deliveryCity" class="input" placeholder="{{ t.city_placeholder }}">
                                 </div>
                                 <div class="form-group">
-                                    <label class="label">Индекс *</label>
-                                    <input type="text" id="deliveryZip" class="input" placeholder="LV-1000">
+                                    <label class="label">{{ t.postal_code }} *</label>
+                                    <input type="text" id="deliveryZip" class="input" placeholder="{{ t.zip_placeholder }}">
                                 </div>
                             </div>
                             <div class="form-group">
-                                <label class="label">Страна *</label>
+                                <label class="label">{{ t.country }} *</label>
                                 <input type="text" id="deliveryCountry" class="input" value="Latvia" readonly>
                             </div>
                         </div>
@@ -129,18 +173,18 @@
                         
                         <div style="background: var(--color-surface); padding: 16px; border-radius: 12px; margin: 20px 0;">
                             <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                                <span style="color: var(--color-text-light);">Товар:</span>
+                                <span style="color: var(--color-text-light);">{{ t.item_price }}:</span>
                                 <span id="orderPrice" style="font-weight: 500;">0 €</span>
                             </div>
                             <div style="display: flex; justify-content: space-between; padding-top: 12px; border-top: 1px solid var(--color-border);">
-                                <span style="font-weight: 600;">Итого:</span>
+                                <span style="font-weight: 600;">{{ t.total }}:</span>
                                 <span id="orderTotal" style="font-weight: 600; font-size: 18px; color: var(--color-primary);">0 €</span>
                             </div>
                         </div>
 
                         <div style="display: flex; gap: 12px;">
-                            <button type="button" class="btn btn-outline" style="flex: 1;" onclick="closePurchaseModal()">Отмена</button>
-                            <button type="submit" class="btn btn-primary" style="flex: 1;" id="submitPurchaseBtn">Перейти к оплате</button>
+                            <button type="button" class="btn btn-outline" style="flex: 1;" onclick="closePurchaseModal()">{{ t.cancel }}</button>
+                            <button type="submit" class="btn btn-primary" style="flex: 1;" id="submitPurchaseBtn">{{ t.proceed_to_payment }}</button>
                         </div>
                     </form>
                 </div>
@@ -149,14 +193,14 @@
                 <div id="step3" class="purchase-step" style="display: none;">
                     <div style="text-align: center; padding: 40px 20px;">
                         <div style="font-size: 48px; margin-bottom: 20px;">💳</div>
-                        <h3 style="margin-bottom: 12px;">Оплата заказа</h3>
-                        <p style="color: var(--color-text-light); margin-bottom: 8px;">Сумма к оплате:</p>
+                        <h3 style="margin-bottom: 12px;">{{ t.payment_title }}</h3>
+                        <p style="color: var(--color-text-light); margin-bottom: 8px;">{{ t.amount_to_pay }}:</p>
                         <p style="font-size: 32px; font-weight: 600; color: var(--color-primary); margin-bottom: 24px;" id="paymentAmount">0 €</p>
                         <p style="color: var(--color-text-light); font-size: 14px; margin-bottom: 32px;">
-                            В реальной версии здесь будет форма оплаты<br>(Stripe, PayPal и т.д.)
+                            {{ t.payment_demo_text|safe }}
                         </p>
                         <button type="button" class="btn btn-primary" style="width: 100%;" onclick="processPayment()" id="payBtn">
-                            Оплатить (ДЕМО)
+                            {{ t.pay_demo }}
                         </button>
                     </div>
                 </div>
@@ -165,19 +209,17 @@
                 <div id="step4" class="purchase-step" style="display: none;">
                     <div style="text-align: center; padding: 40px 20px;">
                         <div style="font-size: 64px; margin-bottom: 20px;">✅</div>
-                        <h3 style="margin-bottom: 12px; color: #34c759;">Товар успешно куплен!</h3>
+                        <h3 style="margin-bottom: 12px; color: #34c759;">{{ t.purchase_success }}</h3>
                         <p style="color: var(--color-text-light); margin-bottom: 24px;">
-                            Продавец получил уведомление и отправит товар в ближайшее время.
+                            {{ t.seller_notified }}
                         </p>
                         <div style="background: var(--color-surface); padding: 20px; border-radius: 12px; margin-bottom: 24px;">
                             <p style="font-size: 14px; color: var(--color-text-light); margin-bottom: 8px;">
-                                📦 Объявление снято с продажи<br>
-                                📧 Вы получите уведомление на email<br>
-                                📱 Отслеживайте статус в разделе "Мои заказы"
+                                {{ t.order_info|safe }}
                             </p>
                         </div>
-                        <button type="button" class="btn btn-primary" onclick="window.location.href='/my-orders';">Перейти к заказам</button>
-                        <button type="button" class="btn btn-secondary" onclick="closePurchaseModal(); location.reload();" style="margin-left: 12px;">Закрыть</button>
+                        <button type="button" class="btn btn-primary" onclick="window.location.href='/my-orders';">{{ t.go_to_orders }}</button>
+                        <button type="button" class="btn btn-secondary" onclick="closePurchaseModal(); location.reload();" style="margin-left: 12px;">{{ t.close }}</button>
                     </div>
                 </div>
             </div>
@@ -221,39 +263,39 @@
         <!-- Report Modal -->
         <div id="reportModal" class="modal">
             <div class="modal-content" style="max-width: 450px;">
-                <h2 style="margin-bottom: 20px;">Пожаловаться на объявление</h2>
+                <h2 style="margin-bottom: 20px;">{{ t.report_ad }}</h2>
                 <p style="color: var(--color-text-light); font-size: 14px; margin-bottom: 20px;">
-                    Ваша жалоба будет рассмотрена администрацией. Пожалуйста, укажите причину.
+                    {{ t.report_note }}
                 </p>
                 <form id="reportForm">
                     <div class="form-group">
-                        <label class="label">Причина жалобы *</label>
+                        <label class="label">{{ t.report_reason }} *</label>
                         <select id="reportReason" class="input" required>
-                            <option value="">Выберите причину</option>
-                            <option value="Мошенничество">Мошенничество</option>
-                            <option value="Поддельное устройство">Поддельное устройство</option>
-                            <option value="Украденный телефон">Украденный телефон</option>
-                            <option value="Неверная информация">Неверная информация</option>
-                            <option value="Дубликат объявления">Дубликат объявления</option>
-                            <option value="Неприемлемый контент">Неприемлемый контент</option>
-                            <option value="Спам">Спам</option>
-                            <option value="Другое">Другое</option>
+                            <option value="">{{ t.select_reason }}</option>
+                            <option value="{{ t.reason_fraud }}">{{ t.reason_fraud }}</option>
+                            <option value="{{ t.reason_fake }}">{{ t.reason_fake }}</option>
+                            <option value="{{ t.reason_stolen }}">{{ t.reason_stolen }}</option>
+                            <option value="{{ t.reason_wrong_info }}">{{ t.reason_wrong_info }}</option>
+                            <option value="{{ t.reason_duplicate }}">{{ t.reason_duplicate }}</option>
+                            <option value="{{ t.reason_inappropriate }}">{{ t.reason_inappropriate }}</option>
+                            <option value="{{ t.reason_spam }}">{{ t.reason_spam }}</option>
+                            <option value="{{ t.reason_other }}">{{ t.reason_other }}</option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label class="label">Дополнительная информация (необязательно)</label>
-                        <textarea id="reportDetails" class="input" rows="4" placeholder="Опишите подробнее проблему..." maxlength="500"></textarea>
+                        <label class="label">{{ t.additional_info }}</label>
+                        <textarea id="reportDetails" class="input" rows="4" placeholder="{{ t.describe_problem }}" maxlength="500"></textarea>
                         <div style="font-size: 12px; color: var(--color-text-light); margin-top: 4px;">
-                            <span id="reportDetailsCount">0</span>/500 символов
+                            <span id="reportDetailsCount">0</span>/500 {{ t.characters }}
                         </div>
                     </div>
                     <div id="reportSuccess" style="color: #34c759; margin-bottom: 16px; display: none; padding: 12px; background: #e8f5e9; border-radius: 8px; text-align: center;">
-                        ✓ Жалоба успешно отправлена
+                        {{ t.report_success }}
                     </div>
                     <div id="reportError" style="color: #ff3b30; margin-bottom: 16px; display: none; padding: 12px; background: #ffebee; border-radius: 8px; text-align: center;"></div>
                     <div style="display: flex; gap: 12px;">
-                        <button type="button" class="btn btn-outline" style="flex: 1;" onclick="closeReportModal()">Отмена</button>
-                        <button type="submit" class="btn btn-primary" style="flex: 1; background: #ff3b30;" id="submitReportBtn">Отправить</button>
+                        <button type="button" class="btn btn-outline" style="flex: 1;" onclick="closeReportModal()">{{ t.cancel }}</button>
+                        <button type="submit" class="btn btn-primary" style="flex: 1; background: #ff3b30;" id="submitReportBtn">{{ t.submit_report }}</button>
                     </div>
                 </form>
             </div>
@@ -280,28 +322,28 @@
                 </div>
 
                 <div style="background: #fff; padding: 20px; border-radius: 16px; border: 1px solid var(--color-border); margin-top: 20px;">
-                    <h3 style="margin-bottom: 10px;">Описание продавца</h3>
+                    <h3 style="margin-bottom: 10px;">{{ t.seller_description }}</h3>
                     <p id="productDescription" style="color: var(--color-text); line-height: 1.6; font-size: 15px;">
-                        Загружается...
+                        {{ t.loading }}...
                     </p>
                 </div>
 
                 <div style="margin-top: 30px; display: flex; align-items: center; gap: 15px;">
                     <div id="authorAvatar" style="width: 50px; height: 50px; background: #e1e1e1; border-radius: 50%; display: none;"></div>
                     <div>
-                        <div id="authorName" style="font-weight: 600;">Дмитрий К.</div>
-                        <div id="authorDate" style="font-size: 13px; color: var(--color-text-light);">На Lais с 2021</div>
+                        <div id="authorName" style="font-weight: 600;">{{ t.seller }}</div>
+                        <div id="authorDate" style="font-size: 13px; color: var(--color-text-light);">{{ t.member_since }} 2021</div>
                     </div>
                     <button id="openChatBtn" class="btn btn-primary" style="margin-left: auto;">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
                         </svg>
-                        Написать
+                        {{ t.write_message }}
                     </button>
                 </div>
 
                 <div style="margin-top: 20px;">
-                    <button id="BuyButon" style="width: 100%; padding-top: 20px; padding-bottom: 20px;"  class="btn btn-primary">Купить</button>
+                    <button id="BuyButon" style="width: 100%; padding-top: 20px; padding-bottom: 20px;"  class="btn btn-primary">{{ t.buy_now }}</button>
                 </div>
 
                 <!-- Кнопка жалобы (ненавязчивая) -->
@@ -312,7 +354,7 @@
                             <line x1="12" y1="9" x2="12" y2="13"></line>
                             <line x1="12" y1="17" x2="12.01" y2="17"></line>
                         </svg>
-                        Пожаловаться
+                        {{ t.report_listing }}
                     </button>
                 </div>
 
@@ -324,14 +366,14 @@
                             <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"></path>
                             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
                         </svg>
-                        Панель модератора
+                        {{ t.moderator_panel }}
                     </div>
                     <div style="display: flex; gap: 8px;">
                         <button id="deactivatePostBtn" class="btn btn-outline" style="flex: 1; background: white; color: #ff3b30; border: none; font-weight: 600;">
-                            Деактивировать
+                            {{ t.deactivate }}
                         </button>
                         <button id="activatePostBtn" class="btn btn-outline" style="flex: 1; background: white; color: #34c759; border: none; font-weight: 600; display: none;">
-                            Активировать
+                            {{ t.activate }}
                         </button>
                     </div>
                 </div>
@@ -340,23 +382,23 @@
 
                 <div class="specs-list" id="specsList">
                     <div class="spec-row">
-                        <span class="spec-label">Модель</span>
+                        <span class="spec-label">{{ t.model_label }}</span>
                         <span class="spec-value" id="specModel">—</span>
                     </div>
                     <div class="spec-row">
-                        <span class="spec-label">Память</span>
+                        <span class="spec-label">{{ t.memory_spec }}</span>
                         <span class="spec-value" id="specMemory">—</span>
                     </div>
                     <div class="spec-row">
-                        <span class="spec-label">Цвет</span>
+                        <span class="spec-label">{{ t.color_label }}</span>
                         <span class="spec-value" id="specColor">—</span>
                     </div>
                     <div class="spec-row" id="activatedRow">
-                        <span class="spec-label">Состояние</span>
+                        <span class="spec-label">{{ t.condition_label }}</span>
                         <span class="spec-value" id="specCondition">—</span>
                     </div>
                     <div class="spec-row">
-                        <span class="spec-label">Состояние батареи</span>
+                        <span class="spec-label">{{ t.battery_health }}</span>
                         <span class="spec-value" id="specBattery">—</span>
                     </div>
                     <div class="spec-row">
@@ -364,31 +406,31 @@
                         <span class="spec-value" id="specIMEI">—</span>
                     </div>
                     <div class="spec-row" id="fmiRow" >
-                        <span class="spec-label">Статус FMI</span>
+                        <span class="spec-label">{{ t.fmi_status }}</span>
                         <span class="spec-value" id="specFMI">—</span>
                     </div>
                     <div class="spec-row" id="icloudRow">
-                        <span class="spec-label">Привязка iCloud</span>
+                        <span class="spec-label">{{ t.icloud_lock }}</span>
                         <span class="spec-value" id="specICloud">—</span>
                     </div>
                     <div class="spec-row" id="simlockRow">
-                        <span class="spec-label">Sim lock</span>
+                        <span class="spec-label">{{ t.simlock }}</span>
                         <span class="spec-value" id="specSimlock">—</span>
                     </div>
                     <div class="spec-row" id="activatedRow">
-                        <span class="spec-label">Активирован</span>
+                        <span class="spec-label">{{ t.activated }}</span>
                         <span class="spec-value" id="specActivated">—</span>
                     </div>
                 </div>
 
                 <div style="background: #fff; padding: 20px; border-radius: 16px; border: 1px solid var(--color-border);">
-                    <h3 style="margin-bottom: 10px;">Комплектация</h3>
+                    <h3 style="margin-bottom: 10px;">{{ t.package_contents }}</h3>
                     <div class="checkbox-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                        <label class="check-item"><input type="checkbox" id="cb_original_box" disabled> Оригинальная коробка</label>
-                        <label class="check-item"><input type="checkbox" id="cb_charger" disabled> Зарядный блок</label>
-                        <label class="check-item"><input type="checkbox" id="cb_cable" disabled> Кабель</label>
-                        <label class="check-item"><input type="checkbox" id="cb_receipt" disabled> Чек о покупке</label>
-                        <label class="check-item"><input type="checkbox" id="cb_warranty" disabled> Гарантия</label>
+                        <label class="check-item"><input type="checkbox" id="cb_original_box" disabled> {{ t.original_box }}</label>
+                        <label class="check-item"><input type="checkbox" id="cb_charger" disabled> {{ t.charger }}</label>
+                        <label class="check-item"><input type="checkbox" id="cb_cable" disabled> {{ t.cable }}</label>
+                        <label class="check-item"><input type="checkbox" id="cb_receipt" disabled> {{ t.receipt }}</label>
+                        <label class="check-item"><input type="checkbox" id="cb_warranty" disabled> {{ t.warranty }}</label>
                     </div>
                 </div>
 
@@ -496,22 +538,22 @@
 
             // Дополнительные спеки (если есть данные)
             if (postData.fmi !== null && postData.fmi !== undefined) {
-                document.getElementById('specFMI').textContent = postData.fmi ? 'В поиске' : 'Чистый';
+                document.getElementById('specFMI').textContent = postData.fmi ? '{{ t.fmi_lost }}' : '{{ t.fmi_clean }}';
             }
 
             if (postData.icloud_pair !== null && postData.icloud_pair !== undefined) {
-                document.getElementById('specICloud').textContent = postData.icloud_pair ? 'Привязан' : 'Не привязан';
+                document.getElementById('specICloud').textContent = postData.icloud_pair ? '{{ t.icloud_locked }}' : '{{ t.icloud_unlocked }}';
             }
 
             if (postData.simlock !== null && postData.simlock !== undefined) {
-                document.getElementById('specSimlock').textContent = postData.simlock ? 'Заблокирован' : 'Нет';
+                document.getElementById('specSimlock').textContent = postData.simlock ? '{{ t.simlock_yes }}' : '{{ t.simlock_no }}';
             }
 
             if (postData.activated !== null && postData.activated !== undefined) {
-                document.getElementById('specActivated').textContent = postData.activated ? 'Активирован' : 'Не активирован';
+                document.getElementById('specActivated').textContent = postData.activated ? '{{ t.device_activated }}' : '{{ t.device_not_activated }}';
             }
 
-            document.getElementById("BuyButon").innerHTML = `Купить за ${postData.price || '0'} eur`;
+            document.getElementById("BuyButon").innerHTML = `{{ t.buy_button }} ${postData.price || '0'} eur`;
             document.getElementById('specCondition').textContent = postData.condition || '—';
 
             // Обновляем комплектацию
@@ -587,7 +629,7 @@
                     currentAuthorData = authorData;
                     
                     // Формируем полное имя: "Имя Фамилия" или username
-                    let displayName = authorData.username || 'Продавец';
+                    let displayName = authorData.username || '{{ t.seller_default }}';
                     if (authorData.name && authorData.surname) {
                         displayName = `${authorData.name} ${authorData.surname}`;
                     } else if (authorData.name) {
@@ -1012,7 +1054,7 @@
         // Обработчик кнопки чата
         document.getElementById('openChatBtn').addEventListener('click', async () => {
             if (!postId) {
-                alert('ID товара не найден');
+                alert('{{ t.js_product_not_found }}');
                 return;
             }
             
@@ -1028,11 +1070,11 @@
                 if (postData.author_id && window.chatManager) {
                     window.chatManager.openChat(postData.author_id, parseInt(postId));
                 } else {
-                    alert('Не удалось открыть чат');
+                    alert('{{ t.js_chat_open_failed }}');
                 }
             } catch (error) {
                 console.error('Ошибка при открытии чата:', error);
-                alert('Ошибка при открытии чата');
+                alert('{{ t.js_chat_error }}');
             }
         });
 
@@ -1107,7 +1149,7 @@
             const successDiv = document.getElementById('reportSuccess');
             
             submitBtn.disabled = true;
-            submitBtn.textContent = 'Отправка...';
+            submitBtn.textContent = '{{ t.js_report_sending }}';
             errorDiv.style.display = 'none';
             successDiv.style.display = 'none';
             
@@ -1143,17 +1185,17 @@
                     
                 } else {
                     const error = await response.json();
-                    errorDiv.textContent = error.detail || 'Не удалось отправить жалобу';
+                    errorDiv.textContent = error.detail || '{{ t.js_report_send_failed }}';
                     errorDiv.style.display = 'block';
                     submitBtn.disabled = false;
-                    submitBtn.textContent = 'Отправить';
+                    submitBtn.textContent = '{{ t.submit_report }}';
                 }
             } catch (error) {
                 console.error('Ошибка при отправке жалобы:', error);
-                errorDiv.textContent = 'Ошибка сети. Попробуйте позже.';
+                errorDiv.textContent = '{{ t.js_network_error }}';
                 errorDiv.style.display = 'block';
                 submitBtn.disabled = false;
-                submitBtn.textContent = 'Отправить';
+                submitBtn.textContent = '{{ t.submit_report }}';
             }
         });
 

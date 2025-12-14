@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="{{ lang }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Мои продажи - LAIS</title>
+    <title>{{ t.my_sales }} - LAIS</title>
     <link rel="stylesheet" href="/templates/static/styles2.css?v=16">
     <script>
         // API Configuration - единый стандарт /api/v1/<service>
@@ -246,13 +246,13 @@
 <body>
     <div class="sales-container">
         <div class="sales-header">
-            <h1>Мои продажи</h1>
-            <a href="/" class="btn btn-outline">← Назад на главную</a>
+            <h1>{{ t.my_sales_title }}</h1>
+            <a href="/profile" class="btn btn-outline">← {{ t.back }}</a>
         </div>
 
         <div id="salesContainer">
             <div class="empty-state">
-                <h2>Загрузка продаж...</h2>
+                <h2>{{ t.sales_loading }}</h2>
             </div>
         </div>
     </div>
@@ -261,17 +261,17 @@
     <div id="shipModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Отметить как отправлено</h2>
+                <h2>{{ t.mark_as_shipped }}</h2>
             </div>
             <div class="modal-body">
-                <p>После нажатия "Отправить" покупатель получит уведомление и сможет подтвердить получение товара.</p>
+                <p>{{ t.shipment_notice }}</p>
                 <form id="shipForm">
                     <div id="shipError" style="color: red; margin-bottom: 10px; display: none;"></div>
                 </form>
             </div>
             <div class="modal-actions">
-                <button type="button" class="btn btn-outline" onclick="closeShipModal()">Отмена</button>
-                <button type="submit" form="shipForm" class="btn btn-primary">Отправить</button>
+                <button type="button" class="btn btn-outline" onclick="closeShipModal()">{{ t.cancel }}</button>
+                <button type="submit" form="shipForm" class="btn btn-primary">{{ t.submit_report }}</button>
             </div>
         </div>
     </div>
@@ -290,11 +290,11 @@
                     const data = await response.json();
                     renderSales(data.sales || []);
                 } else {
-                    showError('Ошибка загрузки продаж');
+                    showError('{{ t.sales_load_error }}');
                 }
             } catch (error) {
-                console.error('Ошибка:', error);
-                showError('Ошибка подключения к серверу');
+                console.error('{{ t.error }}:', error);
+                showError('{{ t.server_connection_error }}');
             }
         }
 
@@ -305,8 +305,8 @@
             if (orders.length === 0) {
                 container.innerHTML = `
                     <div class="empty-state">
-                        <h2>У вас пока нет продаж</h2>
-                        <a href="/" class="btn btn-primary">Перейти к объявлениям</a>
+                        <h2>{{ t.no_sales_yet }}</h2>
+                        <a href="/" class="btn btn-primary">{{ t.go_to_listings }}</a>
                     </div>
                 `;
                 return;
@@ -316,20 +316,20 @@
                 <div class="order-card">
                     <div class="order-header">
                         <div class="order-info">
-                            <h3>Заказ #${order.id}</h3>
+                            <h3>{{ t.order_hash }} #${order.id}</h3>
                             <p class="order-date">${formatDate(order.created_at)}</p>
                         </div>
                         <span class="order-status status-${order.status}">${getStatusText(order.status)}</span>
                     </div>
 
-                    <div class="buyer-info">
-                        <h4>Покупатель:</h4>
+                    <div class="order-detail">
+                        <h4>{{ t.buyer_label }}</h4>
                         <div>
-                            <strong>👤 ${order.buyer_name || 'Анонимный покупатель'}</strong>
+                            <strong>👤 ${order.buyer_name || '{{ t.anonymous_buyer }}'}</strong>
                         </div>
                         ${order.review_rating ? `
                         <div style="margin-top: 10px;">
-                            <strong>Отзыв:</strong> ${'⭐'.repeat(order.review_rating)} (${order.review_rating}/5)
+                            <strong>{{ t.review }}:</strong> ${'⭐'.repeat(order.review_rating)} (${order.review_rating}/5)
                             ${order.review_text ? `<br><em>"${order.review_text}"</em>` : ''}
                         </div>
                         ` : ''}
@@ -337,45 +337,45 @@
 
                     <div class="order-details">
                         <div class="detail-item">
-                            <span class="detail-label">Товар</span>
-                            <span class="detail-value">Объявление #${order.post_id}</span>
+                            <span class="detail-label">{{ t.product }}</span>
+                            <span class="detail-value">{{ t.listing }} #${order.post_id}</span>
                         </div>
                         <div class="detail-item">
-                            <span class="detail-label">Сумма</span>
+                            <span class="detail-label">{{ t.amount }}</span>
                             <span class="detail-value">${order.price} €</span>
                         </div>
                         <div class="detail-item">
-                            <span class="detail-label">Способ доставки</span>
+                            <span class="detail-label">{{ t.delivery_method }}</span>
                             <span class="detail-value">${getDeliveryText(order.delivery_method)}</span>
                         </div>
                         ${order.tracking_number ? `
                         <div class="detail-item">
-                            <span class="detail-label">Трек-номер</span>
+                            <span class="detail-label">{{ t.tracking_number }}</span>
                             <span class="detail-value">${order.tracking_number}</span>
                         </div>
                         ` : ''}
                     </div>
 
                     <div class="order-actions">
-                        <a href="/product?id=${order.post_id}" class="btn btn-outline">Посмотреть товар</a>
+                        <a href="/product?id=${order.post_id}" class="btn btn-outline">{{ t.view_product }}</a>
                         ${order.status === 'paid' ? `
                         <button class="btn btn-primary" onclick="openShipModal(${order.id})">
-                            📦 Отметить как отправлено
+                            {{ t.mark_shipped_btn }}
                         </button>
                         ` : ''}
                         ${order.status === 'shipped' ? `
                         <div style="background: #cce5ff; color: #004085; font-weight: 500; padding: 12px 16px; border-radius: 8px; border-left: 4px solid #004085;">
-                            ⏳ Ожидает подтверждения от покупателя
+                            {{ t.awaiting_confirmation }}
                         </div>
                         ` : ''}
                         ${order.status === 'completed' ? `
                         <div style="background: #d4edda; color: #155724; font-weight: 500; padding: 12px 16px; border-radius: 8px; border-left: 4px solid #28a745;">
-                            ✓ Покупатель подтвердил получение
+                            {{ t.buyer_confirmed }}
                         </div>
                         ` : ''}
                         ${order.status === 'cancelled' ? `
                         <div style="background: #f8d7da; color: #721c24; font-weight: 500; padding: 12px 16px; border-radius: 8px; border-left: 4px solid #dc3545;">
-                            ✗ Покупатель отклонил товар
+                            {{ t.buyer_rejected }}
                         </div>
                         ` : ''}
                     </div>
@@ -406,7 +406,7 @@
             const submitBtn = e.submitter;
 
             submitBtn.disabled = true;
-            submitBtn.textContent = 'Отправка...';
+            submitBtn.textContent = '{{ t.sending }}';
             errorDiv.style.display = 'none';
 
             try {
@@ -420,20 +420,20 @@
 
                 if (response.ok) {
                     closeShipModal();
-                    alert('✅ Заказ отмечен как отправленный! Покупатель получит уведомление.');
+                    alert('{{ t.shipped_notification }}');
                     loadSales(); // Перезагрузка списка
                 } else {
                     const error = await response.json();
-                    errorDiv.textContent = error.detail || 'Ошибка при обновлении';
+                    errorDiv.textContent = error.detail || '{{ t.update_error }}';
                     errorDiv.style.display = 'block';
                 }
             } catch (error) {
-                console.error('Ошибка:', error);
-                errorDiv.textContent = 'Ошибка подключения к серверу';
+                console.error('{{ t.error }}:', error);
+                errorDiv.textContent = '{{ t.server_connection_error }}';
                 errorDiv.style.display = 'block';
             } finally {
                 submitBtn.disabled = false;
-                submitBtn.textContent = 'Отправить';
+                submitBtn.textContent = '{{ t.send }}';
             }
         });
 
@@ -451,20 +451,20 @@
 
         function getStatusText(status) {
             const statusMap = {
-                'paid': 'Оплачен',
-                'processing': 'В обработке',
-                'shipped': 'Отправлен',
-                'delivered': 'Доставлен',
-                'completed': 'Завершён'
+                'paid': '{{ t.status_paid_label }}',
+                'processing': '{{ t.status_processing_label }}',
+                'shipped': '{{ t.status_shipped_label }}',
+                'delivered': '{{ t.status_delivered_label }}',
+                'completed': '{{ t.status_completed_label }}'
             };
             return statusMap[status] || status;
         }
 
         function getDeliveryText(method) {
             const methodMap = {
-                'pickup': '🚶 Забрать лично',
-                'dpd': '📦 DPD Pickup',
-                'omniva': '📮 Omniva'
+                'pickup': '{{ t.delivery_pickup }}',
+                'dpd': '{{ t.delivery_dpd }}',
+                'omniva': '{{ t.delivery_omniva }}'
             };
             return methodMap[method] || method;
         }
@@ -473,7 +473,7 @@
             document.getElementById('salesContainer').innerHTML = `
                 <div class="empty-state">
                     <h2>${message}</h2>
-                    <button class="btn btn-primary" onclick="loadSales()">Попробовать снова</button>
+                    <button class="btn btn-primary" onclick="loadSales()">{{ t.try_again }}</button>
                 </div>
             `;
         }

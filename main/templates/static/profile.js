@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 1. ПРОВЕРКА АВТОРИЗАЦИИ
     if (!token) {
         // Если токена нет, немедленно перенаправляем на главную
-        alert("Для доступа к профилю необходимо авторизоваться.");
+        alert(window.i18n?.js_auth_required || "Для доступа к профилю необходимо авторизоваться.");
         window.location.href = "/"; 
         return;
     }
@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Если токен есть, но он недействителен (например, истек)
                 if (response.status === 401) {
                     localStorage.removeItem("access_token"); // Чистим неверный токен
-                    alert("Ваша сессия истекла. Пожалуйста, войдите снова.");
+                    alert(window.i18n?.js_session_expired || "Ваша сессия истекла. Пожалуйста, войдите снова.");
                     window.location.href = "/";
                 }
                 throw new Error(`Ошибка: ${response.statusText}`);
@@ -81,7 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // В реальном приложении:
         // await fetch("/api/profile/update", { ... });
 
-        alert("Данные (пока что) сохранены в консоли!");
+        alert(window.i18n?.js_data_saved_console || "Данные (пока что) сохранены в консоли!");
     });
 
     // Запускаем загрузку данных при открытии страницы

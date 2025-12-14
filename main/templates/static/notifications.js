@@ -12,7 +12,7 @@ class NotificationManager {
         if (this.isSupported) {
             this.init();
         } else {
-            console.warn('[Notifications] Push-уведомления не поддерживаются браузером');
+            console.warn('[Notifications] ' + (window.i18n?.js_notif_not_supported || 'Push-уведомления не поддерживаются браузером'));
         }
     }
     
@@ -23,17 +23,17 @@ class NotificationManager {
                 scope: '/'
             });
             
-            console.log('[Notifications] Service Worker зарегистрирован:', this.swRegistration.scope);
+            console.log('[Notifications] ' + (window.i18n?.js_notif_sw_registered || 'Service Worker зарегистрирован:'), this.swRegistration.scope);
             
             // Ждем активации
             await navigator.serviceWorker.ready;
-            console.log('[Notifications] Service Worker активен');
+            console.log('[Notifications] ' + (window.i18n?.js_notif_sw_active || 'Service Worker активен'));
             
             // Проверяем текущее разрешение
             this.permission = Notification.permission;
             
         } catch (error) {
-            console.error('[Notifications] Ошибка регистрации Service Worker:', error);
+            console.error('[Notifications] ' + (window.i18n?.js_notif_sw_error || 'Ошибка регистрации Service Worker:'), error);
         }
     }
     
@@ -42,12 +42,12 @@ class NotificationManager {
      */
     async requestPermission() {
         if (!this.isSupported) {
-            console.warn('[Notifications] Push-уведомления не поддерживаются');
+            console.warn('[Notifications] ' + (window.i18n?.js_notif_not_supported || 'Push-уведомления не поддерживаются'));
             return false;
         }
         
         if (this.permission === 'granted') {
-            console.log('[Notifications] Разрешение уже получено');
+            console.log('[Notifications] ' + (window.i18n?.js_notif_permission_already || 'Разрешение уже получено'));
             return true;
         }
         
@@ -56,14 +56,14 @@ class NotificationManager {
             this.permission = permission;
             
             if (permission === 'granted') {
-                console.log('[Notifications] Разрешение на уведомления получено');
+                console.log('[Notifications] ' + (window.i18n?.js_notif_permission_granted || 'Разрешение на уведомления получено'));
                 return true;
             } else {
-                console.log('[Notifications] Разрешение на уведомления отклонено');
+                console.log('[Notifications] ' + (window.i18n?.js_notif_permission_denied || 'Разрешение на уведомления отклонено'));
                 return false;
             }
         } catch (error) {
-            console.error('[Notifications] Ошибка запроса разрешения:', error);
+            console.error('[Notifications] ' + (window.i18n?.js_notif_permission_error || 'Ошибка запроса разрешения:'), error);
             return false;
         }
     }
@@ -73,13 +73,13 @@ class NotificationManager {
      */
     async showNotification(title, options = {}) {
         if (!this.isSupported || this.permission !== 'granted') {
-            console.warn('[Notifications] Нет разрешения на уведомления');
+            console.warn('[Notifications] ' + (window.i18n?.js_notif_no_permission || 'Нет разрешения на уведомления'));
             return;
         }
         
         try {
             const defaultOptions = {
-                body: 'У вас новое сообщение',
+                body: window.i18n?.js_notif_new_message || 'У вас новое сообщение',
                 icon: '/static/icon-192.png',
                 badge: '/static/badge-72.png',
                 vibrate: [200, 100, 200],
@@ -99,9 +99,9 @@ class NotificationManager {
                 new Notification(title, notificationOptions);
             }
             
-            console.log('[Notifications] Уведомление показано:', title);
+            console.log('[Notifications] ' + (window.i18n?.js_notif_shown || 'Уведомление показано:'), title);
         } catch (error) {
-            console.error('[Notifications] Ошибка показа уведомления:', error);
+            console.error('[Notifications] ' + (window.i18n?.js_notif_show_error || 'Ошибка показа уведомления:'), error);
         }
     }
     
@@ -115,11 +115,11 @@ class NotificationManager {
         
         // Не показываем уведомление если окно активно
         if (document.visibilityState === 'visible' && document.hasFocus()) {
-            console.log('[Notifications] Окно активно, уведомление не показано');
+            console.log('[Notifications] ' + (window.i18n?.js_notif_window_active || 'Окно активно, уведомление не показано'));
             return;
         }
         
-        const title = `Новое сообщение от ${senderName}`;
+        const title = `${window.i18n?.js_notif_new_message_from || 'Новое сообщение от'} ${senderName}`;
         const options = {
             body: messageText.length > 100 ? messageText.substring(0, 100) + '...' : messageText,
             icon: '/static/icon-192.png',
@@ -132,11 +132,11 @@ class NotificationManager {
             actions: [
                 {
                     action: 'open',
-                    title: 'Открыть чат'
+                    title: window.i18n?.js_notif_open_chat || 'Открыть чат'
                 },
                 {
                     action: 'close',
-                    title: 'Закрыть'
+                    title: window.i18n?.js_notif_close || 'Закрыть'
                 }
             ]
         };

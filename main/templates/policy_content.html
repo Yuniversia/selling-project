@@ -1,0 +1,330 @@
+{% if lang == 'ru' %}
+<section style="background: white; padding: 30px; border-radius: 16px; margin-bottom: 20px; border: 1px solid var(--color-border);">
+    <h2 style="font-size: 24px; margin-bottom: 15px;">1. Контролер данных и Контактная информация</h2>
+    <div class="info-box">
+        <p>
+            <strong>Мы — Контролер ваших данных.</strong> Это означает, что мы определяем цели и средства обработки ваших персональных данных.
+        </p>
+    </div>
+    <ul class="legal-list">
+        <li><strong>Контролер данных:</strong> SIA [ВАШЕ НАЗВАНИЕ КОМПАНИИ]</li>
+        <li><strong>Регистрационный номер:</strong> [ВАШ РЕГИСТРАЦИОННЫЙ НОМЕР]</li>
+        <li><strong>Юридический адрес (Латвия):</strong> [ВАШ ЮРИДИЧЕСКИЙ АДРЕС]</li>
+        <li><strong>Контакт по вопросам GDPR:</strong> privacy@lais.lv</li>
+    </ul>
+    <p>
+        Если у вас есть вопросы относительно обработки ваших данных, вы можете обратиться по указанному email-адресу.
+    </p>
+</section>
+
+<section style="background: white; padding: 30px; border-radius: 16px; margin-bottom: 20px; border: 1px solid var(--color-border);">
+    <h2 style="font-size: 24px; margin-bottom: 15px;">2. Какие данные мы собираем и почему (Правовое основание GDPR)</h2>
+    
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Категория данных</th>
+                <th>Цель сбора</th>
+                <th>Правовое основание (GDPR)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Данные аккаунта:</strong> Email, номер телефона, ФИО.</td>
+                <td>Регистрация, идентификация пользователя и связь.</td>
+                <td>Исполнение договора (ст. 6(1)(b))</td>
+            </tr>
+            <tr>
+                <td><strong>Данные транзакции:</strong> Адрес доставки, IMEI устройства, детали оплаты.</td>
+                <td>Обеспечение Безопасной сделки (Escrow) и проверка устройства.</td>
+                <td>Исполнение договора (ст. 6(1)(b))</td>
+            </tr>
+            <tr>
+                <td><strong>Переписки в чате:</strong> Содержание чатов между Покупателем и Продавцом.</td>
+                <td>Разрешение споров и предотвращение мошенничества. Просмотр только при открытии Спора.</td>
+                <td>Законный интерес (ст. 6(1)(f))</td>
+            </tr>
+            <tr>
+                <td><strong>Технические данные:</strong> IP-адрес, логи, данные пакоматов, метаданные.</td>
+                <td>Безопасность платформы, борьба с фродом и техническое обслуживание.</td>
+                <td>Законный интерес (ст. 6(1)(f))</td>
+            </tr>
+            <tr>
+                <td><strong>Финансовые документы:</strong> Инвойсы, записи о комиссии 5%.</td>
+                <td>Ведение бухгалтерского учета и выполнение налоговых обязательств.</td>
+                <td>Юридическая обязанность (ст. 6(1)(c))</td>
+            </tr>
+        </tbody>
+    </table>
+</section>
+
+<section style="background: white; padding: 30px; border-radius: 16px; margin-bottom: 20px; border: 1px solid var(--color-border);">
+    <h2 style="font-size: 24px; margin-bottom: 15px;">3. Кому мы раскрываем ваши данные (Получатели)</h2>
+    <p>
+        Ваши данные передаются только тем сторонам, чье участие необходимо для выполнения наших услуг или соблюдения закона:
+    </p>
+    <ul class="legal-list">
+        <li><strong>Платежные системы (Stripe/Citadele):</strong> Для обработки платежей и функции Escrow.</li>
+        <li><strong>Службы доставки (Omniva, DPD):</strong> Для передачи адресов, имени и телефона для организации отправки.</li>
+        <li><strong>Правоохранительные органы:</strong> Полиция Латвии или другие компетентные органы при получении официального запроса о мошенничестве или ином правонарушении.</li>
+        <li><strong>IMEI.info API:</strong> Для проверки статуса устройств и предотвращения продажи краденых товаров.</li>
+    </ul>
+</section>
+
+<section style="background: white; padding: 30px; border-radius: 16px; margin-bottom: 20px; border: 1px solid var(--color-border);">
+    <h2 style="font-size: 24px; margin-bottom: 15px;">4. Срок хранения данных</h2>
+    <p>
+        Мы храним персональные данные только до тех пор, пока это необходимо для достижения целей, ради которых они были собраны, или для соблюдения юридических обязательств.
+    </p>
+    <ul class="legal-list">
+        <li><strong>Основные данные:</strong> Данные аккаунтов, сделок, переписки и IMEI хранятся <strong>до 5 лет</strong> с момента последней активности пользователя или завершения последней сделки. Этот срок обоснован необходимостью защиты от мошенничества и возможности ответа на юридические претензии в рамках исковой давности.</li>
+        <li><strong>Финансовые документы:</strong> Хранятся <strong>до 10 лет</strong> в соответствии с Законом Латвийской Республики о бухгалтерском учете.</li>
+        <li><strong>Cookies и логи:</strong> Хранятся от 30 дней до 1 года.</li>
+    </ul>
+</section>
+
+<section style="background: white; padding: 30px; border-radius: 16px; margin-bottom: 20px; border: 1px solid var(--color-border);">
+    <h2 style="font-size: 24px; margin-bottom: 15px;">5. Ваши права как субъекта данных (GDPR)</h2>
+    <p>
+        В соответствии с Общим регламентом по защите данных (GDPR), вы имеете следующие права:
+    </p>
+    <ul class="legal-list">
+        <li><strong>Право доступа:</strong> Вы имеете право получить копию ваших данных.</li>
+        <li><strong>Право на исправление:</strong> Право требовать исправления неточных данных.</li>
+        <li><strong>Право на удаление (Right to be Forgotten):</strong> Вы можете потребовать удаления данных, если они больше не нужны. Однако мы можем отказать в удалении данных о транзакциях и переписках до истечения 5-летнего срока, ссылаясь на наш законный интерес в борьбе с фродом и юридической защитой.</li>
+        <li><strong>Право на ограничение обработки:</strong> Право потребовать приостановления обработки данных.</li>
+        <li><strong>Право на возражение:</strong> Право возражать против обработки, основанной на законном интересе (например, против просмотра чатов без спора).</li>
+        <li><strong>Право на переносимость данных:</strong> Право получить ваши данные в машиночитаемом формате.</li>
+    </ul>
+    <p>
+        Для осуществления ваших прав, пожалуйста, свяжитесь с нами по адресу: <strong>privacy@lais.lv</strong>.
+    </p>
+</section>
+
+<section style="background: white; padding: 30px; border-radius: 16px; margin-bottom: 20px; border: 1px solid var(--color-border);">
+    <h2 style="font-size: 24px; margin-bottom: 15px;">6. Политика использования файлов Cookies</h2>
+    <p>
+        Мы используем файлы cookie для обеспечения функциональности сайта, анализа трафика и персонализации контента. Продолжая использовать наш сайт, вы соглашаетесь на их использование. Вы можете управлять настройками cookie в браузере.
+    </p>
+</section>
+
+{% elif lang == 'lv' %}
+<section style="background: white; padding: 30px; border-radius: 16px; margin-bottom: 20px; border: 1px solid var(--color-border);">
+    <h2 style="font-size: 24px; margin-bottom: 15px;">1. Datu pārzinis un kontaktinformācija</h2>
+    <div class="info-box">
+        <p>
+            <strong>Mēs esam jūsu datu pārzinis.</strong> Tas nozīmē, ka mēs nosakām jūsu persondatu apstrādes mērķus un līdzekļus.
+        </p>
+    </div>
+    <ul class="legal-list">
+        <li><strong>Datu pārzinis:</strong> SIA [JŪSU UZŅĒMUMA NOSAUKUMS]</li>
+        <li><strong>Reģistrācijas numurs:</strong> [JŪSU REĢISTRĀCIJAS NUMURS]</li>
+        <li><strong>Juridiskā adrese (Latvija):</strong> [JŪSU JURIDISKĀ ADRESE]</li>
+        <li><strong>Kontakts GDPR jautājumos:</strong> privacy@lais.lv</li>
+    </ul>
+    <p>
+        Ja jums ir jautājumi par datu apstrādi, lūdzu, sazinieties ar norādīto e-pasta adresi.
+    </p>
+</section>
+
+<section style="background: white; padding: 30px; border-radius: 16px; margin-bottom: 20px; border: 1px solid var(--color-border);">
+    <h2 style="font-size: 24px; margin-bottom: 15px;">2. Kādus datus mēs vācam un kāpēc (GDPR juridiskais pamats)</h2>
+    
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Datu kategorija</th>
+                <th>Vākšanas mērķis</th>
+                <th>Juridiskais pamats (GDPR)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Konta dati:</strong> E-pasts, tālruņa numurs, vārds, uzvārds.</td>
+                <td>Reģistrācija, lietotāja identifikācija un sazināšanās.</td>
+                <td>Līguma izpilde (6. pants (1)(b))</td>
+            </tr>
+            <tr>
+                <td><strong>Darījuma dati:</strong> Piegādes adrese, ierīces IMEI, maksājuma detaļas.</td>
+                <td>Drošas darījuma (Escrow) nodrošināšana un ierīces pārbaude.</td>
+                <td>Līguma izpilde (6. pants (1)(b))</td>
+            </tr>
+            <tr>
+                <td><strong>Tērzēšanas:</strong> Čatu saturs starp pircēju un pārdevēju.</td>
+                <td>Strīdu atrisināšana un krāpšanas novēršana. Skatīts tikai Strīda gadījumā.</td>
+                <td>Likumīgā interese (6. pants (1)(f))</td>
+            </tr>
+            <tr>
+                <td><strong>Tehniskie dati:</strong> IP adrese, žurnāli, pakomātu dati, metadati.</td>
+                <td>Platformas drošība, krāpšanas apkarošana un tehniskā apkope.</td>
+                <td>Likumīgā interese (6. pants (1)(f))</td>
+            </tr>
+            <tr>
+                <td><strong>Finanšu dokumenti:</strong> Rēķini, ieraksti par 5% komisiju.</td>
+                <td>Grāmatvedības uzturēšana un nodokļu saistību izpilde.</td>
+                <td>Juridiskā saistība (6. pants (1)(c))</td>
+            </tr>
+        </tbody>
+    </table>
+</section>
+
+<section style="background: white; padding: 30px; border-radius: 16px; margin-bottom: 20px; border: 1px solid var(--color-border);">
+    <h2 style="font-size: 24px; margin-bottom: 15px;">3. Kam mēs atklājam jūsu datus (Saņēmēji)</h2>
+    <p>
+        Jūsu dati tiek nodoti tikai tām pusēm, kuru līdzdalība ir nepieciešama mūsu pakalpojumu sniegšanai vai likuma ievērošanai:
+    </p>
+    <ul class="legal-list">
+        <li><strong>Maksājumu sistēmas (Stripe/Citadele):</strong> Maksājumu apstrādei un Escrow funkcijai.</li>
+        <li><strong>Piegādes dienesti (Omniva, DPD):</strong> Adrešu, vārda un tālruņa nodošanai nosūtīšanas organizēšanai.</li>
+        <li><strong>Tiesībaizsardzības iestādes:</strong> Latvijas policija vai citas kompetentās iestādes, saņemot oficiālu pieprasījumu par krāpšanu vai citu pārkāpumu.</li>
+        <li><strong>IMEI.info API:</strong> Ierīču statusa pārbaudei un nozagtu preču pārdošanas novēršanai.</li>
+    </ul>
+</section>
+
+<section style="background: white; padding: 30px; border-radius: 16px; margin-bottom: 20px; border: 1px solid var(--color-border);">
+    <h2 style="font-size: 24px; margin-bottom: 15px;">4. Datu glabāšanas termiņš</h2>
+    <p>
+        Mēs glabājam persondatus tikai tik ilgi, cik tas ir nepieciešams to savākšanas mērķu sasniegšanai vai juridisko saistību izpildei.
+    </p>
+    <ul class="legal-list">
+        <li><strong>Pamatdati:</strong> Kontu, darījumu, čatu un IMEI dati tiek glabāti <strong>līdz 5 gadiem</strong> no lietotāja pēdējās aktivitātes vai pēdējā darījuma pabeigšanas brīža. Šis termiņš ir pamatots ar nepieciešamību aizsargāties pret krāpšanu un iespēju atbildēt uz juridiskām prasībām noilguma ietvaros.</li>
+        <li><strong>Finanšu dokumenti:</strong> Glabāti <strong>līdz 10 gadiem</strong> saskaņā ar Latvijas Republikas Grāmatvedības likumu.</li>
+        <li><strong>Sīkfaili un žurnāli:</strong> Glabāti no 30 dienām līdz 1 gadam.</li>
+    </ul>
+</section>
+
+<section style="background: white; padding: 30px; border-radius: 16px; margin-bottom: 20px; border: 1px solid var(--color-border);">
+    <h2 style="font-size: 24px; margin-bottom: 15px;">5. Jūsu tiesības kā datu subjektam (GDPR)</h2>
+    <p>
+        Saskaņā ar Vispārīgo datu aizsardzības regulu (GDPR), jums ir šādas tiesības:
+    </p>
+    <ul class="legal-list">
+        <li><strong>Piekļuves tiesības:</strong> Jums ir tiesības saņemt savu datu kopiju.</li>
+        <li><strong>Labošanas tiesības:</strong> Tiesības pieprasīt neprecīzu datu labošanu.</li>
+        <li><strong>Dzēšanas tiesības (Right to be Forgotten):</strong> Varat pieprasīt datu dzēšanu, ja tie vairs nav nepieciešami. Tomēr mēs varam atteikt dzēst darījumu un čatu datus līdz 5 gadu termiņa beigām, atsaucoties uz mūsu likumīgo interesi cīņā pret krāpšanu un juridisko aizsardzību.</li>
+        <li><strong>Apstrādes ierobežošanas tiesības:</strong> Tiesības pieprasīt datu apstrādes apturēšanu.</li>
+        <li><strong>Iebildumu tiesības:</strong> Tiesības iebilst pret apstrādi, kas balstīta uz likumīgo interesi (piemēram, pret čatu skatīšanu bez strīda).</li>
+        <li><strong>Datu pārnesamības tiesības:</strong> Tiesības saņemt savus datus mašīnlasāmā formātā.</li>
+    </ul>
+    <p>
+        Lai izmantotu savas tiesības, lūdzu, sazinieties ar mums: <strong>privacy@lais.lv</strong>.
+    </p>
+</section>
+
+<section style="background: white; padding: 30px; border-radius: 16px; margin-bottom: 20px; border: 1px solid var(--color-border);">
+    <h2 style="font-size: 24px; margin-bottom: 15px;">6. Sīkfailu izmantošanas politika</h2>
+    <p>
+        Mēs izmantojam sīkfailus, lai nodrošinātu vietnes funkcionalitāti, analizētu trafiku un personalizētu saturu. Turpinot lietot mūsu vietni, jūs piekrītat to izmantošanai. Jūs varat pārvaldīt sīkfailu iestatījumus savā pārlūkprogrammā.
+    </p>
+</section>
+
+{% else %}
+<section style="background: white; padding: 30px; border-radius: 16px; margin-bottom: 20px; border: 1px solid var(--color-border);">
+    <h2 style="font-size: 24px; margin-bottom: 15px;">1. Data Controller and Contact Information</h2>
+    <div class="info-box">
+        <p>
+            <strong>We are the Controller of your data.</strong> This means we determine the purposes and means of processing your personal data.
+        </p>
+    </div>
+    <ul class="legal-list">
+        <li><strong>Data Controller:</strong> SIA [YOUR COMPANY NAME]</li>
+        <li><strong>Registration number:</strong> [YOUR REGISTRATION NUMBER]</li>
+        <li><strong>Legal address (Latvia):</strong> [YOUR LEGAL ADDRESS]</li>
+        <li><strong>GDPR contact:</strong> privacy@lais.lv</li>
+    </ul>
+    <p>
+        If you have questions regarding the processing of your data, you can contact us at the specified email address.
+    </p>
+</section>
+
+<section style="background: white; padding: 30px; border-radius: 16px; margin-bottom: 20px; border: 1px solid var(--color-border);">
+    <h2 style="font-size: 24px; margin-bottom: 15px;">2. What Data We Collect and Why (GDPR Legal Basis)</h2>
+    
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Data Category</th>
+                <th>Collection Purpose</th>
+                <th>Legal Basis (GDPR)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Account data:</strong> Email, phone number, full name.</td>
+                <td>Registration, user identification, and communication.</td>
+                <td>Performance of contract (Art. 6(1)(b))</td>
+            </tr>
+            <tr>
+                <td><strong>Transaction data:</strong> Delivery address, device IMEI, payment details.</td>
+                <td>Providing secure transaction (Escrow) and device verification.</td>
+                <td>Performance of contract (Art. 6(1)(b))</td>
+            </tr>
+            <tr>
+                <td><strong>Chat correspondence:</strong> Chat content between Buyer and Seller.</td>
+                <td>Dispute resolution and fraud prevention. Viewed only in case of Dispute.</td>
+                <td>Legitimate interest (Art. 6(1)(f))</td>
+            </tr>
+            <tr>
+                <td><strong>Technical data:</strong> IP address, logs, parcel locker data, metadata.</td>
+                <td>Platform security, fraud prevention, and technical maintenance.</td>
+                <td>Legitimate interest (Art. 6(1)(f))</td>
+            </tr>
+            <tr>
+                <td><strong>Financial documents:</strong> Invoices, 5% commission records.</td>
+                <td>Accounting and fulfilling tax obligations.</td>
+                <td>Legal obligation (Art. 6(1)(c))</td>
+            </tr>
+        </tbody>
+    </table>
+</section>
+
+<section style="background: white; padding: 30px; border-radius: 16px; margin-bottom: 20px; border: 1px solid var(--color-border);">
+    <h2 style="font-size: 24px; margin-bottom: 15px;">3. To Whom We Disclose Your Data (Recipients)</h2>
+    <p>
+        Your data is transferred only to those parties whose participation is necessary for performing our services or complying with the law:
+    </p>
+    <ul class="legal-list">
+        <li><strong>Payment systems (Stripe/Citadele):</strong> For payment processing and Escrow function.</li>
+        <li><strong>Delivery services (Omniva, DPD):</strong> For transferring addresses, names, and phone numbers for shipping organization.</li>
+        <li><strong>Law enforcement agencies:</strong> Latvian police or other competent authorities upon receiving an official request regarding fraud or other violations.</li>
+        <li><strong>IMEI.info API:</strong> For checking device status and preventing stolen goods sales.</li>
+    </ul>
+</section>
+
+<section style="background: white; padding: 30px; border-radius: 16px; margin-bottom: 20px; border: 1px solid var(--color-border);">
+    <h2 style="font-size: 24px; margin-bottom: 15px;">4. Data Retention Period</h2>
+    <p>
+        We store personal data only as long as necessary to achieve the purposes for which they were collected or to comply with legal obligations.
+    </p>
+    <ul class="legal-list">
+        <li><strong>Basic data:</strong> Account, transaction, chat, and IMEI data are stored for <strong>up to 5 years</strong> from the user's last activity or completion of the last transaction. This period is justified by the need for fraud protection and the ability to respond to legal claims within the statute of limitations.</li>
+        <li><strong>Financial documents:</strong> Stored for <strong>up to 10 years</strong> in accordance with the Accounting Law of the Republic of Latvia.</li>
+        <li><strong>Cookies and logs:</strong> Stored from 30 days to 1 year.</li>
+    </ul>
+</section>
+
+<section style="background: white; padding: 30px; border-radius: 16px; margin-bottom: 20px; border: 1px solid var(--color-border);">
+    <h2 style="font-size: 24px; margin-bottom: 15px;">5. Your Rights as a Data Subject (GDPR)</h2>
+    <p>
+        In accordance with the General Data Protection Regulation (GDPR), you have the following rights:
+    </p>
+    <ul class="legal-list">
+        <li><strong>Right of access:</strong> You have the right to obtain a copy of your data.</li>
+        <li><strong>Right to rectification:</strong> Right to request correction of inaccurate data.</li>
+        <li><strong>Right to erasure (Right to be Forgotten):</strong> You can request deletion of data if it is no longer needed. However, we may refuse to delete transaction and chat data until the 5-year period expires, citing our legitimate interest in fraud prevention and legal protection.</li>
+        <li><strong>Right to restriction of processing:</strong> Right to request suspension of data processing.</li>
+        <li><strong>Right to object:</strong> Right to object to processing based on legitimate interest (e.g., against viewing chats without a dispute).</li>
+        <li><strong>Right to data portability:</strong> Right to receive your data in machine-readable format.</li>
+    </ul>
+    <p>
+        To exercise your rights, please contact us at: <strong>privacy@lais.lv</strong>.
+    </p>
+</section>
+
+<section style="background: white; padding: 30px; border-radius: 16px; margin-bottom: 20px; border: 1px solid var(--color-border);">
+    <h2 style="font-size: 24px; margin-bottom: 15px;">6. Cookie Usage Policy</h2>
+    <p>
+        We use cookies to ensure site functionality, analyze traffic, and personalize content. By continuing to use our site, you agree to their use. You can manage cookie settings in your browser.
+    </p>
+</section>
+{% endif %}

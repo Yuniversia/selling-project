@@ -1,13 +1,14 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="{{ lang }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-    <title>Новое объявление</title>
+    <title>{{ t.new_ad }}</title>
     <link rel="stylesheet" href="/templates/static/styles2.css?v=16">
     <script>
         // API Configuration - единый стандарт /api/v1/<service>
         const API_V1 = "/api/v1";
+        const AUTH_API = `${API_V1}/auth`;
         const POSTS_API = `${API_V1}/posts`;
         console.log('🔧 API BASE:', API_V1);
     </script>
@@ -163,15 +164,15 @@
     <header class="header-fixed">
         <div class="nav-container">
             <a href="/" class="logo">lais</a>
-            <a href="/" class="btn btn-text">Отмена</a>
+            <a href="/" class="btn btn-text">{{ t.cancel_button }}</a>
         </div>
     </header>
 
     <div class="post-container">
-        <h1 style="margin-bottom: 30px;">Продать устройство</h1>
+        <h1 style="margin-bottom: 30px;">{{ t.sell_device }}</h1>
         
         <form>
-            <div class="form-group">
+            <!-- <div class="form-group">
                 <label class="label">Категория</label>
                 <select id="catSelect" class="input">
                     <option value="">Выберите категорию...</option>
@@ -180,13 +181,14 @@
                     <option value="ipad">iPad</option>
                     <option value="other">Другое</option>
                 </select>
+            </div> -->
 
 
                         <div id="iphoneBlock" class="hidden-group">
                             <div class="form-group">
-                                <label class="label">Модель iPhone</label>
+                                <label class="label">{{ t.model }}</label>
                                 <select id="iphoneModel" class="input">
-                                    <option value="">Выберите модель...</option>
+                                    <option value="">{{ t.select_model }}</option>
                                     <option value="17">iPhone 17</option>
                                     <option value="17plus">iPhone 17 Plus</option>
                                     <option value="17pro">iPhone 17 Pro</option>
@@ -216,18 +218,19 @@
                             </div>
 
                             <div class="form-group">
-                                <label class="label">IMEI <a href="https://support.apple.com/ru-ru/HT204073" target="_blank" title="Как найти IMEI">❓</a></label>
-                                <input type="text" class="input" placeholder="Например: 35XXXXXXXXXXXX" required>
+                                <label class="label">{{ t.imei_label }} <a href="https://support.apple.com/ru-ru/HT204073" target="_blank" title="{{ t.how_to_find }}">❓</a></label>
+                                <input id="imei-input" type="text" class="input" placeholder="{{ t.imei_placeholder }}" required>
                             </div>
 
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                                 <div class="form-group">
-                                    <label class="label">Состояние АКБ (%)</label>
-                                    <input type="number" class="input" placeholder="95" min="0" max="100" required>
+                                    <label class="label">{{ t.battery_condition }}</label>
+                                    <input id="battery-input" type="number" class="input" placeholder="{{ t.battery_placeholder }}" min="0" max="100" required>
                                 </div>
                             </div>
                         </div>
 
+            <!-- MacBook блок закомментирован - сейчас только iPhone
             <div id="macBlock" class="hidden-group">
                 <div class="form-group">
                     <label class="label">Серия MacBook</label>
@@ -269,55 +272,56 @@
                     </div>
                 </div>
             </div>
+            -->
 
             <div id="commonSpecs" class="hidden-group" style="border-top: 1px solid var(--color-border); padding-top: 20px; margin-top: 20px;">
                 
                 <div class="form-group">
-                    <label class="label">Комплектация (отметьте, что есть)</label>
+                    <label class="label">{{ t.package_contents }}</label>
                     <div class="checkbox-group">
-                        <label class="check-item"><input type="checkbox" name="has_original_box"> Оригинальная коробка</label>
-                        <label class="check-item"><input type="checkbox" name="has_charger"> Зарядный блок</label>
-                        <label class="check-item"><input type="checkbox" name="has_cable"> Кабель</label>
-                        <label class="check-item"><input type="checkbox" name="has_receipt"> Чек о покупке</label>
-                        <label class="check-item"><input type="checkbox" name="has_warranty"> Гарантия</label>
+                        <label class="check-item"><input type="checkbox" name="has_original_box"> {{ t.original_box }}</label>
+                        <label class="check-item"><input type="checkbox" name="has_charger"> {{ t.charger }}</label>
+                        <label class="check-item"><input type="checkbox" name="has_cable"> {{ t.cable }}</label>
+                        <label class="check-item"><input type="checkbox" name="has_receipt"> {{ t.receipt }}</label>
+                        <label class="check-item"><input type="checkbox" name="has_warranty"> {{ t.warranty }}</label>
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <label class="label">Состояние устройства</label>
-                    <select id="condition" class="input">
-                        <option value="">Выберите состояние...</option>
-                        <option value="Новый">Новый</option>
-                        <option value="Как новый">Как новый</option>
-                        <option value="Небольшие дефекты">Небольшие дефекты</option>
-                        <option value="С дефектом">С дефектом</option>
-                        <option value="На запчасти">На запчасти</option>
+                    <label class="label">{{ t.device_condition }}</label>
+                    <select id="condition-input" class="input">
+                        <option value="">{{ t.select_condition_placeholder }}</option>
+                        <option value="New">{{ t.new }}</option>
+                        <option value="Like New">{{ t.like_new }}</option>
+                        <option value="Minor Defects">{{ t.minor_defects }}</option>
+                        <option value="With Defect">{{ t.with_defect }}</option>
+                        <option value="For Parts">{{ t.for_parts }}</option>
                     </select>
                 </div>
 
                 <div class="form-group">
-                    <label class="label">Цена (€)</label>
-                    <input id="price" type="number" class="input" style="font-size: 20px; font-weight: bold;" min="0" required>
+                    <label class="label">{{ t.price_label }}</label>
+                    <input id="price-input" type="number" class="input" style="font-size: 20px; font-weight: bold;" min="0" required>
                 </div>
 
                 <div class="form-group">
-                    <label class="label">Описание</label>
-                    <textarea class="input" id="description" rows="5" placeholder="Расскажите подробнее о состоянии..."></textarea>
+                    <label class="label">{{ t.description_label }}</label>
+                    <textarea class="input" id="description" rows="5" placeholder="{{ t.description_placeholder }}"></textarea>
                 </div>
 
                 <div class="form-group">
-                    <label class="label">Фотографии (макс. 15 шт.)</label>
+                    <label class="label">{{ t.photos_label }}</label>
                     <div class="photo-upload-zone" id="photoUploadZone">
                         <div style="font-size: 32px; margin-bottom: 8px;">📸</div>
-                        <div style="font-weight: 600; margin-bottom: 4px;">Нажмите или перетащите фото</div>
-                        <div style="font-size: 13px; color: var(--color-text-light);">Поддерживаются: JPG, PNG (макс. 5 МБ за фото)</div>
+                        <div style="font-weight: 600; margin-bottom: 4px;">{{ t.click_or_drag }}</div>
+                        <div style="font-size: 13px; color: var(--color-text-light);">{{ t.supported_formats }}</div>
                         <input type="file" id="photoInput" multiple accept="image/*" style="display: none;">
                     </div>
                     <div class="photo-gallery" id="photoGallery"></div>
-                    <div class="photo-count" id="photoCount">0 / 15 фотографий</div>
+                    <div class="photo-count" id="photoCount">0 / 15 {{ t.photos_count }}</div>
                 </div>
 
-                <button type="button" id="publishBtn" class="btn btn-primary" style="width: 100%; padding: 16px; font-size: 16px;">Опубликовать</button>
+                <button type="button" id="publishBtn" class="btn btn-primary" style="width: 100%; padding: 16px; font-size: 16px;">{{ t.publish_button }}</button>
             </div>
 
         </form>
@@ -326,24 +330,24 @@
     <!-- Progress Modal -->
     <div class="progress-modal" id="progressModal">
         <div class="progress-box">
-            <div class="progress-title">Загрузка объявления...</div>
+            <div class="progress-title">{{ t.uploading_ad }}</div>
             <div class="progress-bar-wrapper">
                 <div class="progress-bar" id="progressBar"></div>
             </div>
-            <div class="progress-text" id="progressText">Подготовка...</div>
+            <div class="progress-text" id="progressText">{{ t.sending_data }}</div>
             <div class="progress-percent" id="progressPercent">0%</div>
         </div>
     </div>
 
     <script>
-        const catSelect = document.getElementById('catSelect');
+        // const catSelect = document.getElementById('catSelect'); // Закомментировано - выбор категории отключен
         const iphoneBlock = document.getElementById('iphoneBlock');
-        const macBlock = document.getElementById('macBlock');
+        // const macBlock = document.getElementById('macBlock'); // Закомментировано
         const commonSpecs = document.getElementById('commonSpecs');
         
-        const macSeries = document.getElementById('macSeries');
-        const macAirSpecs = document.getElementById('macAirSpecs');
-        const macProSpecs = document.getElementById('macProSpecs');
+        // const macSeries = document.getElementById('macSeries'); // Закомментировано
+        // const macAirSpecs = document.getElementById('macAirSpecs'); // Закомментировано
+        // const macProSpecs = document.getElementById('macProSpecs'); // Закомментировано
 
         // Управление фотографиями
         const photoUploadZone = document.getElementById('photoUploadZone');
@@ -446,6 +450,11 @@
             }
         }
 
+        // Автоматически показываем блок iPhone (категория закомментирована)
+        iphoneBlock.style.display = 'block';
+        commonSpecs.style.display = 'block';
+
+        /* Логика выбора категорий закомментирована - сейчас только iPhone
         // Главная категория
         catSelect.addEventListener('change', (e) => {
             const val = e.target.value;
@@ -478,6 +487,7 @@
                 macProSpecs.style.display = 'block';
             }
         });
+        */
 
         // Обработка отправки формы на Posts API
         document.getElementById('publishBtn').addEventListener('click', async (e) => {
@@ -495,10 +505,93 @@
             publishBtn.disabled = true;
             
             try {
-                // Обновляем прогресс: 10% - начало
-                updateProgress(progressBar, progressText, progressPercent, 10, 'Загружаем фото...');
+                // ===== ШАГ 1: ВАЛИДАЦИЯ ВСЕХ ПОЛЕЙ ПЕРЕД ЗАГРУЗКОЙ ФОТО =====
+                updateProgress(progressBar, progressText, progressPercent, 5, 'Проверка данных...');
                 
-                // Сначала загружаем фотографии в Cloudflare
+                // Проверка фотографий
+                if (photos.length === 0) {
+                    alert('Необходимо загрузить хотя бы одну фотографию');
+                    progressModal.classList.remove('show');
+                    publishBtn.disabled = false;
+                    return;
+                }
+                
+                // IMEI (обязательное поле)
+                const imeiInput = document.getElementById('imei-input');
+                if (!imeiInput || !imeiInput.value || imeiInput.value.length !== 15 || !/^\d{15}$/.test(imeiInput.value)) {
+                    alert('{{ t.imei_label }} - обязательное поле (15 цифр)');
+                    progressModal.classList.remove('show');
+                    publishBtn.disabled = false;
+                    return;
+                }
+                
+                // Батарея (обязательное поле)
+                const batteryInput = document.getElementById('battery-input');
+                if (!batteryInput || !batteryInput.value) {
+                    alert('{{ t.battery_condition }} - обязательное поле');
+                    progressModal.classList.remove('show');
+                    publishBtn.disabled = false;
+                    return;
+                }
+                
+                // Цена (обязательное поле)
+                const priceInput = document.getElementById('price-input');
+                if (!priceInput || !priceInput.value) {
+                    alert('{{ t.price_label }} - обязательное поле');
+                    progressModal.classList.remove('show');
+                    publishBtn.disabled = false;
+                    return;
+                }
+                
+                // Состояние (обязательное поле)
+                const conditionInput = document.getElementById('condition-input');
+                if (!conditionInput || !conditionInput.value) {
+                    alert('{{ t.device_condition }} - обязательное поле');
+                    progressModal.classList.remove('show');
+                    publishBtn.disabled = false;
+                    return;
+                }
+                
+                // ===== ШАГ 2: ПРОВЕРКА АВТОРИЗАЦИИ И REFRESH ТОКЕНА =====
+                updateProgress(progressBar, progressText, progressPercent, 10, 'Проверка авторизации...');
+                
+                const authCheck = await fetch(`${AUTH_API}/me`, {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                if (authCheck.status === 401) {
+                    // Пытаемся обновить токен
+                    const refreshResponse = await fetch(`${AUTH_API}/refresh`, {
+                        method: 'GET',
+                        credentials: 'include'
+                    });
+                    
+                    if (!refreshResponse.ok) {
+                        alert('Требуется авторизация. Пожалуйста, войдите в аккаунт.');
+                        progressModal.classList.remove('show');
+                        publishBtn.disabled = false;
+                        window.location.href = '/';
+                        return;
+                    }
+                    
+                    // Токен обновлен, повторная проверка
+                    const retryAuth = await fetch(`${AUTH_API}/me`, {
+                        method: 'GET',
+                        credentials: 'include'
+                    });
+                    
+                    if (!retryAuth.ok) {
+                        alert('Ошибка авторизации');
+                        progressModal.classList.remove('show');
+                        publishBtn.disabled = false;
+                        return;
+                    }
+                }
+                
+                // ===== ШАГ 3: ЗАГРУЗКА ФОТОГРАФИЙ =====
+                updateProgress(progressBar, progressText, progressPercent, 20, 'Загружаем фото...');
+                
                 let imageUrls = [];
                 if (photos.length > 0) {
                     console.log(`Загружаем ${photos.length} фотографий в Cloudflare...`);
@@ -516,34 +609,19 @@
                 // Обновляем прогресс: 50% - фото загружены
                 updateProgress(progressBar, progressText, progressPercent, 50, 'Фото загружены, подготовка данных...');
 
-                // Получаем значения формы
+                // ===== ШАГ 4: ПОДГОТОВКА ДАННЫХ ФОРМЫ =====
                 const formData = new FormData();
                 
-                // IMEI
-                const imeiInput = document.querySelector('input[placeholder="Например: 35XXXXXXXXXXXX"]');
-                if (imeiInput && imeiInput.value) {
-                    formData.append('imei', imeiInput.value);
-                }
+                // Все поля уже проверены выше, просто добавляем
+                formData.append('imei', imeiInput.value);
+                formData.append('batery', batteryInput.value);
+                formData.append('price', priceInput.value);
+                formData.append('condition', conditionInput.value);
                 
-                // Батарея
-                const batteryInput = document.querySelector('input[placeholder="95"]');
-                if (batteryInput && batteryInput.value) {
-                    formData.append('batery', batteryInput.value);
-                }
-                
-                // Описание
+                // Описание (необязательное)
                 const description = document.getElementById('description').value;
                 if (description) {
                     formData.append('description', description);
-                }
-
-                // Цена
-                formData.append('price', document.getElementById('price').value);
-                
-                // Состояние
-                const condition = document.getElementById('condition').value;
-                if (condition) {
-                    formData.append('condition', condition);
                 }
                 
                 // Комплектация (checkboxes)
@@ -558,8 +636,8 @@
                     formData.append('images_url', imageUrls.join(','));
                 }
                 
-                // Обновляем прогресс: 75% - отправка данных
-                updateProgress(progressBar, progressText, progressPercent, 75, 'Отправляем данные...');
+                // ===== ШАГ 5: ОТПРАВКА ДАННЫХ НА СЕРВЕР =====
+                updateProgress(progressBar, progressText, progressPercent, 80, 'Отправляем данные...');
                 
                 console.log('Отправляем данные на Posts API...');
                 const response = await fetch(`${POSTS_API}/iphone`, {

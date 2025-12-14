@@ -23,33 +23,34 @@
             <a href="/" class="logo">lais</a>
             <div style="flex:1"></div>
             <div class="header-controls">
-                <a href="/imei-check" class="btn btn-text" style="margin-right: 10px;">Проверка IMEI</a>
-                <button class="btn btn-text" id="loginBtn">Войти</button>
-                <a href="/post-ad" id="postAdBtn" class="btn btn-primary">Разместить</a>
+                {% include 'language_switcher.html' %}
+                <a href="/imei-check" class="btn btn-text" style="margin-right: 10px; margin-left: 10px;">{{ t.check_imei }}</a>
+                <button class="btn btn-text" id="loginBtn">{{ t.login }}</button>
+                <a href="/post-ad" id="postAdBtn" class="btn btn-primary">{{ t.post_ad }}</a>
             </div>
         </div>
     </header>
 
     <section class="hero-section">
         <div class="hero-content">
-            <h1 class="hero-title">Будь уверенным в том, что берёшь</h1>
-            <p class="hero-text">Каждое объявление проходит модерацию, а продавцы проверяются. Деньги защищены до получения товара. Мы создали безопасное пространство для сделок с техникой в Латвии.</p>
+            <h1 class="hero-title">{{ t.hero_title }}</h1>
+            <p class="hero-text">{{ t.hero_text }}</p>
             <div class="hero-features">
                 <a href="/terms" class="hero-feature">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-                    <span>Защита от мошенников</span>
+                    <span>{{ t.fraud_protection }}</span>
                 </a>
                 <a href="/terms" class="hero-feature">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-                    <span>Гарантия возврата</span>
+                    <span>{{ t.return_guarantee }}</span>
                 </a>
                 <a href="/terms" class="hero-feature">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
-                    <span>Проверка по базам</span>
+                    <span>{{ t.database_check }}</span>
                 </a>
                 <a href="/terms" class="hero-feature">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
-                    <span>Быстрая доставка</span>
+                    <span>{{ t.fast_delivery }}</span>
                 </a>
             </div>
         </div>
@@ -71,13 +72,13 @@
             <div class="filters-title">
                 <!-- Apple-style funnel icon -->
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -3px; color: var(--color-text-light); margin-right: 8px;"><path d="M3 6h18"/><path d="M6 12h12"/><path d="M10 18h4"/></svg>
-                Фильтры
+                {{ t.filters }}
             </div>
             <button id="toggleFiltersBtn" class="filters-toggle" aria-expanded="true">
                 <!-- chevron down/up icon -->
                 <svg class="chevron chevron-up" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>
                 <svg class="chevron chevron-down" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M6 9l6 6 6-6"/></svg>
-                Скрыть
+                <span id="toggleFiltersText">{{ t.hide }}</span>
             </button>
         </div>
         <div id="filtersBody" class="filters-body">
@@ -86,10 +87,10 @@
                 <label>
                     <!-- iPhone icon -->
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; margin-right:6px;"><rect x="7" y="2" width="10" height="20" rx="2"/><circle cx="12" cy="18" r="1"/></svg>
-                    Модель
+                    {{ t.model }}
                 </label>
                 <select id="filterModel">
-                    <option value="">Все</option>
+                    <option value="">{{ t.all }}</option>
                     <option value="17">iPhone 17</option>
                     <option value="17pro">iPhone 17 Pro</option>
                     <option value="16">iPhone 16</option>
@@ -103,7 +104,7 @@
                 <label>
                     <!-- battery icon -->
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; margin-right:6px;"><rect x="2" y="7" width="18" height="10" rx="2"/><rect x="4" y="9" width="10" height="6" rx="1"/><path d="M22 10v4"/></svg>
-                    АКБ (от)
+                    {{ t.battery_from }}
                 </label>
                 <input type="number" id="filterBateryMin" placeholder="0%" min="0" max="100">
             </div>
@@ -112,7 +113,7 @@
                 <label>
                     <!-- battery icon -->
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; margin-right:6px;"><rect x="2" y="7" width="18" height="10" rx="2"/><rect x="4" y="9" width="16" height="6" rx="1"/><path d="M22 10v4"/></svg>
-                    АКБ (до)
+                    {{ t.battery_to }}
                 </label>
                 <input type="number" id="filterBateryMax" placeholder="100%" min="0" max="100">
             </div>
@@ -121,15 +122,15 @@
                 <label>
                     <!-- checkmark icon -->
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; margin-right:6px;"><path d="M20 6L9 17l-5-5"/></svg>
-                    Состояние
+                    {{ t.condition }}
                 </label>
                 <select id="filterCondition">
-                    <option value="">Все</option>
-                    <option value="Новый">Новый</option>
-                    <option value="Как новый">Как новый</option>
-                    <option value="Небольшие дефекты">Небольшие дефекты</option>
-                    <option value="С дефектом">С дефектом</option>
-                    <option value="На запчасти">На запчасти</option>
+                    <option value="">{{ t.all }}</option>
+                    <option value="New">{{ t.new }}</option>
+                    <option value="Like New">{{ t.like_new }}</option>
+                    <option value="Minor Defects">{{ t.minor_defects }}</option>
+                    <option value="With Defect">{{ t.with_defect }}</option>
+                    <option value="For Parts">{{ t.for_parts }}</option>
                 </select>
             </div>
 
@@ -137,17 +138,17 @@
                 <label>
                     <!-- circle icon -->
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; margin-right:6px;"><circle cx="12" cy="12" r="6"/></svg>
-                    Цвет
+                    {{ t.color }}
                 </label>
                 <select id="filterColor">
-                    <option value="">Все</option>
-                    <option value="Black">Чёрный</option>
-                    <option value="White">Белый</option>
-                    <option value="Red">Красный</option>
-                    <option value="Blue">Синий</option>
-                    <option value="Green">Зелёный</option>
-                    <option value="Gold">Золотой</option>
-                    <option value="Silver">Серебристый</option>
+                    <option value="">{{ t.all }}</option>
+                    <option value="Black">{{ t.black }}</option>
+                    <option value="White">{{ t.white }}</option>
+                    <option value="Red">{{ t.red }}</option>
+                    <option value="Blue">{{ t.blue }}</option>
+                    <option value="Green">{{ t.green }}</option>
+                    <option value="Gold">{{ t.gold }}</option>
+                    <option value="Silver">{{ t.silver }}</option>
                 </select>
             </div>
 
@@ -155,10 +156,10 @@
                 <label>
                     <!-- memory chip icon -->
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; margin-right:6px;"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 4v4M15 4v4M9 16v4M15 16v4"/></svg>
-                    Память (от)
+                    {{ t.memory_from }}
                 </label>
                 <select id="filterMemory">
-                    <option value="">Все</option>
+                    <option value="">{{ t.all }}</option>
                     <option value="64">От 64GB</option>
                     <option value="128">От 128GB</option>
                     <option value="256">От 256GB</option>
@@ -168,25 +169,25 @@
             </div>
 
             <div class="filter-group">
-                <label>Цена (€)</label>
-                <input type="number" id="filterPriceMin" placeholder="От" min="0">
+                <label>{{ t.price }} (€)</label>
+                <input type="number" id="filterPriceMin" placeholder="{{ t.price_from }}" min="0">
             </div>
 
             <div class="filter-group">
                 <label>&nbsp;</label>
-                <input type="number" id="filterPriceMax" placeholder="До" min="0">
+                <input type="number" id="filterPriceMax" placeholder="{{ t.price_to }}" min="0">
             </div>
 
             <div class="filter-group">
                 <label>
                     <!-- sort icon -->
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; margin-right:6px;"><path d="M11 5h10M11 9h7M11 13h4"/><path d="M3 17l3 3 3-3M6 18V4"/></svg>
-                    Сортировка
+                    {{ t.sort }}
                 </label>
                 <select id="filterSortPrice">
-                    <option value="">По умолчанию</option>
-                    <option value="asc">Цена: от дешевых</option>
-                    <option value="desc">Цена: от дорогих</option>
+                    <option value="">{{ t.default }}</option>
+                    <option value="asc">{{ t.price_low }}</option>
+                    <option value="desc">{{ t.price_high }}</option>
                 </select>
             </div>
 
@@ -194,20 +195,20 @@
                 <label>
                     <!-- calendar icon -->
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; margin-right:6px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                    Публикация
+                    {{ t.publication }}
                 </label>
                 <select id="filterSortDate">
-                    <option value="">Все</option>
-                    <option value="desc">Сначала новые</option>
-                    <option value="asc">Сначала старые</option>
+                    <option value="">{{ t.all }}</option>
+                    <option value="desc">{{ t.newest_first }}</option>
+                    <option value="asc">{{ t.oldest_first }}</option>
                 </select>
             </div>
         </div>
 
         
         <div class="filters-actions">
-            <button id="applyFiltersBtn">🔍 Применить фильтры</button>
-            <button id="clearFiltersBtn">✕ Очистить</button>
+            <button id="applyFiltersBtn">🔍 {{ t.apply_filters }}</button>
+            <button id="clearFiltersBtn">✕ {{ t.clear_filters }}</button>
         </div>
         </div>
         
@@ -219,27 +220,27 @@
             <div class="info-icon">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
             </div>
-            <h3>О LAIS Marketplace</h3>
+            <h3>{{ t.about_marketplace }}</h3>
             <div class="info-content">
                 <div class="info-item">
-                    <span class="info-label">🛡️ Безопасность</span>
-                    <p>Модерация всех объявлений и проверка продавцов</p>
+                    <span class="info-label">🛡️ {{ t.security }}</span>
+                    <p>{{ t.security_desc }}</p>
                 </div>
                 <div class="info-item">
-                    <span class="info-label">💰 Защита денег</span>
-                    <p>Средства удерживаются до подтверждения получения товара</p>
+                    <span class="info-label">💰 {{ t.money_protection }}</span>
+                    <p>{{ t.money_protection_desc }}</p>
                 </div>
                 <div class="info-item">
-                    <span class="info-label">📱 Проверка IMEI</span>
-                    <p>Бесплатная проверка iPhone по международным базам</p>
+                    <span class="info-label">📱 {{ t.imei_check }}</span>
+                    <p>{{ t.imei_check_desc }}</p>
                 </div>
                 <div class="info-item">
-                    <span class="info-label">🚚 Доставка</span>
-                    <p>Быстрая доставка по всей Латвии с гарантией</p>
+                    <span class="info-label">🚚 {{ t.delivery }}</span>
+                    <p>{{ t.delivery_desc }}</p>
                 </div>
                 <div class="info-item">
-                    <span class="info-label">💵 Комиссия 5%</span>
-                    <p>Минимальная комиссия за полную безопасность сделки</p>
+                    <span class="info-label">💵 {{ t.commission }}</span>
+                    <p>{{ t.commission_desc }}</p>
                 </div>
             </div>
         </div>
@@ -258,13 +259,13 @@
             </div>
             
             <div class="auth-header">
-                <h2>Вход в Lais</h2>
-                <p>Управляйте своими объявлениями и покупками</p>
+                <h2>{{ t.login_to_lais }}</h2>
+                <p>{{ t.manage_ads }}</p>
             </div>
 
             <div style="display: flex; gap: 16px; margin-bottom: 24px; border-bottom: 1px solid var(--color-border);">
-                <button class="btn-tab" onclick="switchTab('login')" style="border: none; border-bottom: 2px solid var(--color-primary); color: var(--color-text); padding: 12px 0; flex: 1; background: none; cursor: pointer; font-weight: 600;">Вход</button>
-                <button class="btn-tab" onclick="switchTab('register')" style="border: none; border-bottom: 2px solid transparent; color: var(--color-text-light); padding: 12px 0; flex: 1; background: none; cursor: pointer; font-weight: 600;">Регистрация</button>
+                <button class="btn-tab" onclick="switchTab('login')" style="border: none; border-bottom: 2px solid var(--color-primary); color: var(--color-text); padding: 12px 0; flex: 1; background: none; cursor: pointer; font-weight: 600;">{{ t.login_tab }}</button>
+                <button class="btn-tab" onclick="switchTab('register')" style="border: none; border-bottom: 2px solid transparent; color: var(--color-text-light); padding: 12px 0; flex: 1; background: none; cursor: pointer; font-weight: 600;">{{ t.register_tab }}</button>
             </div>
 
             <div id="loginForm">
@@ -272,30 +273,30 @@
                 <div class="oauth-buttons">
                     <a href="#" onclick="window.location.href = `${AUTH_API}/google/login`; return false;" class="oauth-btn google">
                         <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-                        Продолжить с Google
+                        {{ t.continue_google }}
                     </a>
                     <button class="oauth-btn facebook">
                         <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-                        Продолжить с Facebook
+                        {{ t.continue_facebook }}
                     </button>
                     <button class="oauth-btn apple">
                         <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.127 3.675-.552 9.12 1.519 12.123.987 1.431 2.178 3.065 3.749 3.007 1.497-.056 2.06-.967 3.866-.967 1.785 0 2.316.967 3.863.967 1.626 0 2.786-1.488 3.807-2.958 1.165-1.683 1.651-3.315 1.681-3.399-.037-.018-3.265-1.248-3.3-4.946-.034-3.093 2.536-4.569 2.664-4.656-1.453-2.124-3.707-2.363-4.515-2.389-1.02-.032-2.344.599-3.081.599-.739 0-1.947-.556-2.333-.355zM12.752 4.55c.846-1.021 1.418-2.438 1.262-3.853-1.222.049-2.7 .813-3.578 1.839-.787.914-1.471 2.378-1.286 3.78 1.363.105 2.753-.745 3.602-1.766z"/></svg>
-                        Продолжить с Apple
+                        {{ t.continue_apple }}
                     </a>
                 </div>
 
-                <div class="divider"><span>или по email</span></div>
+                <div class="divider"><span>{{ t.or_email }}</span></div>
 
                 <form id="emailAuthForm">
                     <div class="form-group">
-                        <input type="text" class="form-input" placeholder="Email or username" required>
+                        <input type="text" class="form-input" placeholder="{{ t.email_or_username }}" required>
                         <span style="color: red;" class="error-message"></span>
                     </div>
                     <div class="form-group">
-                        <input type="password" class="form-input" placeholder="Пароль" required>
+                        <input type="password" class="form-input" placeholder="{{ t.password }}" required>
                         <span style="color: red;" class="error-message"></span>
                     </div>
-                    <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">Войти</button>
+                    <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">{{ t.login }}</button>
                 </form>
 
             </div>
@@ -303,27 +304,27 @@
             <div id="registerForm" style="display: none;">
                 <form id="emailRegisterForm" onsubmit="event.preventDefault()">
                     <div class="form-group">
-                        <input type="email" class="form-input" placeholder="Email" required>
+                        <input type="email" class="form-input" placeholder="{{ t.email }}" required>
                         <span style="color: red;" class="error-message"></span>
                     </div>
                     <div class="form-group">
-                        <input type="text" class="form-input" placeholder="Ник" required>
+                        <input type="text" class="form-input" placeholder="{{ t.nickname }}" required>
                         <span style="color: red;" class="error-message"></span>
                     </div>
                     <div class="form-group">
-                        <input type="password" class="form-input" placeholder="Пароль" required>
+                        <input type="password" class="form-input" placeholder="{{ t.password }}" required>
                         <span style="color: red;" class="error-message"></span>
                     </div>
                     <div class="form-group">
-                        <input type="password" class="form-input" placeholder="Повторить пароль" required>
+                        <input type="password" class="form-input" placeholder="{{ t.repeat_password }}" required>
                         <span style="color: red;" class="error-message"></span>
                     </div>
                     <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
                         <input type="checkbox" id="termsCheck" required style="width: 18px; height: 18px; cursor: pointer;">
-                        <label for="termsCheck" style="font-size: 13px; color: var(--color-text-light); cursor: pointer;">Я согласен с правилами площадки</label>
+                        <label for="termsCheck" style="font-size: 13px; color: var(--color-text-light); cursor: pointer;">{{ t.agree_terms }}</label>
                     </div>
                     <span class="error-message" style="display: block; margin-bottom: 12px;"></span>
-                    <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">Зарегистрироваться</button>
+                    <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">{{ t.register_button }}</button>
                 </form>
             </div>
 
@@ -703,12 +704,12 @@
 </style>
 
 <div id="cookieConsentModal">
-    <h3 style="font-size: 18px; font-weight: 600; margin: 0 0 8px 0;">Мы используем Cookies 🍪</h3>
+    <h3 style="font-size: 18px; font-weight: 600; margin: 0 0 8px 0;">{{ t.cookies_title }}</h3>
     <p style="font-size: 13px; color: #86868b; margin: 0 0 16px 0; line-height: 1.4;">
-        Продолжая пользоваться сайтом, вы соглашаетесь с использованием файлов cookie для улучшения работы сервиса.
+        {{ t.cookies_text }}
     </p>
     <button id="acceptCookiesBtn" class="btn btn-primary" style="width: 100%; justify-content: center;">
-        Хорошо
+        {{ t.ok }}
     </button>
 </div>
 
@@ -953,7 +954,7 @@
                             if (response.status === 406) {
                                 if (result.errors) {
                                     if (result.errors.auth) {
-                                        errorMessages[0].textContent = 'Неверный логин или пароль';
+                                        errorMessages[0].textContent = '{{ t.login_error }}';
                                     }
                                 }
                             } else if (response.ok) {
@@ -1086,15 +1087,32 @@
             const hours = Math.floor(minutes / 60);
             const days = Math.floor(hours / 24);
 
+            const prefix = '{{ t.time_prefix }}';
+            const suffix = '{{ t.time_suffix }}';
+
             if (days > 0) {
-                return `${days} дн. назад`;
+                return prefix ? `${prefix} ${days} {{ t.ago_days }}` : `${days} {{ t.ago_days }} ${suffix}`.trim();
             } else if (hours > 0) {
-                return `${hours} ч. назад`;
+                return prefix ? `${prefix} ${hours} {{ t.ago_hours }}` : `${hours} {{ t.ago_hours }} ${suffix}`.trim();
             } else if (minutes > 5) {
-                return `${minutes} м. назад`;
+                return prefix ? `${prefix} ${minutes} {{ t.ago_minutes }}` : `${minutes} {{ t.ago_minutes }} ${suffix}`.trim();
             } else {
-                return 'Только что';
+                return '{{ t.just_now }}';
             }
+        }
+
+        // Функция для перевода condition с английского
+        function translateCondition(condition) {
+            if (!condition) return '{{ t.used_condition }}';
+            const conditionMap = {
+                'New': '{{ t.condition_new }}',
+                'Like New': '{{ t.condition_like_new }}',
+                'Minor Defects': '{{ t.condition_minor_defects }}',
+                'With Defect': '{{ t.condition_with_defect }}',
+                'For Parts': '{{ t.condition_for_parts }}',
+                'Used': '{{ t.condition_used }}'
+            };
+            return conditionMap[condition] || condition;
         }
 
         // Функция для загрузки и отображения постов
@@ -1140,7 +1158,7 @@
                 productGrid.innerHTML = '';
 
                 if (posts.length === 0) {
-                    productGrid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--color-text-light);">По вашему запросу не найдено объявлений</div>';
+                    productGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--color-text-light);">{{ t.no_listings_found }}</div>`;
                     return;
                 }
 
@@ -1166,7 +1184,7 @@
                                 <div style="font-weight: 700; font-size: 18px; color: var(--color-primary);">€${post.price || 'N/A'}</div>
                                 <div style="font-size: 15px; color: var(--color-text); min-height: 21px; line-height: 1.4;">${post.model || 'iPhone'} ${formatMemory(post.memory)}</div>
                                 <div style="font-size: 12px; color: var(--color-text-light); margin-top: auto;">
-                                    ${post.condition || 'Б/У'} • ${formatDate(post.created_at)} • 👁 ${post.view_count}
+                                    ${translateCondition(post.condition)} • ${formatDate(post.created_at)} • 👁 ${post.view_count}
                                 </div>
                             </div>
                         </div>
@@ -1187,7 +1205,7 @@
 
             } catch (error) {
                 console.error('Ошибка загрузки постов:', error);
-                productGrid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #f44336;">Ошибка при загрузке объявлений</div>';
+                productGrid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #f44336;">{{ t.loading_error }}</div>';
             }
         }
 
@@ -1219,14 +1237,14 @@
         if (toggleFiltersBtn && filtersBody) {
             // Restore previous state
             const savedState = localStorage.getItem('filters_collapsed');
+            const toggleTextSpan = document.getElementById('toggleFiltersText');
             if (savedState === 'true') {
                 filtersBody.classList.add('collapsed');
                 toggleFiltersBtn.setAttribute('aria-expanded', 'false');
                 const up = toggleFiltersBtn.querySelector('.chevron-up');
                 const down = toggleFiltersBtn.querySelector('.chevron-down');
                 if (up && down) { up.style.display = 'none'; down.style.display = ''; }
-                // set text node
-                toggleFiltersBtn.childNodes[toggleFiltersBtn.childNodes.length-1].textContent = 'Показать';
+                if (toggleTextSpan) toggleTextSpan.textContent = '{{ t.show }}';
             }
 
             toggleFiltersBtn.addEventListener('click', () => {
@@ -1236,7 +1254,7 @@
                 const up = toggleFiltersBtn.querySelector('.chevron-up');
                 const down = toggleFiltersBtn.querySelector('.chevron-down');
                 if (up && down) { up.style.display = expanded ? '' : 'none'; down.style.display = expanded ? 'none' : ''; }
-                toggleFiltersBtn.childNodes[toggleFiltersBtn.childNodes.length-1].textContent = expanded ? 'Скрыть' : 'Показать';
+                if (toggleTextSpan) toggleTextSpan.textContent = expanded ? '{{ t.hide }}' : '{{ t.show }}';
                 localStorage.setItem('filters_collapsed', String(collapsed));
             });
         }

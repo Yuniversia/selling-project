@@ -1,5 +1,5 @@
 /**
- * Seller Chats Module - Интерфейс чатов для продавца в профиле
+ * Seller Chats Module - Seller chat interface in profile
  */
 
 class SellerChatsManager {
@@ -8,65 +8,59 @@ class SellerChatsManager {
         this.chats = [];
         this.groupedChats = {};
         this.selectedChatId = null;
-        this.cachedIphoneData = {}; // Кэш данных об объявлениях
-        this.lastChatsUpdate = 0; // Время последнего обновления
-        this.updateInterval = null; // Интервал обновления
+        this.cachedIphoneData = {};
+        this.lastChatsUpdate = 0;
+        this.updateInterval = null;
         
         this.init();
     }
     
     async init() {
-        console.log('[SellerChats] Инициализация...');
+        console.log('[SellerChats] ' + (window.i18n?.initialization || 'Инициализация...'));
         
-        // Проверяем авторизацию (с кэшем в sessionStorage)
         const userData = await this.checkAuth();
-        console.log('[SellerChats] Данные пользователя:', userData);
+        console.log('[SellerChats] ' + (window.i18n?.user_data || 'Данные пользователя') + ':', userData);
         
         if (!userData) {
-            console.log('[SellerChats] Пользователь не авторизован');
+            console.log('[SellerChats] User not authorized');
             return;
         }
         
         if (!userData.id) {
-            console.error('[SellerChats] userData.id отсутствует!', userData);
+            console.error('[SellerChats] userData.id missing!', userData);
             return;
         }
         
         this.userId = userData.id;
-        console.log('[SellerChats] userId установлен:', this.userId);
+        console.log('[SellerChats] userId set:', this.userId);
         
-        // Создаем UI
         this.createChatsUI();
         
-        // НЕ загружаем чаты при инициализации - только при открытии модального окна
-        console.log('[SellerChats] Чаты будут загружены при открытии модального окна');
+        console.log('[SellerChats] Chats will be loaded when modal opens');
     }
     
     async checkAuth() {
-        // Проверяем кэш в sessionStorage (на время сессии)
         const cachedAuth = sessionStorage.getItem('seller_auth');
         if (cachedAuth) {
             const cached = JSON.parse(cachedAuth);
-            // Кэш действителен 5 минут
             if (Date.now() - cached.timestamp < 5 * 60 * 1000) {
-                console.log('[SellerChats] Используем кэшированные данные авторизации');
+                console.log('[SellerChats] Using cached auth data');
                 return cached.data;
             }
         }
         
         try {
-            console.log('[SellerChats] Запрос авторизации к auth-service...');
+            console.log('[SellerChats] Auth request to auth-service...');
             const response = await fetch('/api/v1/auth/me', {
                 credentials: 'include'
             });
             
-            console.log('[SellerChats] Статус ответа auth:', response.status);
+            console.log('[SellerChats] Auth response status:', response.status);
             
             if (response.ok) {
                 const data = await response.json();
-                console.log('[SellerChats] Данные от auth-service:', data);
+                console.log('[SellerChats] Data from auth-service:', data);
                 
-                // Сохраняем в кэш
                 sessionStorage.setItem('seller_auth', JSON.stringify({
                     data: data,
                     timestamp: Date.now()
@@ -74,18 +68,17 @@ class SellerChatsManager {
                 
                 return data;
             }
-            console.log('[SellerChats] Пользователь не авторизован (статус не OK)');
+            console.log('[SellerChats] User not authorized (status not OK)');
             return null;
         } catch (error) {
-            console.error('[SellerChats] Ошибка проверки авторизации:', error);
+            console.error('[SellerChats] Auth check error:', error);
             return null;
         }
     }
     
     createChatsUI() {
-        // Создаём кнопку открытия чатов
         const existingBtn = document.getElementById('openSellerChatsBtn');
-        if (existingBtn) return; // Уже создана
+        if (existingBtn) return;
         
         const chatButton = document.createElement('button');
         chatButton.id = 'openSellerChatsBtn';
@@ -99,51 +92,48 @@ class SellerChatsManager {
         chatButton.onclick = () => this.openChatsModal();
         document.body.appendChild(chatButton);
         
-        // Создаём модальное окно чатов
         const modalHTML = `
             <div id="sellerChatsModal" class="seller-chats-modal">
                 <div class="seller-chats-container">
-                    <!-- Левая панель - список чатов -->
                     <div class="seller-chats-sidebar">
                         <div class="seller-chats-header">
-                            <h2>Мои чаты</h2>
+                            <h2>${window.i18n?.my_chats || 'Мои чаты'}</h2>
                             <button id="closeSellerChatsBtn" class="close-btn">×</button>
                         </div>
                         <div id="sellerChatsList" class="seller-chats-list">
-                            <div class="chats-loading">Загрузка чатов...</div>
+                            <div class="chats-loading">${window.i18n?.chatsLoading || 'Загрузка чатов...'}</div>
                         </div>
                     </div>
                     
-                    <!-- Правая панель - активный чат -->
                     <div class="seller-chat-panel">
                         <div id="sellerChatEmpty" class="seller-chat-empty">
                             <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5">
                                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
                             </svg>
-                            <p>Выберите чат для общения</p>
+                            <p>${window.i18n?.select_chat || 'Выберите чат для общения'}</p>
                         </div>
                         
                         <div id="sellerChatActive" class="seller-chat-active" style="display: none;">
                             <div class="seller-chat-active-header">
-                                <button id="backToChatListBtn" class="btn-icon mobile-only" title="Назад" style="display: none;">
+                                <button id="backToChatListBtn" class="btn-icon mobile-only" title="${window.i18n?.back || 'Назад'}" style="display: none;">
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                         <line x1="19" y1="12" x2="5" y2="12"></line>
                                         <polyline points="12 19 5 12 12 5"></polyline>
                                     </svg>
                                 </button>
                                 <div class="chat-info">
-                                    <h3 id="activeChatBuyerName">Покупатель</h3>
-                                    <span id="activeChatProductName">Товар</span>
+                                    <h3 id="activeChatBuyerName">${window.i18n?.buyer || 'Покупатель'}</h3>
+                                    <span id="activeChatProductName">${window.i18n?.product || 'Товар'}</span>
                                 </div>
                                 <div class="chat-actions">
-                                    <button id="hideChatBtn" class="btn-icon" title="Скрыть чат">
+                                    <button id="hideChatBtn" class="btn-icon" title="${window.i18n?.hide_chat || 'Скрыть чат'}">
                                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                                             <circle cx="12" cy="12" r="3"></circle>
                                             <line x1="3" y1="3" x2="21" y2="21"></line>
                                         </svg>
                                     </button>
-                                    <button id="deleteChatBtn" class="btn-icon" title="Удалить чат">
+                                    <button id="deleteChatBtn" class="btn-icon" title="${window.i18n?.delete_chat || 'Удалить чат'}">
                                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <polyline points="3 6 5 6 21 6"></polyline>
                                             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -153,11 +143,11 @@ class SellerChatsManager {
                             </div>
                             
                             <div id="sellerChatMessages" class="seller-chat-messages">
-                                <div class="chat-loading">Загрузка сообщений...</div>
+                                <div class="chat-loading">${window.i18n?.messagesLoading || 'Загрузка сообщений...'}</div>
                             </div>
                             
                             <div class="seller-chat-input">
-                                <textarea id="sellerChatInput" placeholder="Написать сообщение..." rows="1"></textarea>
+                                <textarea id="sellerChatInput" placeholder="${window.i18n?.writeMessage || 'Написать сообщение...'}" rows="1"></textarea>
                                 <button id="sellerSendBtn" class="btn-send">
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                         <line x1="22" y1="2" x2="11" y2="13"></line>
@@ -206,7 +196,6 @@ class SellerChatsManager {
             }
         });
         
-        // Авто-resize textarea
         input.addEventListener('input', function() {
             this.style.height = 'auto';
             this.style.height = Math.min(this.scrollHeight, 120) + 'px';
@@ -224,18 +213,17 @@ class SellerChatsManager {
         // Загружаем чаты только если прошло больше 10 секунд с последней загрузки
         const timeSinceUpdate = Date.now() - this.lastChatsUpdate;
         if (timeSinceUpdate > 10000) {
-            console.log('[SellerChats] Загрузка чатов (прошло', Math.round(timeSinceUpdate/1000), 'сек)');
+            console.log('[SellerChats] Loading chats (passed', Math.round(timeSinceUpdate/1000), 'sec)');
             this.loadChats();
         } else {
-            console.log('[SellerChats] Используем кэшированные чаты');
+            console.log('[SellerChats] Using cached chats');
         }
         
-        // Запускаем автообновление только пока модальное окно открыто
         if (this.updateInterval) clearInterval(this.updateInterval);
         this.updateInterval = setInterval(() => {
-            console.log('[SellerChats] Автообновление чатов');
+            console.log('[SellerChats] Auto-updating chats');
             this.loadChats();
-        }, 30000); // Каждые 30 секунд
+        }, 30000);
     }
     
     closeChatsModal() {
@@ -245,14 +233,12 @@ class SellerChatsManager {
         this.selectedChatId = null;
         this.showEmptyState();
         
-        // Останавливаем автообновление при закрытии
         if (this.updateInterval) {
             clearInterval(this.updateInterval);
             this.updateInterval = null;
-            console.log('[SellerChats] Автообновление остановлено');
+            console.log('[SellerChats] Auto-update stopped');
         }
         
-        // Отключаем WebSocket
         if (this.ws) {
             this.ws.close();
             this.ws = null;
@@ -271,33 +257,32 @@ class SellerChatsManager {
     
     async loadChats() {
         if (!this.userId) {
-            console.log('[SellerChats] loadChats: userId не установлен');
+            console.log('[SellerChats] loadChats: userId not set');
             return;
         }
         
-        console.log('[SellerChats] Загрузка чатов для продавца:', this.userId);
+        console.log('[SellerChats] Loading chats for seller:', this.userId);
         
         try {
             const url = `/api/v1/chat/chats/seller/${this.userId}/grouped`;
-            console.log('[SellerChats] Запрос к:', url);
+            console.log('[SellerChats] Request to:', url);
             
-            // Загружаем чаты продавца, сгруппированные по объявлениям
             const response = await fetch(url);
-            console.log('[SellerChats] Статус ответа:', response.status);
+            console.log('[SellerChats] Response status:', response.status);
             
             if (response.ok) {
                 this.groupedChats = await response.json();
-                this.lastChatsUpdate = Date.now(); // Обновляем время последней загрузки
-                console.log('[SellerChats] Получены чаты:', this.groupedChats);
+                this.lastChatsUpdate = Date.now();
+                console.log('[SellerChats] Chats received:', this.groupedChats);
                 this.renderChats();
                 this.updateUnreadBadge();
             } else {
-                console.error('[SellerChats] Ошибка загрузки чатов:', response.status);
-                this.showError('Не удалось загрузить чаты');
+                console.error('[SellerChats] Chats load error:', response.status);
+                this.showError(window.i18n?.chatsLoadFailed || 'Не удалось загрузить чаты');
             }
         } catch (error) {
-            console.error('[SellerChats] Ошибка при загрузке чатов:', error);
-            this.showError('Ошибка подключения к серверу чатов');
+            console.error('[SellerChats] Error loading chats:', error);
+            this.showError(window.i18n?.chatsConnectionError || 'Ошибка подключения к серверу чатов');
         }
     }
     
@@ -306,21 +291,21 @@ class SellerChatsManager {
             .flat()
             .reduce((sum, chat) => sum + chat.unread_count, 0);
         
-        console.log('[SellerChats] Обновление бейджа. Всего непрочитанных:', totalUnread);
+        console.log('[SellerChats] Badge update. Total unread:', totalUnread);
         
         const badge = document.getElementById('sellerChatsUnreadBadge');
         if (!badge) {
-            console.error('[SellerChats] Элемент sellerChatsUnreadBadge не найден!');
+            console.error('[SellerChats] Element sellerChatsUnreadBadge not found!');
             return;
         }
         
         if (totalUnread > 0) {
             badge.textContent = totalUnread > 99 ? '99+' : totalUnread;
             badge.style.display = 'block';
-            console.log('[SellerChats] Бейдж показан:', badge.textContent);
+            console.log('[SellerChats] Badge shown:', badge.textContent);
         } else {
             badge.style.display = 'none';
-            console.log('[SellerChats] Бейдж скрыт (нет непрочитанных)');
+            console.log('[SellerChats] Badge hidden (no unread)');
         }
     }
     
@@ -329,7 +314,6 @@ class SellerChatsManager {
         
         if (!container) return;
         
-        // Проверяем, есть ли чаты
         const totalChats = Object.values(this.groupedChats).flat().length;
         
         if (totalChats === 0) {
@@ -338,13 +322,12 @@ class SellerChatsManager {
                     <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2">
                         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
                     </svg>
-                    <p>У вас пока нет сообщений</p>
+                    <p>${window.i18n?.no_messages_yet || 'У вас пока нет сообщений'}</p>
                 </div>
             `;
             return;
         }
         
-        // Загружаем информацию об объявлениях
         const iphoneIds = Object.keys(this.groupedChats);
         const iphoneDataPromises = iphoneIds.map(id => this.getIphoneData(id));
         const iphonesData = await Promise.all(iphoneDataPromises);
@@ -354,14 +337,13 @@ class SellerChatsManager {
             if (data) iphonesMap[data.id] = data;
         });
         
-        // Рендерим группы чатов
         let html = '';
         
         for (const [iphoneId, chats] of Object.entries(this.groupedChats)) {
             const iphoneData = iphonesMap[iphoneId];
             const iphoneName = iphoneData ? 
                 `${iphoneData.model} ${iphoneData.memory}GB ${iphoneData.color}` : 
-                `Объявление #${iphoneId}`;
+                `${window.i18n?.listing || 'Объявление'} #${iphoneId}`;
             
             const totalUnread = chats.reduce((sum, chat) => sum + chat.unread_count, 0);
             const isCollapsed = localStorage.getItem(`chat-group-${iphoneId}-collapsed`) === 'true';
@@ -389,7 +371,6 @@ class SellerChatsManager {
         
         container.innerHTML = html;
         
-        // Привязываем события
         this.bindChatEvents();
     }
     
@@ -403,13 +384,13 @@ class SellerChatsManager {
     
     renderChatItem(chat) {
         const isUnread = chat.unread_count > 0;
-        const lastMessage = chat.last_message || 'Нет сообщений';
+        const lastMessage = chat.last_message || (window.i18n?.no_messages || 'Нет сообщений');
         const lastMessageTime = chat.last_message_time ? 
             this.formatTime(chat.last_message_time) : '';
         
         const buyerName = chat.buyer_is_registered ? 
-            `Покупатель #${chat.buyer_id}` : 
-            'Анонимный покупатель';
+            `${window.i18n?.buyer || 'Покупатель'} #${chat.buyer_id}` : 
+            (window.i18n?.anonymous_buyer || 'Анонимный покупатель');
         
         return `
             <div class="chat-item ${isUnread ? 'unread' : ''}" data-chat-id="${chat.id}">
@@ -434,22 +415,18 @@ class SellerChatsManager {
     }
     
     bindChatEvents() {
-        // Используем делегирование событий для динамически создаваемых элементов
         const container = document.getElementById('sellerChatsList');
         if (!container) return;
         
-        // Удаляем старый слушатель если есть
         if (container._chatClickHandler) {
             container.removeEventListener('click', container._chatClickHandler);
         }
         
-        // Создаем новый слушатель
         container._chatClickHandler = (e) => {
-            // Ищем ближайший .chat-item элемент
             const chatItem = e.target.closest('.chat-item');
             if (chatItem) {
                 const chatId = parseInt(chatItem.dataset.chatId);
-                console.log('[SellerChats] Клик на чат:', chatId);
+                console.log('[SellerChats] Chat click:', chatId);
                 this.openChat(chatId);
             }
         };
@@ -458,58 +435,50 @@ class SellerChatsManager {
     }
     
     async openChat(chatId) {
-        console.log('[SellerChats] Открытие чата:', chatId);
+        console.log('[SellerChats] Opening chat:', chatId);
         this.selectedChatId = chatId;
         
         try {
-            // Получаем данные чата
             const response = await fetch(`/api/v1/chat/chats/${chatId}/info`);
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             
             const chat = await response.json();
             this.currentChat = chat;
             
-            // Показываем активный чат
             this.showActiveChat();
             
-            // На мобильных показываем панель чата поверх списка
             const panel = document.querySelector('.seller-chat-panel');
             if (panel && window.innerWidth <= 900) {
                 panel.classList.add('show');
             }
             
-            // Обновляем заголовок
             const buyerName = chat.buyer_is_registered ? 
-                `Покупатель #${chat.buyer_id}` : 
-                'Анонимный покупатель';
+                `${window.i18n?.buyer || 'Покупатель'} #${chat.buyer_id}` : 
+                (window.i18n?.anonymous_buyer || 'Анонимный покупатель');
             document.getElementById('activeChatBuyerName').textContent = buyerName;
             
-            // Получаем информацию о товаре
             const iphoneData = await this.getIphoneData(chat.iphone_id);
             const productName = iphoneData ? 
                 `${iphoneData.model} ${iphoneData.memory}GB` : 
-                `Товар #${chat.iphone_id}`;
+                `${window.i18n?.product || 'Товар'} #${chat.iphone_id}`;
             document.getElementById('activeChatProductName').textContent = productName;
             
-            // Загружаем сообщения
             await this.loadMessages(chatId);
             
-            // Подключаемся к WebSocket
             this.connectWebSocket(chatId);
             
-            // Помечаем как прочитанные
             await this.markAsRead(chatId);
             
-            console.log('[SellerChats] Чат успешно открыт');
+            console.log('[SellerChats] Chat opened successfully');
         } catch (error) {
             console.error('[SellerChats] Ошибка при открытии чата:', error);
-            this.showModal('Ошибка', 'Не удалось открыть чат');
+            this.showModal(window.i18n?.error || 'Ошибка', window.i18n?.chatsOpenFailed || 'Не удалось открыть чат');
         }
     }
     
     async loadMessages(chatId) {
         const container = document.getElementById('sellerChatMessages');
-        container.innerHTML = '<div class="chat-loading">Загрузка сообщений...</div>';
+        container.innerHTML = `<div class="chat-loading">${window.i18n?.messagesLoading || 'Загрузка сообщений...'}</div>`;
         
         try {
             const response = await fetch(`/api/v1/chat/chats/${chatId}/messages`);
@@ -518,8 +487,8 @@ class SellerChatsManager {
             const messages = await response.json();
             this.renderMessages(messages);
         } catch (error) {
-            console.error('[SellerChats] Ошибка загрузки сообщений:', error);
-            container.innerHTML = '<div class="chat-error">Не удалось загрузить сообщения</div>';
+            console.error('[SellerChats] ' + (window.i18n?.messages_load_error || 'Ошибка загрузки сообщений') + ':', error);
+            container.innerHTML = `<div class="chat-error">${window.i18n?.messagesLoadFailed || 'Не удалось загрузить сообщения'}</div>`;
         }
     }
     
@@ -527,7 +496,7 @@ class SellerChatsManager {
         const container = document.getElementById('sellerChatMessages');
         
         if (messages.length === 0) {
-            container.innerHTML = '<div class="chat-empty-messages">Нет сообщений</div>';
+            container.innerHTML = `<div class="chat-empty-messages">${window.i18n?.no_messages || 'Нет сообщений'}</div>`;
             return;
         }
         
@@ -558,32 +527,29 @@ class SellerChatsManager {
             this.ws.close();
         }
         
-        // Определяем протокол WebSocket (ws или wss) на основе текущего протокола страницы
         const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = `${wsProtocol}//${window.location.host}/api/v1/chat/ws/${chatId}?user_id=${this.userId}`;
-        console.log('[SellerChats] Подключение к WebSocket:', wsUrl);
+        console.log('[SellerChats] Connecting to WebSocket:', wsUrl);
         this.ws = new WebSocket(wsUrl);
         
         this.ws.onopen = () => {
-            console.log('[SellerChats] WebSocket подключен');
+            console.log('[SellerChats] WebSocket connected');
         };
         
         this.ws.onmessage = (event) => {
-            console.log('[SellerChats] WebSocket сообщение получено:', event.data);
+            console.log('[SellerChats] WebSocket message received:', event.data);
             const data = JSON.parse(event.data);
-            console.log('[SellerChats] Распарсенные данные:', data);
+            console.log('[SellerChats] Parsed data:', data);
             
             if (data.type === 'message') {
-                // Если есть вложенный объект message, используем его
                 const messageData = data.message || data;
                 this.appendMessage(messageData);
                 
-                // Показываем push-уведомление если сообщение не от нас и окно не активно
                 if (messageData.sender_id !== this.userId.toString()) {
                     if (window.notificationManager && window.notificationManager.isEnabled()) {
                         const buyerName = this.currentChat?.buyer_is_registered 
-                            ? `Покупатель #${this.currentChat.buyer_id}` 
-                            : 'Анонимный покупатель';
+                            ? `${window.i18n?.buyer || 'Покупатель'} #${this.currentChat.buyer_id}` 
+                            : (window.i18n?.anonymous_buyer || 'Анонимный покупатель');
                         
                         window.notificationManager.notifyNewMessage(
                             buyerName,
@@ -600,20 +566,19 @@ class SellerChatsManager {
         };
         
         this.ws.onclose = () => {
-            console.log('[SellerChats] WebSocket закрыт');
+            console.log('[SellerChats] WebSocket closed');
         };
     }
     
     appendMessage(data) {
-        console.log('[SellerChats] appendMessage вызван с данными:', data);
+        console.log('[SellerChats] appendMessage called with data:', data);
         
         const container = document.getElementById('sellerChatMessages');
         if (!container) {
-            console.error('[SellerChats] Контейнер сообщений не найден!');
+            console.error('[SellerChats] Messages container not found!');
             return;
         }
         
-        // Проверяем разные форматы данных
         const messageText = data.message_text || data.message || '';
         const senderId = data.sender_id || '';
         
@@ -634,7 +599,7 @@ class SellerChatsManager {
         
         container.insertAdjacentHTML('beforeend', messageHTML);
         container.scrollTop = container.scrollHeight;
-        console.log('[SellerChats] Сообщение добавлено в UI');
+        console.log('[SellerChats] Message added to UI');
     }
     
     async sendMessage() {
@@ -642,12 +607,12 @@ class SellerChatsManager {
         const text = input.value.trim();
         
         if (!text || !this.selectedChatId) {
-            console.log('[SellerChats] Отправка отменена: text=', text, 'chatId=', this.selectedChatId);
+            console.log('[SellerChats] Send cancelled: text=', text, 'chatId=', this.selectedChatId);
             return;
         }
         
-        console.log('[SellerChats] Отправка сообщения:', text);
-        console.log('[SellerChats] WebSocket состояние:', this.ws ? this.ws.readyState : 'нет ws');
+        console.log('[SellerChats] Sending message:', text);
+        console.log('[SellerChats] WebSocket state:', this.ws ? this.ws.readyState : 'no ws');
         
         try {
             if (this.ws && this.ws.readyState === WebSocket.OPEN) {
@@ -657,19 +622,19 @@ class SellerChatsManager {
                     sender_is_registered: true
                 };
                 
-                console.log('[SellerChats] Отправка payload:', payload);
+                console.log('[SellerChats] Sending payload:', payload);
                 this.ws.send(JSON.stringify(payload));
                 
                 input.value = '';
                 input.style.height = 'auto';
-                console.log('[SellerChats] Сообщение отправлено');
+                console.log('[SellerChats] Message sent');
             } else {
-                console.error('[SellerChats] WebSocket не подключен');
-                this.showModal('Ошибка', 'Соединение с чатом потеряно. Попробуйте переоткрыть чат.');
+                console.error('[SellerChats] ' + (window.i18n?.ws_not_connected || 'WebSocket не подключен'));
+                this.showModal(window.i18n?.error || 'Ошибка', window.i18n?.connectionLost || 'Соединение с чатом потеряно. Попробуйте переоткрыть чат.');
             }
         } catch (error) {
-            console.error('[SellerChats] Ошибка отправки:', error);
-            this.showModal('Ошибка', 'Не удалось отправить сообщение');
+            console.error('[SellerChats] ' + (window.i18n?.send_error || 'Ошибка отправки') + ':', error);
+            this.showModal(window.i18n?.error || 'Ошибка', window.i18n?.sendFailed || 'Не удалось отправить сообщение');
         }
     }
     
@@ -678,22 +643,21 @@ class SellerChatsManager {
             await fetch(`/api/v1/chat/chats/${chatId}/read?user_id=${this.userId}`, {
                 method: 'POST'
             });
-            this.loadChats(); // Обновляем счётчики
+            this.loadChats();
         } catch (error) {
-            console.error('[SellerChats] Ошибка пометки прочитанным:', error);
+            console.error('[SellerChats] Mark as read error:', error);
         }
     }
     
     showModal(title, message, onConfirm = null) {
-        // Создаём модальное окно для подтверждения
         const modalHTML = `
             <div id="confirmModal" class="confirm-modal-overlay">
                 <div class="confirm-modal">
                     <h3>${this.escapeHtml(title)}</h3>
                     <p>${this.escapeHtml(message)}</p>
                     <div class="confirm-modal-buttons">
-                        ${onConfirm ? '<button class="btn-confirm">Да</button>' : ''}
-                        <button class="btn-cancel">${onConfirm ? 'Отмена' : 'OK'}</button>
+                        ${onConfirm ? `<button class="btn-confirm">${window.i18n?.yes || 'Да'}</button>` : ''}
+                        <button class="btn-cancel">${onConfirm ? (window.i18n?.cancel || 'Отмена') : 'OK'}</button>
                     </div>
                 </div>
             </div>
@@ -726,8 +690,8 @@ class SellerChatsManager {
         if (!this.selectedChatId) return;
         
         this.showModal(
-            'Скрыть чат',
-            'Функция скрытия чатов будет добавлена в следующей версии'
+            window.i18n?.hide_chat || 'Скрыть чат',
+            window.i18n?.hide_chat_feature || 'Функция скрытия чатов будет добавлена в следующей версии'
         );
     }
     
@@ -735,8 +699,8 @@ class SellerChatsManager {
         if (!this.selectedChatId) return;
         
         this.showModal(
-            'Удалить чат',
-            'Удалить этот чат? Это действие нельзя отменить.',
+            window.i18n?.delete_chat || 'Удалить чат',
+            window.i18n?.delete_chat_confirm || 'Удалить этот чат? Это действие нельзя отменить.',
             async () => {
                 try {
                     const response = await fetch(
@@ -748,22 +712,21 @@ class SellerChatsManager {
                         this.showEmptyState();
                         this.selectedChatId = null;
                         await this.loadChats();
-                        this.showModal('Успешно', 'Чат удалён');
+                        this.showModal(window.i18n?.success || 'Успешно', window.i18n?.chat_deleted || 'Чат удалён');
                     } else {
-                        throw new Error('Не удалось удалить чат');
+                        throw new Error(window.i18n?.deleteFailed || 'Не удалось удалить чат');
                     }
                 } catch (error) {
-                    console.error('[SellerChats] Ошибка удаления:', error);
-                    this.showModal('Ошибка', 'Не удалось удалить чат');
+                    console.error('[SellerChats] ' + (window.i18n?.delete_error || 'Ошибка удаления') + ':', error);
+                    this.showModal(window.i18n?.error || 'Ошибка', window.i18n?.deleteFailed || 'Не удалось удалить чат');
                 }
             }
         );
     }
     
     async getIphoneData(iphoneId) {
-        // Проверяем кэш
         if (this.cachedIphoneData[iphoneId]) {
-            console.log('[SellerChats] Используем кэшированные данные для iPhone', iphoneId);
+            console.log('[SellerChats] Using cached data for iPhone', iphoneId);
             return this.cachedIphoneData[iphoneId];
         }
         
@@ -771,13 +734,13 @@ class SellerChatsManager {
             const response = await fetch(`/api/v1/posts/iphone?id=${iphoneId}`);
             if (response.ok) {
                 const data = await response.json();
-                this.cachedIphoneData[iphoneId] = data; // Сохраняем в кэш
-                console.log('[SellerChats] Данные iPhone', iphoneId, 'загружены и кэшированы');
+                this.cachedIphoneData[iphoneId] = data;
+                console.log('[SellerChats] iPhone data', iphoneId, 'loaded and cached');
                 return data;
             }
             return null;
         } catch (error) {
-            console.error('Ошибка при загрузке данных объявления:', error);
+            console.error('Error loading listing data:', error);
             return null;
         }
     }
@@ -787,7 +750,6 @@ class SellerChatsManager {
         const now = new Date();
         const diff = now - date;
         
-        // Если сегодня - показываем время
         if (diff < 24 * 60 * 60 * 1000 && now.getDate() === date.getDate()) {
             return date.toLocaleTimeString('ru-RU', {
                 hour: '2-digit',
@@ -795,14 +757,12 @@ class SellerChatsManager {
             });
         }
         
-        // Если вчера
         const yesterday = new Date(now);
         yesterday.setDate(yesterday.getDate() - 1);
         if (date.getDate() === yesterday.getDate()) {
-            return 'Вчера';
+            return window.i18n?.yesterday || 'Вчера';
         }
         
-        // Иначе показываем дату
         return date.toLocaleDateString('ru-RU', {
             day: 'numeric',
             month: 'short'
@@ -837,7 +797,6 @@ class SellerChatsManager {
     }
 }
 
-// Инициализация при загрузке страницы профиля
 if (document.getElementById('profilePage')) {
     window.sellerChatsManager = new SellerChatsManager();
 }

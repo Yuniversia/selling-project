@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="{{ lang }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Проверка IMEI - Lais</title>
+    <title>{{ t.imei_check_title }} - Lais</title>
     <link rel="stylesheet" href="/templates/static/styles2.css?v=16">
     <script src="/templates/static/cache-manager.js?v=16"></script>
     <script>
@@ -327,8 +327,8 @@
         <div class="nav-container">
             <a href="/" class="logo">lais</a>
             <div class="header-controls">
-                <a href="/terms" class="btn btn-outline" style="margin-right: 10px;">Правила</a>
-                <a href="/" class="btn btn-outline">На главную</a>
+                <a href="/terms" class="btn btn-outline" style="margin-right: 10px;">{{ t.terms }}</a>
+                <a href="/" class="btn btn-outline">{{ t.home_page }}</a>
             </div>
         </div>
     </header>
@@ -347,34 +347,33 @@
 
             <!-- Основной контент -->
             <div class="imei-checker-container">
-                <h1 style="font-size: 40px; text-align: center; margin-bottom: 15px;">Проверка IMEI</h1>
+                <h1 style="font-size: 40px; text-align: center; margin-bottom: 15px;">{{ t.imei_check_title }}</h1>
                 <p style="text-align: center; color: var(--color-text-light); margin-bottom: 40px; font-size: 16px;">
-                    Проверьте статус iPhone по IMEI перед покупкой
+                    {{ t.imei_check_subtitle }}
                 </p>
 
             <div class="info-box">
                 <p>
-                    <strong>💡 Совет:</strong> Всегда проверяйте IMEI перед покупкой б/у iPhone. 
-                    Это поможет убедиться, что устройство не числится в розыске и не заблокировано оператором.
+                    <strong>{{ t.imei_check_tip }}</strong> {{ t.imei_check_tip_text }}
                 </p>
             </div>
 
             <!-- Форма ввода IMEI -->
             <div id="inputSection" class="imei-input-section">
-                <h2 style="margin-bottom: 20px;">Введите IMEI номер</h2>
+                <h2 style="margin-bottom: 20px;">{{ t.enter_imei }}</h2>
                 <input 
                     type="text" 
                     id="imeiInput" 
                     class="imei-input" 
-                    placeholder="Например: 352964100000000"
+                    placeholder="{{ t.imei_placeholder }}"
                     maxlength="15"
                     pattern="[0-9]*"
                 >
                 <p style="color: var(--color-text-light); font-size: 13px; margin-top: 10px;">
-                    IMEI состоит из 15 цифр. Найти его можно в Настройки → Основные → Об этом устройстве
+                    {{ t.imei_help_text }}
                 </p>
                 <button id="checkButton" class="btn btn-primary check-button">
-                    Проверить IMEI
+                    {{ t.check_imei_button }}
                 </button>
             </div>
 
@@ -387,15 +386,15 @@
             <!-- Состояние загрузки -->
             <div id="loadingSection" class="loading-container">
                 <div class="loading-spinner"></div>
-                <h3 id="loadingText">Проверяем устройство...</h3>
+                <h3 id="loadingText">{{ t.checking_device }}</h3>
                 <p style="color: var(--color-text-light); margin-top: 10px;" id="loadingSubtext">
-                    Запрос информации из базы данных
+                    {{ t.checking_database }}
                 </p>
                 <div class="progress-bar">
                     <div id="progressFill" class="progress-fill"></div>
                 </div>
                 <p style="color: var(--color-text-light); font-size: 13px;">
-                    Это может занять несколько секунд...
+                    {{ t.checking_wait }}
                 </p>
             </div>
 
@@ -404,79 +403,79 @@
                 <div class="result-header">
                     <div id="resultIcon" class="result-icon success">✓</div>
                     <div>
-                        <h2 style="margin: 0 0 5px 0;" id="resultTitle">Устройство проверено</h2>
+                        <h2 style="margin: 0 0 5px 0;" id="resultTitle">{{ t.device_checked }}</h2>
                         <p style="margin: 0; color: var(--color-text-light);" id="resultSubtitle">
-                            Информация получена из официальных источников
+                            {{ t.info_from_sources }}
                         </p>
                     </div>
                 </div>
 
                 <div class="result-grid">
                     <div class="result-item">
-                        <div class="result-label">IMEI</div>
+                        <div class="result-label">{{ t.imei_label }}</div>
                         <div class="result-value" id="resultIMEI">—</div>
                     </div>
                     <div class="result-item">
-                        <div class="result-label">Модель</div>
+                        <div class="result-label">{{ t.model_label }}</div>
                         <div class="result-value" id="resultModel">—</div>
                     </div>
                     <div class="result-item">
-                        <div class="result-label">Цвет</div>
+                        <div class="result-label">{{ t.color_label }}</div>
                         <div class="result-value" id="resultColor">—</div>
                     </div>
                     <div class="result-item">
-                        <div class="result-label">Память</div>
+                        <div class="result-label">{{ t.memory_label }}</div>
                         <div class="result-value" id="resultMemory">—</div>
                     </div>
                     <div class="result-item">
-                        <div class="result-label">Find My iPhone</div>
+                        <div class="result-label">{{ t.find_my_iphone }}</div>
                         <div class="result-value" id="resultFMI">—</div>
                     </div>
                     <div class="result-item">
-                        <div class="result-label">Активация</div>
+                        <div class="result-label">{{ t.activation_label }}</div>
                         <div class="result-value" id="resultActivation">—</div>
                     </div>
                     <div class="result-item">
-                        <div class="result-label">Блокировка по sim</div>
+                        <div class="result-label">{{ t.simlock_label }}</div>
                         <div class="result-value" id="resultSimlock">—</div>
                     </div>
                 </div>
 
                 <div style="background: #f8f9fa; padding: 20px; border-radius: 12px; margin-bottom: 20px;">
-                    <h3 style="margin-bottom: 15px;">Дополнительная информация</h3>
+                    <h3 style="margin-bottom: 15px;">{{ t.additional_info_title }}</h3>
                     <div style="display: grid; gap: 10px;">
                         <div style="display: flex; justify-content: space-between;">
-                            <span style="color: var(--color-text-light);">Серийный номер:</span>
+                            <span style="color: var(--color-text-light);">{{ t.serial_number }}:</span>
                             <span style="font-weight: 600;" id="resultSerial">—</span>
                         </div>
                         <div style="display: flex; justify-content: space-between;">
-                            <span style="color: var(--color-text-light);">Дата покупки:</span>
+                            <span style="color: var(--color-text-light);">{{ t.purchase_date }}:</span>
                             <span style="font-weight: 600;" id="resultPurchaseDate">—</span>
                         </div>
                         <div style="display: flex; justify-content: space-between;">
-                            <span style="color: var(--color-text-light);">Гарантия:</span>
+                            <span style="color: var(--color-text-light);">{{ t.warranty }}:</span>
                             <span style="font-weight: 600;" id="resultWarranty">—</span>
                         </div>
                     </div>
                 </div>
 
                 <button class="btn btn-outline" onclick="resetChecker()" style="width: 100%;">
-                    Проверить другой IMEI
+                    {{ t.check_another_imei }}
                 </button>
             </div>
 
             <!-- ✅ ПРИОРИТЕТ #1: Наши предложения (перед рекламой!) -->
             <div id="similarProducts" class="similar-products" style="display: none;">
-                <h2 style="margin-bottom: 10px;">📱 Доступные iPhone на Lais</h2>
+                <h2 style="margin-bottom: 10px;">{{ t.available_iphones }}</h2>
                 <p style="text-align: center; margin-bottom: 25px;">
-                    Проверенные устройства с гарантией безопасности
+                    {{ t.verified_devices }}
                 </p>
                 <div id="similarProductsGrid" class="product-grid">
                     <!-- Динамически загружаемые карточки -->
                 </div>
                 <div style="text-align: center; margin-top: 30px;">
                     <a href="/" class="btn btn-primary" style="display: inline-block; padding: 16px 48px; font-size: 18px; font-weight: 600; background: white; color: #667eea; border: none; text-decoration: none; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); transition: all 0.3s ease;">
-                        Смотреть все объявления →
+                        {{ t.view_all_ads }}
                     </a>
                 </div>
             </div>
@@ -502,14 +501,41 @@
 
     <footer style="background: #f8f9fa; padding: 30px 0; margin-top: 50px; text-align: center; border-top: 1px solid var(--color-border);">
         <p style="color: var(--color-text-light); margin: 0 0 10px 0;">
-            © 2025 Lais. Все права защищены.
+            © 2025 Lais. {{ t.all_rights_reserved }}.
         </p>
         <p style="color: var(--color-text-light); margin: 0;">
-            <a href="/terms" style="color: var(--color-primary); text-decoration: none;">Правила использования</a>
+            <a href="/terms" style="color: var(--color-primary); text-decoration: none;">{{ t.terms_of_service }}</a>
         </p>
     </footer>
 
     <script>
+        // Translations for JavaScript
+        window.t = {
+            js_imei_invalid: "{{ t.js_imei_invalid }}",
+            js_imei_check_failed: "{{ t.js_imei_check_failed }}",
+            device_safe: "{{ t.device_safe }}",
+            warnings_found: "{{ t.warnings_found }}",
+            status_enabled: "{{ t.status_enabled }}",
+            status_disabled: "{{ t.status_disabled }}",
+            status_locked: "{{ t.status_locked }}",
+            status_unlocked: "{{ t.status_unlocked }}",
+            status_free: "{{ t.status_free }}",
+            not_found: "{{ t.not_found }}",
+            unknown: "{{ t.unknown }}",
+            expired: "{{ t.expired }}",
+            view_button: "{{ t.view_button }}",
+            loading_connecting: "{{ t.loading_connecting }}",
+            loading_checking_imei: "{{ t.loading_checking_imei }}",
+            loading_requesting_info: "{{ t.loading_requesting_info }}",
+            loading_getting_data: "{{ t.loading_getting_data }}",
+            loading_checking_fmi: "{{ t.loading_checking_fmi }}",
+            loading_checking_lock: "{{ t.loading_checking_lock }}",
+            loading_additional_data: "{{ t.loading_additional_data }}",
+            loading_warranty_info: "{{ t.loading_warranty_info }}",
+            loading_finalizing: "{{ t.loading_finalizing }}",
+            loading_almost_done: "{{ t.loading_almost_done }}"
+        };
+        
         const imeiInput = document.getElementById('imeiInput');
         const checkButton = document.getElementById('checkButton');
         
@@ -523,7 +549,7 @@
             const imei = imeiInput.value.trim();
             
             if (!imei || imei.length !== 15) {
-                alert('Пожалуйста, введите корректный IMEI (15 цифр)');
+                alert(window.t.js_imei_invalid);
                 return;
             }
 
@@ -551,11 +577,11 @@
 
             // Анимация прогресса с задержкой для показа рекламы
             const stages = [
-                { progress: 20, text: 'Подключение к базе данных...', subtext: 'Проверяем IMEI в системе', delay: 1000 },
-                { progress: 40, text: 'Запрос информации об устройстве...', subtext: 'Получаем данные из Apple', delay: 2000 },
-                { progress: 60, text: 'Проверка Find My iPhone...', subtext: 'Проверяем статус блокировки', delay: 2000 },
-                { progress: 80, text: 'Получение дополнительных данных...', subtext: 'Загружаем информацию о гарантии', delay: 2000 },
-                { progress: 100, text: 'Финализация проверки...', subtext: 'Почти готово!', delay: 1500 }
+                { progress: 20, text: window.t.loading_connecting, subtext: window.t.loading_checking_imei, delay: 1000 },
+                { progress: 40, text: window.t.loading_requesting_info, subtext: window.t.loading_getting_data, delay: 2000 },
+                { progress: 60, text: window.t.loading_checking_fmi, subtext: window.t.loading_checking_lock, delay: 2000 },
+                { progress: 80, text: window.t.loading_additional_data, subtext: window.t.loading_warranty_info, delay: 2000 },
+                { progress: 100, text: window.t.loading_finalizing, subtext: window.t.loading_almost_done, delay: 1500 }
             ];
 
             for (const stage of stages) {
@@ -587,7 +613,7 @@
             } catch (error) {
                 console.error('Ошибка проверки IMEI:', error);
                 loadingSection.style.display = 'none';
-                alert('Ошибка при проверке IMEI. Попробуйте позже.');
+                alert(window.t.js_imei_check_failed);
                 document.getElementById('inputSection').style.display = 'block';
             }
         }
@@ -603,11 +629,11 @@
             if (isSafe) {
                 resultIcon.className = 'result-icon success';
                 resultIcon.textContent = '✓';
-                resultTitle.textContent = 'Устройство безопасно для покупки';
+                resultTitle.textContent = window.t.device_safe;
             } else {
                 resultIcon.className = 'result-icon warning';
                 resultIcon.textContent = '⚠';
-                resultTitle.textContent = 'Обнаружены предупреждения';
+                resultTitle.textContent = window.t.warnings_found;
             }
 
             // Заполняем данные
@@ -619,30 +645,30 @@
             // Find My iPhone статус
             const fmiElement = document.getElementById('resultFMI');
             if (data.find_my_iphone) {
-                fmiElement.innerHTML = '<span class="status-badge danger">Включен</span>';
+                fmiElement.innerHTML = `<span class="status-badge danger">${window.t.status_enabled}</span>`;
             } else {
-                fmiElement.innerHTML = '<span class="status-badge success">Выключен</span>';
+                fmiElement.innerHTML = `<span class="status-badge success">${window.t.status_disabled}</span>`;
             }
             
             // Статус активации
             const activationElement = document.getElementById('resultActivation');
             if (data.activation_lock) {
-                activationElement.innerHTML = '<span class="status-badge danger">Заблокирован</span>';
+                activationElement.innerHTML = `<span class="status-badge danger">${window.t.status_locked}</span>`;
             } else {
-                activationElement.innerHTML = '<span class="status-badge success">Свободен</span>';
+                activationElement.innerHTML = `<span class="status-badge success">${window.t.status_free}</span>`;
             }
 
             // Статус симлок
             const simlockElement = document.getElementById('resultSimlock');
             if (data.sim_lock) {
-                simlockElement.innerHTML = '<span class="status-badge danger">Заблокирован</span>';
+                simlockElement.innerHTML = `<span class="status-badge danger">${window.t.status_locked}</span>`;
             } else {
-                simlockElement.innerHTML = '<span class="status-badge success">Разблокирован</span>';
+                simlockElement.innerHTML = `<span class="status-badge success">${window.t.status_unlocked}</span>`;
             }
             
-            document.getElementById('resultSerial').textContent = data.serial_number || 'Не найден';
-            document.getElementById('resultPurchaseDate').textContent = data.purchase_date || 'Неизвестна';
-            document.getElementById('resultWarranty').textContent = data.warranty_status || 'Истекла';
+            document.getElementById('resultSerial').textContent = data.serial_number || window.t.not_found;
+            document.getElementById('resultPurchaseDate').textContent = data.purchase_date || window.t.unknown;
+            document.getElementById('resultWarranty').textContent = data.warranty_status || window.t.expired;
 
             resultSection.style.display = 'block';
         }
@@ -704,7 +730,7 @@
                                     ${product.memory ? product.memory + 'GB' : ''} ${product.color || ''}
                                 </div>
                                 <a href="/product?id=${product.id}" class="btn btn-primary" style="margin-top: 12px; text-align: center; text-decoration: none;">
-                                    Посмотреть
+                                    ${window.t.view_button}
                                 </a>
                             </div>
                         </div>

@@ -1,11 +1,12 @@
 # frontend_router.py
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Response
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import FileResponse
 import os
 import jwt
 from typing import Optional
+from translations import get_all_translations
 
 # Инициализация Jinja2Templates. 
 # Указываем, где искать HTML-шаблоны (в папке 'templates')
@@ -43,13 +44,26 @@ def get_user_from_token(request: Request) -> Optional[dict]:
     except jwt.InvalidTokenError:
         return None
 
+def get_language(request: Request) -> str:
+    """Получает язык из cookies или возвращает русский по умолчанию."""
+    lang = request.cookies.get("lang", "ru")
+    # Проверяем что язык поддерживается
+    if lang not in ["ru", "lv", "en"]:
+        lang = "ru"
+    return lang
+
 def get_template_context(request: Request, title: str = "") -> dict:
-    """Возвращает базовый контекст для всех шаблонов с API URLs."""
+    """Возвращает базовый контекст для всех шаблонов с API URLs и переводами."""
     user = get_user_from_token(request)
+    lang = get_language(request)
+    translations = get_all_translations(lang)
+    
     return {
         "request": request,
         "title": title,
         "user": user,
+        "lang": lang,
+        "t": translations,
         # API URLs
         "AUTH_API": AUTH_API_URL,
         "POSTS_API": POSTS_API_URL,
@@ -225,6 +239,28 @@ async def sitemap_xml():
             media_type="application/xml",
             headers={"Cache-Control": "public, max-age=3600"}
         )
+
+@frontend_router.get("/set-language/{lang}", name="set_language")
+def set_language(lang: str, request: Request):
+    """Устанавливает язык интерфейса в cookies и перенаправляет обратно."""
+    from fastapi.responses import RedirectResponse
+    
+    # Проверяем что язык поддерживается
+    if lang not in ["ru", "lv", "en"]:
+        lang = "ru"
+    
+    # Получаем URL откуда пришли или главную
+    referer = request.headers.get("referer", "/")
+    
+    response = RedirectResponse(url=referer, status_code=302)
+    response.set_cookie(
+        key="lang",
+        value=lang,
+        max_age=365 * 24 * 60 * 60,  # 1 год
+        httponly=True,
+        samesite="lax"
+    )
+    return response
 
 @frontend_router.get("/404", name="not_found")
 def not_found_page(request: Request):

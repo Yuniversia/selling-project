@@ -10,14 +10,14 @@
             if (window.notificationManager.getPermission() === 'default') {
                 // Показываем дружелюбное уведомление
                 const shouldAsk = confirm(
-                    'Хотите получать уведомления о новых сообщениях в чате?\n\n' +
-                    'Это поможет вам не пропустить важные сообщения от покупателей/продавцов.'
+                    (window.i18n?.js_notif_prompt_title || 'Хотите получать уведомления о новых сообщениях в чате?') + '\n\n' +
+                    (window.i18n?.js_notif_prompt_description || 'Это поможет вам не пропустить важные сообщения от покупателей/продавцов.')
                 );
                 
                 if (shouldAsk) {
                     window.notificationManager.requestPermission().then(granted => {
                         if (granted) {
-                            console.log('[App] Уведомления включены');
+                            console.log('[App] ' + (window.i18n?.js_notif_enabled || 'Уведомления включены'));
                         }
                     });
                 }

@@ -101,14 +101,14 @@ class ChatManager {
                 <div class="chat-container">
                     <div class="chat-header">
                         <div class="chat-header-info">
-                            <h3 id="chatHeaderTitle">Чат с продавцом</h3>
+                            <h3 id="chatHeaderTitle">${window.i18n?.chatWithSeller || 'Чат с продавцом'}</h3>
                             <span id="chatOnlineStatus" class="chat-online-status">●</span>
                         </div>
                         <button id="closeChatBtn" class="chat-close-btn">×</button>
                     </div>
                     
                     <div id="chatMessages" class="chat-messages">
-                        <div class="chat-loading">Загрузка...</div>
+                        <div class="chat-loading">${window.i18n?.loading || 'Загрузка...'}</div>
                     </div>
                     
                     <div class="chat-input-container">
@@ -119,7 +119,7 @@ class ChatManager {
                             <textarea 
                                 id="chatMessageInput" 
                                 class="chat-input" 
-                                placeholder="Написать сообщение..."
+                                placeholder="${window.i18n?.writeMessage || 'Написать сообщение...'}"
                                 rows="1"
                             ></textarea>
                             <button id="sendMessageBtn" class="chat-send-btn">
@@ -197,7 +197,7 @@ class ChatManager {
         // Проверяем обязательные параметры
         if (!sellerId || !iphoneId) {
             console.error('openChat: требуются sellerId и iphoneId', { sellerId, iphoneId });
-            alert('Не удалось открыть чат: недостаточно данных');
+            alert(window.i18n?.insufficientData || 'Не удалось открыть чат: недостаточно данных');
             return;
         }
         
@@ -262,7 +262,7 @@ class ChatManager {
         const container = document.getElementById('chatMessages');
         container.innerHTML = `
             <div class="chat-empty-messages">
-                <p>Начните диалог с продавцом</p>
+                <p>${window.i18n?.startDialog || 'Начните диалог с продавцом'}</p>
             </div>
         `;
     }
@@ -306,11 +306,11 @@ class ChatManager {
                 this.chatId = chat.id;
                 console.log('Chat ID:', this.chatId);
             } else {
-                throw new Error('Не удалось создать чат');
+                throw new Error(window.i18n?.createFailed || 'Не удалось создать чат');
             }
         } catch (error) {
             console.error('Ошибка при создании чата:', error);
-            this.showError('Не удалось создать чат. Попробуйте позже.');
+            this.showError(window.i18n?.createFailed || 'Не удалось создать чат. Попробуйте позже.');
         }
     }
     
@@ -333,7 +333,7 @@ class ChatManager {
             }
         } catch (error) {
             console.error('Ошибка при загрузке сообщений:', error);
-            this.showError('Не удалось загрузить сообщения');
+            this.showError(window.i18n?.loadMessagesFailed || 'Не удалось загрузить сообщения');
         }
     }
     
@@ -347,7 +347,7 @@ class ChatManager {
         if (messages.length === 0) {
             messagesContainer.innerHTML = `
                 <div class="chat-empty-state">
-                    <p>Начните диалог с продавцом</p>
+                    <p>${window.i18n?.startDialog || 'Начните диалог с продавцом'}</p>
                 </div>
             `;
             return;
@@ -499,13 +499,11 @@ class ChatManager {
         // Если чата еще нет - создаём
         if (!this.chatId) {
             console.log('[Chat] Создание чата при отправке первого сообщения...');
-            await this.getOrCreateChat();
+                await this.getOrCreateChat();
             if (!this.chatId) {
-                alert('Не удалось создать чат');
+                alert(window.i18n?.createFailed || 'Не удалось создать чат');
                 return;
-            }
-            
-            // Загружаем историю (если есть)
+            }            // Загружаем историю (если есть)
             await this.loadMessages();
             
             // Подключаемся к WebSocket
@@ -525,7 +523,7 @@ class ChatManager {
         
         if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
             console.error('[Chat] WebSocket не подключен');
-            alert('Ошибка подключения к чату');
+            alert(window.i18n?.connectionFailed || 'Ошибка подключения к чату');
             return;
         }
         
@@ -575,7 +573,7 @@ class ChatManager {
     updateOnlineStatus(isOnline) {
         const statusEl = document.getElementById('chatOnlineStatus');
         statusEl.style.color = isOnline ? '#4CAF50' : '#999';
-        statusEl.title = isOnline ? 'Онлайн' : 'Оффлайн';
+        statusEl.title = isOnline ? (window.i18n?.online || 'Онлайн') : (window.i18n?.offline || 'Оффлайн');
     }
     
     /**
