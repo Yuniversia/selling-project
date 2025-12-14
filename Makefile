@@ -123,8 +123,58 @@ health: ## Проверить здоровье всех сервисов
 	@echo -n "Main Service: "; curl -s http://localhost:8080/health | jq -r '.status' 2>/dev/null || echo "ERROR"
 	@echo -n "PostgreSQL: "; docker-compose exec postgres pg_isready -U postgres -q && echo "healthy" || echo "ERROR"
 
-test: ## Запустить тесты (TODO)
-	@echo "$(YELLOW)Тесты ещё не реализованы$(RESET)"
+test: ## Запустить ВСЕ тесты
+	@echo "$(GREEN)Запуск всех тестов...$(RESET)"
+	pytest tests/ -v --tb=short
+
+test-smoke: ## Запустить SMOKE тесты (быстрая проверка)
+	@echo "$(GREEN)Запуск smoke тестов...$(RESET)"
+	pytest tests/ -m "smoke" -v --tb=short
+
+test-critical: ## Запустить КРИТИЧЕСКИЕ тесты
+	@echo "$(GREEN)Запуск критических тестов...$(RESET)"
+	pytest tests/ -m "critical" -v --tb=short
+
+test-auth: ## Тесты Auth сервиса
+	@echo "$(GREEN)Тесты Auth сервиса...$(RESET)"
+	pytest tests/test_auth_service.py -v --tb=short
+
+test-posts: ## Тесты Posts сервиса
+	@echo "$(GREEN)Тесты Posts сервиса...$(RESET)"
+	pytest tests/test_posts_service.py -v --tb=short
+
+test-chat: ## Тесты Chat сервиса
+	@echo "$(GREEN)Тесты Chat сервиса...$(RESET)"
+	pytest tests/test_chat_service.py -v --tb=short
+
+test-frontend: ## Тесты Frontend сервиса
+	@echo "$(GREEN)Тесты Frontend сервиса...$(RESET)"
+	pytest tests/test_frontend_service.py -v --tb=short
+
+test-integration: ## Интеграционные тесты
+	@echo "$(GREEN)Интеграционные тесты...$(RESET)"
+	pytest tests/test_integration.py -v --tb=short
+
+test-install: ## Установить зависимости для тестов
+	@echo "$(GREEN)Установка зависимостей для тестов...$(RESET)"
+	pip install -r tests/requirements.txt
+
+test-report: ## Запустить тесты с HTML отчётом
+	@echo "$(GREEN)Запуск тестов с HTML отчётом...$(RESET)"
+	pytest tests/ -v --html=test_report.html --self-contained-html
+
+test-pre-deploy: ## Полное тестирование перед деплоем
+	@echo "$(GREEN)========================================$(RESET)"
+	@echo "$(GREEN)  ТЕСТИРОВАНИЕ ПЕРЕД ДЕПЛОЕМ$(RESET)"
+	@echo "$(GREEN)========================================$(RESET)"
+	@$(MAKE) health
+	@echo ""
+	@$(MAKE) test-smoke
+	@echo ""
+	@$(MAKE) test-critical
+	@echo ""
+	@echo "$(GREEN)✓ Все критические тесты пройдены!$(RESET)"
+	@echo "$(GREEN)  Проект готов к деплою$(RESET)"
 
 # ============================================
 # Очистка
