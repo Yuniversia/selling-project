@@ -35,7 +35,7 @@ class TestAuthRegistration:
     
     @pytest.mark.auth
     @pytest.mark.critical
-    def test_register_new_user(self, test_config, session_state):
+    def test_register_new_user(self, test_config, session_state, test_data_tracker):
         """
         🔍 Проверка: Регистрация нового пользователя
         📍 Endpoint: POST /api/v1/auth/register
@@ -43,9 +43,10 @@ class TestAuthRegistration:
         """
         try:
             timestamp = datetime.now().strftime('%Y%m%d%H%M%S%f')
+            # Используем префикс _test_ для идентификации тестовых данных
             user_data = {
-                "username": f"test_user_{timestamp}",
-                "email": f"test_{timestamp}@test.com",
+                "username": f"{test_config.TEST_PREFIX}user_{timestamp}",
+                "email": f"{test_config.TEST_PREFIX}{timestamp}@test.com",
                 "password": "TestPass123!"
             }
             
@@ -63,12 +64,17 @@ class TestAuthRegistration:
                 data = response.json()
                 assert_json_field(data, "username", 
                     "Ответ регистрации должен содержать username")
+                # Отслеживаем для очистки
+                test_data_tracker.track_user(
+                    user_id=data.get("id"),
+                    username=user_data["username"]
+                )
                 
         except httpx.ConnectError:
             pytest.skip("Auth сервис недоступен - нет соединения")
     
     @pytest.mark.auth
-    def test_register_duplicate_username(self, test_config):
+    def test_register_duplicate_username(self, test_config, test_data_tracker):
         """
         🔍 Проверка: Повторная регистрация с тем же username
         📍 Endpoint: POST /api/v1/auth/register
@@ -77,8 +83,8 @@ class TestAuthRegistration:
         try:
             timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
             user_data = {
-                "username": f"dup_user_{timestamp}",
-                "email": f"dup1_{timestamp}@test.com",
+                "username": f"{test_config.TEST_PREFIX}dup_{timestamp}",
+                "email": f"_test_dup1_{timestamp}@test.com",
                 "password": "TestPass123!"
             }
             
@@ -90,7 +96,7 @@ class TestAuthRegistration:
             )
             
             # Повторная регистрация с тем же username
-            user_data["email"] = f"dup2_{timestamp}@test.com"
+            user_data["email"] = f"_test_dup2_{timestamp}@test.com"
             response = httpx.post(
                 f"{test_config.BASE_URL}/api/v1/auth/register",
                 json=user_data,
@@ -121,7 +127,7 @@ class TestAuthRegistration:
             response = httpx.post(
                 f"{test_config.BASE_URL}/api/v1/auth/register",
                 json={
-                    "username": f"test_{timestamp}", 
+                    "username": f"_test_{timestamp}", 
                     "email": invalid_email,
                     "password": "pass123"
                 },
@@ -148,7 +154,7 @@ class TestAuthLogin:
         """
         try:
             timestamp = datetime.now().strftime('%Y%m%d%H%M%S%f')
-            username = f"login_test_{timestamp}"
+            username = f"_test_login_test_{timestamp}"
             password = "LoginPass123!"
             
             # Регистрируем пользователя
@@ -156,7 +162,7 @@ class TestAuthLogin:
                 f"{test_config.BASE_URL}/api/v1/auth/register",
                 json={
                     "username": username,
-                    "email": f"login_{timestamp}@test.com",
+                    "email": f"_test_login_{timestamp}@test.com",
                     "password": password
                 },
                 timeout=test_config.REQUEST_TIMEOUT
@@ -203,14 +209,14 @@ class TestAuthLogin:
         """Вход по email вместо username"""
         try:
             timestamp = datetime.now().strftime('%Y%m%d%H%M%S%f')
-            email = f"email_login_{timestamp}@test.com"
+            email = f"_test_email_login_{timestamp}@test.com"
             password = "EmailPass123!"
             
             # Регистрация
             httpx.post(
                 f"{test_config.BASE_URL}/api/v1/auth/register",
                 json={
-                    "username": f"email_test_{timestamp}",
+                    "username": f"_test_email_test_{timestamp}",
                     "email": email,
                     "password": password
                 },
@@ -243,7 +249,7 @@ class TestAuthTokenRefresh:
         try:
             # Сначала логинимся
             timestamp = datetime.now().strftime('%Y%m%d%H%M%S%f')
-            username = f"refresh_test_{timestamp}"
+            username = f"_test_refresh_test_{timestamp}"
             password = "RefreshPass123!"
             
             # Регистрация
@@ -251,7 +257,7 @@ class TestAuthTokenRefresh:
                 f"{test_config.BASE_URL}/api/v1/auth/register",
                 json={
                     "username": username,
-                    "email": f"refresh_{timestamp}@test.com",
+                    "email": f"_test_refresh_{timestamp}@test.com",
                     "password": password
                 },
                 timeout=test_config.REQUEST_TIMEOUT
@@ -306,13 +312,13 @@ class TestAuthProfile:
         try:
             # Регистрация и логин
             timestamp = datetime.now().strftime('%Y%m%d%H%M%S%f')
-            username = f"profile_test_{timestamp}"
+            username = f"_test_profile_test_{timestamp}"
             
             reg_response = httpx.post(
                 f"{test_config.BASE_URL}/api/v1/auth/register",
                 json={
                     "username": username,
-                    "email": f"profile_{timestamp}@test.com",
+                    "email": f"_test_profile_{timestamp}@test.com",
                     "password": "ProfilePass123!"
                 },
                 timeout=test_config.REQUEST_TIMEOUT
@@ -359,8 +365,8 @@ class TestAuthProfile:
             reg_response = httpx.post(
                 f"{test_config.BASE_URL}/api/v1/auth/register",
                 json={
-                    "username": f"update_test_{timestamp}",
-                    "email": f"update_{timestamp}@test.com",
+                    "username": f"_test_update_test_{timestamp}",
+                    "email": f"_test_update_{timestamp}@test.com",
                     "password": "UpdatePass123!"
                 },
                 timeout=test_config.REQUEST_TIMEOUT
@@ -396,8 +402,8 @@ class TestAuthProfile:
             reg_response = httpx.post(
                 f"{test_config.BASE_URL}/api/v1/auth/register",
                 json={
-                    "username": f"userid_test_{timestamp}",
-                    "email": f"userid_{timestamp}@test.com",
+                    "username": f"_test_userid_test_{timestamp}",
+                    "email": f"_test_userid_{timestamp}@test.com",
                     "password": "UserIdPass123!"
                 },
                 timeout=test_config.REQUEST_TIMEOUT
@@ -442,8 +448,8 @@ class TestAuthLogout:
             reg_response = httpx.post(
                 f"{test_config.BASE_URL}/api/v1/auth/register",
                 json={
-                    "username": f"logout_test_{timestamp}",
-                    "email": f"logout_{timestamp}@test.com",
+                    "username": f"_test_logout_test_{timestamp}",
+                    "email": f"_test_logout_{timestamp}@test.com",
                     "password": "LogoutPass123!"
                 },
                 timeout=test_config.REQUEST_TIMEOUT,

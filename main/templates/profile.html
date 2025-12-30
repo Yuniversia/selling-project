@@ -5,10 +5,11 @@
     {% set page_description = t.manage_ads %}
     {% include 'seo_meta.html' %}
     <title>{{ page_title }}</title>
-    <link rel="stylesheet" href="/templates/static/styles2.css?v=16">
-    <script src="/templates/static/cache-manager.js?v=16"></script>
-    <script src="/templates/static/notifications.js?v=16" defer></script>
-    <script src="/templates/static/notification-prompt.js?v=16" defer></script>
+    <link rel="stylesheet" href="/templates/static/styles2.css?v=20">
+    <script src="/templates/static/cache-manager.js?v=20"></script>
+    <script src="/templates/static/auth-interceptor.js?v=20"></script>
+    <script src="/templates/static/notifications.js?v=20" defer></script>
+    <script src="/templates/static/notification-prompt.js?v=20" defer></script>
     <script>
         // Global translations object for JavaScript
         window.i18n = {
@@ -91,7 +92,7 @@
             js_data_saved_console: "{{ t.js_data_saved_console }}"
         };
     </script>
-    <script src="/templates/static/chat.js?v=16" defer></script>
+    <script src="/templates/static/chat.js?v=20" defer></script>
     <script>
         // API Configuration - единый стандарт /api/v1/<service>
         const API_V1 = "/api/v1";
@@ -101,7 +102,7 @@
         const IMEI_API = `${API_V1}/imei`;
         console.log('🔧 API BASE:', API_V1);
     </script>
-    <script src="/templates/static/seller-chats.js?v=16" defer></script>
+    <script src="/templates/static/seller-chats.js?v=20" defer></script>
     <style>
         /* Специфичные стили для профиля */
         .profile-layout {
@@ -1078,6 +1079,14 @@
         loadPendingReportsCount();
         {% endif %}
     </script>
+
+    <!-- Floating Seller Chats Button -->
+    <button id="openSellerChatsBtn" class="seller-chats-float-btn" aria-label="My Chats">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M20 2H4C2.9 2 2 2.9 2 4V22L6 18H20C21.1 18 22 17.1 22 16V4C22 2.9 21.1 2 20 2ZM20 16H6L4 18V4H20V16Z" fill="currentColor"/>
+        </svg>
+        <span id="unreadBadgeFloat" class="unread-badge-float" style="display: none;">0</span>
+    </button>
 
 </body>
 </html>

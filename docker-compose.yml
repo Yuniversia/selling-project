@@ -43,6 +43,8 @@ services:
       - SESSION_SECRET=${SESSION_SECRET:-ANY_RANDOM_STRING_FOR_SESSION}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - PUBLIC_DOMAIN=${PUBLIC_DOMAIN:-https://test.yuniversia.eu}
+      - COOKIE_SECURE=${COOKIE_SECURE:-true}
       - AUTH_SERVICE_URL=${AUTH_SERVICE_URL:-http://localhost:8000}
     ports:
       - "${AUTH_PORT:-8000}:${AUTH_PORT:-8000}"
@@ -110,6 +112,9 @@ services:
       - DOCKER_ENV=true
       - PORT=${CHAT_PORT:-4000}
       - BACKEND_HOST=${BACKEND_HOST:-0.0.0.0}
+      - CF_ACCOUNT_ID=${CF_ACCOUNT_ID}
+      - CF_ACCOUNT_HASH=${CF_ACCOUNT_HASH}
+      - CF_API_TOKEN=${CF_API_TOKEN}
     ports:
       - "${CHAT_PORT:-4000}:${CHAT_PORT:-4000}"
     depends_on:
@@ -124,6 +129,8 @@ services:
     restart: unless-stopped
     volumes:
       - ./chat:/app
+      - ./chat/uploads:/app/uploads
+      - chat-uploads:/app/uploads/chat-files
 
   # IMEI Checker Service (Проверка IMEI iPhone)
   imei-checker-service:
@@ -158,6 +165,7 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/ssl:/etc/nginx/ssl:ro  # Для SSL сертификатов (опционально)
+      - chat-uploads:/app/chat/uploads/chat-files:ro  # Раздача загруженных файлов чата
     depends_on:
       - main-service
       - auth-service
@@ -189,8 +197,11 @@ services:
       - IMEI_SERVICE_URL=${IMEI_SERVICE_URL:-http://localhost:5001}
       - SECRET_KEY=${SECRET_KEY:-My secret key}
       - TOKEN_ALGORITHM=${TOKEN_ALGORITHM:-HS256}
-    ports:
-      - "${MAIN_PORT:-8080}:${MAIN_PORT:-8080}"
+    # НЕ публикуем порт - доступ только через nginx
+    # ports:
+    #   - "${MAIN_PORT:-8080}:${MAIN_PORT:-8080}"
+    expose:
+      - "${MAIN_PORT:-8080}"
     depends_on:
       - auth-service
       - posts-service
@@ -209,4 +220,5 @@ networks:
 
 volumes:
   postgres_data:
+  chat-uploads:
     driver: local

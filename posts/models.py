@@ -89,9 +89,13 @@ class IphonePublic(BaseModel):
     imei: str
     batery: int
     condition: Optional[str]
+    
+    # Поля от IMEI Checker
+    serial_number: Optional[str] = Field(default=None)
     model: Optional[str]
     memory: Optional[int]  # Память в GB
     color: Optional[str]
+    
     images_url: Optional[str]
     description: Optional[str]
 

@@ -2,13 +2,17 @@
 const CACHE_NAME = 'lais-chat-v1';
 
 self.addEventListener('install', (event) => {
-    console.log('[SW] ' + (self.i18n?.js_sw_installed || 'Service Worker установлен'));
+    console.log('[SW] Service Worker установлен');
     self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-    console.log('[SW] ' + (self.i18n?.js_sw_activated || 'Service Worker активирован'));
-    event.waitUntil(clients.claim());
+    console.log('[SW] Service Worker активирован');
+    event.waitUntil(
+        clients.claim().then(() => {
+            console.log('[SW] Все клиенты под контролем SW');
+        })
+    );
 });
 
 // Обработка push-уведомлений
@@ -31,29 +35,29 @@ self.addEventListener('push', (event) => {
     }
     
     const options = {
-        body: data.body || (self.i18n?.js_notif_default_body || 'У вас новое сообщение в чате'),
-        icon: data.icon || '/static/icon-192.png',
-        badge: data.badge || '/static/badge-72.png',
+        body: data.body || 'У вас новое сообщение в чате',
+        icon: data.icon || '/templates/static/icon-192.png',
+        badge: data.badge || '/templates/static/badge-72.png',
         vibrate: [200, 100, 200],
         tag: data.tag || 'chat-message',
+        renotify: true,
+        requireInteraction: false,
         data: {
-            url: data.url || '/',
+            url: data.url || '/profile',
             chatId: data.chatId
         },
         actions: [
             {
                 action: 'open',
-                title: self.i18n?.js_sw_open || 'Открыть',
-                icon: '/static/open-icon.png'
+                title: 'Открыть',
+                icon: '/templates/static/open-icon.png'
             },
             {
                 action: 'close',
-                title: self.i18n?.js_notif_close || 'Закрыть',
-                icon: '/static/close-icon.png'
+                title: 'Закрыть',
+                icon: '/templates/static/close-icon.png'
             }
-        ],
-        requireInteraction: false,
-        renotify: true
+        ]
     };
     
     event.waitUntil(

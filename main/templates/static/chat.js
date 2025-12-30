@@ -116,6 +116,16 @@ class ChatManager {
                             <span></span><span></span><span></span>
                         </div>
                         <div class="chat-input-wrapper">
+                            <div id="filePreviewContainer" class="chat-file-preview" style="display: none;">
+                                <span id="filePreviewName"></span>
+                                <button id="removeFileBtn" class="remove-file-btn">×</button>
+                            </div>
+                            <input type="file" id="chatFileInput" accept="image/*,.pdf" style="display: none;">
+                            <button id="attachFileBtn" class="chat-attach-btn" title="Прикрепить файл">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+                                </svg>
+                            </button>
                             <textarea 
                                 id="chatMessageInput" 
                                 class="chat-input" 
@@ -143,10 +153,18 @@ class ChatManager {
     bindEvents() {
         const closeChatBtn = document.getElementById('closeChatBtn');
         const sendMessageBtn = document.getElementById('sendMessageBtn');
+        const attachFileBtn = document.getElementById('attachFileBtn');
+        const chatFileInput = document.getElementById('chatFileInput');
+        const removeFileBtn = document.getElementById('removeFileBtn');
         const messageInput = document.getElementById('chatMessageInput');
         const chatModal = document.getElementById('chatModal');
         
         closeChatBtn.addEventListener('click', () => this.closeChat());
+        
+        // Прикрепление файла
+        attachFileBtn.addEventListener('click', () => chatFileInput.click());
+        chatFileInput.addEventListener('change', (e) => this.handleFileSelect(e));
+        removeFileBtn.addEventListener('click', () => this.removeFile());
         sendMessageBtn.addEventListener('click', () => this.sendMessage());
         
         // Отправка по Enter (Shift+Enter для новой строки)
@@ -234,6 +252,7 @@ class ChatManager {
                 const chat = await response.json();
                 if (chat && chat.id) {
                     this.chatId = chat.id;
+                    window.currentOpenChatId = this.chatId; // Отслеживание для уведомлений
                     console.log('[Chat] Найден существующий чат:', this.chatId);
                     
                     // Загружаем историю сообщений
@@ -268,6 +287,79 @@ class ChatManager {
     }
     
     /**
+     * Обработка выбора файла
+     */
+    handleFileSelect(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        // Проверка типа файла
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
+        if (!allowedTypes.includes(file.type)) {
+            alert('Поддерживаются только изображения (JPG, PNG, GIF, WEBP) и PDF файлы');
+            return;
+        }
+        
+        // Проверка размера (10 MB)
+        const maxSize = 10 * 1024 * 1024;
+        if (file.size > maxSize) {
+            alert('Размер файла не должен превышать 10 МБ');
+            return;
+        }
+        
+        this.selectedFile = file;
+        this.showFilePreview(file);
+    }
+    
+    /**
+     * Показать превью файла
+     */
+    showFilePreview(file) {
+        const previewContainer = document.getElementById('filePreviewContainer');
+        const previewImage = document.getElementById('filePreviewImage');
+        const previewName = document.getElementById('filePreviewName');
+        const previewSize = document.getElementById('filePreviewSize');
+        
+        previewName.textContent = file.name;
+        previewSize.textContent = this.formatFileSize(file.size);
+        
+        // Показываем превью для изображений
+        if (file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                previewImage.src = e.target.result;
+                previewImage.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        } else {
+            previewImage.style.display = 'none';
+        }
+        
+        previewContainer.style.display = 'flex';
+    }
+    
+    /**
+     * Удалить выбранный файл
+     */
+    removeFile() {
+        this.selectedFile = null;
+        document.getElementById('chatFileInput').value = '';
+        document.getElementById('filePreviewContainer').style.display = 'none';
+        document.getElementById('filePreviewImage').style.display = 'none';
+    }
+    
+    /**
+     * Форматировать размер файла
+     */
+    formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    }
+    
+    /**
      * Закрыть чат
      */
     closeChat() {
@@ -275,6 +367,8 @@ class ChatManager {
         document.body.classList.remove('modal-open');
         document.body.style.overflow = '';
         this.isOpen = false;
+        window.currentOpenChatId = null; // Очищаем текущий чат
+        this.removeFile(); // Очищаем выбранный файл
         
         // Закрываем WebSocket
         if (this.ws) {
@@ -353,9 +447,93 @@ class ChatManager {
             return;
         }
         
-        messages.forEach(message => {
-            this.appendMessage(message);
+        // Группируем последовательные изображения
+        const grouped = this.groupConsecutiveImages(messages);
+        
+        grouped.forEach(item => {
+            if (item.type === 'image_group') {
+                this.appendImageGroup(item);
+            } else {
+                this.appendMessage(item);
+            }
         });
+    }
+    
+    /**
+     * Группировка последовательных изображений от одного отправителя
+     */
+    groupConsecutiveImages(messages) {
+        const grouped = [];
+        let currentGroup = null;
+        
+        messages.forEach(msg => {
+            const isImage = msg.message_type === 'image' && msg.file_url;
+            
+            if (isImage && currentGroup && currentGroup.sender_id === msg.sender_id) {
+                // Добавляем в текущую группу
+                currentGroup.images.push(msg);
+            } else {
+                // Сохраняем предыдущую группу
+                if (currentGroup) {
+                    grouped.push(currentGroup);
+                }
+                
+                // Создаем новую группу или обычное сообщение
+                if (isImage) {
+                    currentGroup = {
+                        type: 'image_group',
+                        sender_id: msg.sender_id,
+                        created_at: msg.created_at,
+                        images: [msg]
+                    };
+                } else {
+                    grouped.push(msg);
+                    currentGroup = null;
+                }
+            }
+        });
+        
+        // Добавляем последнюю группу
+        if (currentGroup) {
+            grouped.push(currentGroup);
+        }
+        
+        return grouped;
+    }
+    
+    /**
+     * Добавить группу изображений
+     */
+    appendImageGroup(group) {
+        const messagesContainer = document.getElementById('chatMessages');
+        const isOwnMessage = group.sender_id === this.userId;
+        
+        const messageEl = document.createElement('div');
+        messageEl.className = `chat-message ${isOwnMessage ? 'own' : 'other'}`;
+        
+        const time = new Date(group.created_at).toLocaleTimeString('ru-RU', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        
+        const gridClass = group.images.length === 1 ? 'grid-1' : 
+                         group.images.length === 2 ? 'grid-2' :
+                         group.images.length === 3 ? 'grid-3' : 'grid-4';
+        
+        const imagesHTML = group.images.map(img => `
+            <a href="${img.file_url}" target="_blank" class="grid-image">
+                <img src="${img.file_url}" alt="${this.escapeHtml(img.file_name || '')}">
+            </a>
+        `).join('');
+        
+        messageEl.innerHTML = `
+            <div class="chat-message-bubble image-grid ${gridClass}">
+                ${imagesHTML}
+                <div class="chat-message-time">${time}</div>
+            </div>
+        `;
+        
+        messagesContainer.appendChild(messageEl);
     }
     
     /**
@@ -364,22 +542,72 @@ class ChatManager {
     appendMessage(message) {
         const messagesContainer = document.getElementById('chatMessages');
         const isOwnMessage = message.sender_id === this.userId;
+        const isSystemMessage = message.message_type === 'system';
         
         const messageEl = document.createElement('div');
-        messageEl.className = `chat-message ${isOwnMessage ? 'own' : 'other'}`;
+        messageEl.className = `chat-message ${isOwnMessage ? 'own' : 'other'} ${isSystemMessage ? 'system' : ''}`;
         
         const time = new Date(message.created_at).toLocaleTimeString('ru-RU', {
             hour: '2-digit',
             minute: '2-digit'
         });
         
-        messageEl.innerHTML = `
-            <div class="chat-message-bubble">
-                <div class="chat-message-text">${this.escapeHtml(message.message_text)}</div>
-                <div class="chat-message-time">${time}</div>
-            </div>
-        `;
+        let contentHTML = '';
         
+        // Системное сообщение
+        if (isSystemMessage) {
+            contentHTML = `
+                <div class="chat-system-message">
+                    ${this.escapeHtml(message.message_text || '')}
+                    <div class="chat-message-time">${time}</div>
+                </div>
+            `;
+        }
+        // Сообщение с изображением
+        else if (message.message_type === 'image' && message.file_url) {
+            contentHTML = `
+                <div class="chat-message-bubble">
+                    <div class="chat-message-image">
+                        <a href="${message.file_url}" target="_blank">
+                            <img src="${message.file_url}" alt="${this.escapeHtml(message.file_name || 'Image')}" 
+                                 style="max-width: 100%; border-radius: 8px; cursor: pointer;">
+                        </a>
+                    </div>
+                    ${message.message_text ? `<div class="chat-message-text">${this.escapeHtml(message.message_text)}</div>` : ''}
+                    <div class="chat-message-time">${time}</div>
+                </div>
+            `;
+        }
+        // Сообщение с файлом
+        else if (message.message_type === 'file' && message.file_url) {
+            const fileIcon = message.file_name?.endsWith('.pdf') ? '📄' : '📎';
+            contentHTML = `
+                <div class="chat-message-bubble">
+                    <div class="chat-message-file">
+                        <a href="${message.file_url}" target="_blank" class="file-link">
+                            <span class="file-icon">${fileIcon}</span>
+                            <div class="file-details">
+                                <div class="file-name">${this.escapeHtml(message.file_name || 'File')}</div>
+                                ${message.file_size ? `<div class="file-size">${this.formatFileSize(message.file_size)}</div>` : ''}
+                            </div>
+                        </a>
+                    </div>
+                    ${message.message_text ? `<div class="chat-message-text">${this.escapeHtml(message.message_text)}</div>` : ''}
+                    <div class="chat-message-time">${time}</div>
+                </div>
+            `;
+        }
+        // Текстовое сообщение
+        else {
+            contentHTML = `
+                <div class="chat-message-bubble">
+                    <div class="chat-message-text">${this.escapeHtml(message.message_text || '')}</div>
+                    <div class="chat-message-time">${time}</div>
+                </div>
+            `;
+        }
+        
+        messageEl.innerHTML = contentHTML;
         messagesContainer.appendChild(messageEl);
     }
     
@@ -455,14 +683,17 @@ class ChatManager {
                     // Помечаем как прочитанное
                     this.markAsRead();
                     
-                    // Показываем push-уведомление если окно не активно
+                    // Показываем push-уведомление
                     if (window.notificationManager && window.notificationManager.isEnabled()) {
                         const senderName = 'Продавец'; // Можно получить имя из данных
+                        const messageText = data.message.message_text || 'Отправил файл';
                         window.notificationManager.notifyNewMessage(
                             senderName,
-                            data.message.message_text,
+                            messageText,
                             this.chatId
-                        );
+                        ).catch(err => {
+                            console.warn('[Chat] Ошибка показа уведомления:', err);
+                        });
                     }
                 }
                 break;
@@ -494,16 +725,19 @@ class ChatManager {
         const input = document.getElementById('chatMessageInput');
         const messageText = input.value.trim();
         
-        if (!messageText) return;
+        // Должен быть либо текст, либо файл
+        if (!messageText && !this.selectedFile) return;
         
         // Если чата еще нет - создаём
         if (!this.chatId) {
             console.log('[Chat] Создание чата при отправке первого сообщения...');
-                await this.getOrCreateChat();
+            await this.getOrCreateChat();
             if (!this.chatId) {
                 alert(window.i18n?.createFailed || 'Не удалось создать чат');
                 return;
-            }            // Загружаем историю (если есть)
+            }
+            
+            // Загружаем историю (если есть)
             await this.loadMessages();
             
             // Подключаемся к WebSocket
@@ -527,11 +761,41 @@ class ChatManager {
             return;
         }
         
-        const message = {
+        let message = {
             type: 'message',
-            message_text: messageText,
             sender_is_registered: this.isRegistered
         };
+        
+        // Если есть файл - загружаем его сначала
+        if (this.selectedFile) {
+            try {
+                const sendBtn = document.getElementById('sendMessageBtn');
+                sendBtn.disabled = true;
+                sendBtn.innerHTML = '<span style="font-size: 12px;">⏳</span>';
+                
+                const fileData = await this.uploadFile(this.selectedFile);
+                
+                message.message_type = this.selectedFile.type.startsWith('image/') ? 'image' : 'file';
+                message.file_url = fileData.public_url;
+                message.file_name = this.selectedFile.name;
+                message.file_size = this.selectedFile.size;
+                message.message_text = messageText || null;
+                
+                this.removeFile();
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>';
+            } catch (error) {
+                console.error('[Chat] Ошибка загрузки файла:', error);
+                alert('Ошибка загрузки файла: ' + error.message);
+                const sendBtn = document.getElementById('sendMessageBtn');
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>';
+                return;
+            }
+        } else {
+            message.message_text = messageText;
+            message.message_type = 'text';
+        }
         
         this.ws.send(JSON.stringify(message));
         
@@ -539,6 +803,35 @@ class ChatManager {
         input.value = '';
         input.style.height = 'auto';
         input.focus();
+    }
+    
+    /**
+     * Загрузить файл на сервер
+     */
+    async uploadFile(file) {
+        try {
+            // Загружаем файл напрямую на сервер
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            const uploadResponse = await fetch('/api/v1/chat/upload-file', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!uploadResponse.ok) {
+                const error = await uploadResponse.json();
+                throw new Error(error.detail || 'File upload failed');
+            }
+            
+            const result = await uploadResponse.json();
+            console.log('[Chat] File uploaded:', result);
+            
+            return result;
+        } catch (error) {
+            console.error('[Chat] Upload error:', error);
+            throw error;
+        }
     }
     
     /**

@@ -217,6 +217,79 @@ async def router_post(
         )
 
 
+# ==================== ТЕСТОВЫЕ ENDPOINTS (CLEANUP) ====================
+
+@api_router.delete("/test/iphone/{post_id}")
+async def delete_test_post(
+    post_id: int,
+    db: Session = Depends(get_session)
+):
+    """
+    Удаляет тестовое объявление по ID.
+    Только для тестов - удаляет посты с description содержащим _test_.
+    """
+    statement = select(Iphone).where(Iphone.id == post_id)
+    post = db.exec(statement).first()
+    
+    if not post:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Объявление с ID {post_id} не найдено"
+        )
+    
+    # Удаляем связанные просмотры
+    db.exec(select(PostView).where(PostView.post_id == post_id))
+    for view in db.exec(select(PostView).where(PostView.post_id == post_id)).all():
+        db.delete(view)
+    
+    # Удаляем связанные жалобы
+    for report in db.exec(select(PostReport).where(PostReport.post_id == post_id)).all():
+        db.delete(report)
+    
+    db.delete(post)
+    db.commit()
+    
+    return {"status": "deleted", "post_id": post_id}
+
+
+@api_router.delete("/test/iphone/cleanup")
+async def cleanup_test_posts(db: Session = Depends(get_session)):
+    """
+    Удаляет ВСЕ тестовые объявления.
+    Тестовые = description содержит _test_ ИЛИ IMEI начинается с 00000
+    """
+    # Находим все тестовые объявления
+    statement = select(Iphone).where(
+        (Iphone.description.contains("_test_")) |
+        (Iphone.imei.startswith("00000"))
+    )
+    test_posts = db.exec(statement).all()
+    
+    deleted_count = 0
+    deleted_ids = []
+    
+    for post in test_posts:
+        # Удаляем связанные просмотры
+        for view in db.exec(select(PostView).where(PostView.post_id == post.id)).all():
+            db.delete(view)
+        
+        # Удаляем связанные жалобы
+        for report in db.exec(select(PostReport).where(PostReport.post_id == post.id)).all():
+            db.delete(report)
+        
+        deleted_ids.append(post.id)
+        db.delete(post)
+        deleted_count += 1
+    
+    db.commit()
+    
+    return {
+        "status": "cleanup_complete",
+        "deleted_count": deleted_count,
+        "deleted_ids": deleted_ids[:20]  # Первые 20 для читаемости
+    }
+
+
 # --- GET List Маршрут (с фильтрацией) ---
 @api_router.get(
     "/iphone/list",

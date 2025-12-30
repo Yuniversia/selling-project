@@ -12,10 +12,52 @@ NC='\033[0m' # No Color
 # Конфигурация - всё через nginx на одном порту
 TEST_BASE_URL="${TEST_BASE_URL:-http://localhost:8080}"
 
+# Парсинг аргументов
+NO_CLEANUP=false
+CLEANUP_ONLY=false
+for arg in "$@"; do
+    case $arg in
+        --no-cleanup)
+            NO_CLEANUP=true
+            shift
+            ;;
+        --cleanup-only)
+            CLEANUP_ONLY=true
+            shift
+            ;;
+        --help|-h)
+            echo "Использование: ./run_tests.sh [опции]"
+            echo ""
+            echo "Опции:"
+            echo "  --no-cleanup    Не удалять тестовые данные после тестов"
+            echo "  --cleanup-only  Только очистить тестовые данные (без запуска тестов)"
+            echo "  --help, -h      Показать эту справку"
+            echo ""
+            echo "Примеры:"
+            echo "  ./run_tests.sh                 # Запустить тесты с очисткой"
+            echo "  ./run_tests.sh --no-cleanup    # Запустить тесты без очистки"
+            echo "  ./run_tests.sh --cleanup-only  # Только очистить тестовые данные"
+            exit 0
+            ;;
+    esac
+done
+
+# Если только очистка
+if [ "$CLEANUP_ONLY" = true ]; then
+    echo -e "${BLUE}========================================${NC}"
+    echo -e "${BLUE}  ОЧИСТКА ТЕСТОВЫХ ДАННЫХ${NC}"
+    echo -e "${BLUE}========================================${NC}"
+    ./cleanup_test_data.sh
+    exit $?
+fi
+
 echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}  ТЕСТИРОВАНИЕ ПЕРЕД ДЕПЛОЕМ В PRODUCTION${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo -e "Base URL: ${TEST_BASE_URL}"
+if [ "$NO_CLEANUP" = true ]; then
+    echo -e "${YELLOW}⚠️  Очистка тестовых данных ОТКЛЮЧЕНА${NC}"
+fi
 echo ""
 
 # Проверка установки зависимостей
@@ -77,12 +119,18 @@ run_pytest() {
     local marker=$1
     local description=$2
     local tmpfile=$(mktemp)
+    local pytest_args=""
+    
+    # Добавляем флаг --no-cleanup если нужно
+    if [ "$NO_CLEANUP" = true ]; then
+        pytest_args="--no-cleanup"
+    fi
     
     # Запускаем pytest и сохраняем вывод
     if [ -n "$marker" ]; then
-        pytest tests/ -m "$marker" -v --tb=line --no-header 2>&1 | tee "$tmpfile"
+        pytest tests/ -m "$marker" -v --tb=line --no-header $pytest_args 2>&1 | tee "$tmpfile"
     else
-        pytest tests/ -v --tb=line --no-header 2>&1 | tee "$tmpfile"
+        pytest tests/ -v --tb=line --no-header $pytest_args 2>&1 | tee "$tmpfile"
     fi
     local result=${PIPESTATUS[0]}
     

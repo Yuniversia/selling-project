@@ -283,6 +283,69 @@ async def logout():
     response.delete_cookie(key="refresh_token")
     return response
 
+
+# ==================== ТЕСТОВЫЕ ENDPOINTS (CLEANUP) ====================
+
+@auth_router.delete("/test/user/{user_id}")
+async def delete_test_user(
+    user_id: int,
+    db: Session = Depends(get_session)
+):
+    """
+    Удаляет тестового пользователя по ID.
+    Только для тестов - удаляет пользователей с префиксом _test_ в username.
+    """
+    statement = select(User).where(User.id == user_id)
+    user = db.exec(statement).first()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Пользователь с ID {user_id} не найден"
+        )
+    
+    # Проверяем что это тестовый пользователь
+    if not user.username.startswith("_test_"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Можно удалять только тестовых пользователей (username начинается с _test_)"
+        )
+    
+    db.delete(user)
+    db.commit()
+    
+    return {"status": "deleted", "user_id": user_id, "username": user.username}
+
+
+@auth_router.delete("/test/users/cleanup")
+async def cleanup_test_users(db: Session = Depends(get_session)):
+    """
+    Удаляет ВСЕХ тестовых пользователей (с префиксом _test_ в username или email).
+    Используется для очистки после тестов.
+    """
+    # Находим всех тестовых пользователей
+    statement = select(User).where(
+        (User.username.startswith("_test_")) | 
+        (User.email.startswith("_test_"))
+    )
+    test_users = db.exec(statement).all()
+    
+    deleted_count = 0
+    deleted_usernames = []
+    
+    for user in test_users:
+        deleted_usernames.append(user.username)
+        db.delete(user)
+        deleted_count += 1
+    
+    db.commit()
+    
+    return {
+        "status": "cleanup_complete",
+        "deleted_count": deleted_count,
+        "deleted_usernames": deleted_usernames[:20]  # Первые 20 для читаемости
+    }
+
 @auth_router.get("/me", response_model=User)
 async def read_users_me(request: Request, db: Session = Depends(get_session)):
     """
@@ -396,7 +459,9 @@ async def login_via_google(request: Request):
     Открывает страницу входа через Google OAuth 2.0.
     """
     # Используем публичный домен для OAuth redirect
-    redirect_url = Configs.public_domain + "/api/v1/auth/google/callback"
+    # Важно: этот URL должен быть добавлен в Google Cloud Console
+    # в разделе "Authorized redirect URIs"
+    redirect_url = f"{Configs.public_domain}/api/v1/auth/google/callback"
     return await oauth.google.authorize_redirect(request, redirect_url)
 
 # 2. Роут Callback (Сюда Google возвращает пользователя)
@@ -442,7 +507,8 @@ async def auth_google_callback(request: Request, db: Session = Depends(get_sessi
         access_token = create_access_token(data={"username": user.username, "user_id": user.id, "user_type": user.user_type})
         refresh_token = create_refresh_token(data={"username": user.username, "user_id": user.id, "user_type": user.user_type})
 
-        response = RedirectResponse(url="https://test.yuniversia.eu/", status_code=status.HTTP_302_FOUND)
+        # Редирект на главную страницу после успешной авторизации
+        response = RedirectResponse(url=f"{Configs.public_domain}/", status_code=status.HTTP_302_FOUND)
         response.set_cookie(
             key="access_token",
             value=access_token,

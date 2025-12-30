@@ -78,19 +78,31 @@ class SellerChatsManager {
     
     createChatsUI() {
         const existingBtn = document.getElementById('openSellerChatsBtn');
-        if (existingBtn) return;
+        if (existingBtn) {
+            // Кнопка уже существует в HTML, просто добавляем обработчик
+            existingBtn.onclick = () => this.openChatsModal();
+            console.log('[SellerChats] Button handler attached to existing button');
+        } else {
+            // Создаем кнопку программно
+            const chatButton = document.createElement('button');
+            chatButton.id = 'openSellerChatsBtn';
+            chatButton.className = 'seller-chats-float-btn';
+            chatButton.innerHTML = `
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+                <span id="unreadBadgeFloat" class="unread-badge-float" style="display: none;">0</span>
+            `;
+            chatButton.onclick = () => this.openChatsModal();
+            document.body.appendChild(chatButton);
+        }
         
-        const chatButton = document.createElement('button');
-        chatButton.id = 'openSellerChatsBtn';
-        chatButton.className = 'seller-chats-float-btn';
-        chatButton.innerHTML = `
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-            </svg>
-            <span id="sellerChatsUnreadBadge" class="unread-badge-float" style="display: none;">0</span>
-        `;
-        chatButton.onclick = () => this.openChatsModal();
-        document.body.appendChild(chatButton);
+        // Создаем модальное окно если его еще нет
+        if (document.getElementById('sellerChatsModal')) {
+            console.log('[SellerChats] Modal already exists');
+            this.bindModalEvents();
+            return;
+        }
         
         const modalHTML = `
             <div id="sellerChatsModal" class="seller-chats-modal">
@@ -146,10 +158,17 @@ class SellerChatsManager {
                                 <div class="chat-loading">${window.i18n?.messagesLoading || 'Загрузка сообщений...'}</div>
                             </div>
                             
-                            <div class="seller-chat-input">
-                                <textarea id="sellerChatInput" placeholder="${window.i18n?.writeMessage || 'Написать сообщение...'}" rows="1"></textarea>
-                                <button id="sellerSendBtn" class="btn-send">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <div class="chat-input-wrapper">
+                                <div id="sellerFilePreview" class="chat-file-preview" style="display: none;"></div>
+                                <input type="file" id="sellerFileInput" accept="image/*,.pdf" style="display: none;" />
+                                <button id="sellerAttachBtn" class="chat-attach-btn" title="Прикрепить файл">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+                                    </svg>
+                                </button>
+                                <textarea id="sellerChatInput" class="chat-input" placeholder="${window.i18n?.writeMessage || 'Написать сообщение...'}" rows="1"></textarea>
+                                <button id="sellerSendBtn" class="chat-send-btn">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                         <line x1="22" y1="2" x2="11" y2="13"></line>
                                         <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
                                     </svg>
@@ -187,6 +206,13 @@ class SellerChatsManager {
         modal.addEventListener('click', (e) => {
             if (e.target === modal) this.closeChatsModal();
         });
+        
+        // Обработчики файлов
+        const attachBtn = document.getElementById('sellerAttachBtn');
+        const fileInput = document.getElementById('sellerFileInput');
+        
+        attachBtn.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
         
         sendBtn.addEventListener('click', () => this.sendMessage());
         input.addEventListener('keydown', (e) => {
@@ -500,26 +526,112 @@ class SellerChatsManager {
             return;
         }
         
+        // Группируем последовательные изображения
+        const grouped = this.groupConsecutiveImages(messages);
+        
         let html = '';
-        messages.forEach(msg => {
-            const isOwn = msg.sender_id === this.userId.toString();
-            const time = new Date(msg.created_at).toLocaleTimeString('ru-RU', {
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-            
-            html += `
-                <div class="message ${isOwn ? 'own' : 'other'}">
-                    <div class="message-bubble">
-                        <div class="message-text">${this.escapeHtml(msg.message_text)}</div>
-                        <div class="message-time">${time}</div>
+        grouped.forEach(item => {
+            if (item.type === 'image_group') {
+                // Группа изображений
+                const isOwn = item.sender_id === this.userId.toString();
+                const time = new Date(item.created_at).toLocaleTimeString('ru-RU', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                
+                const gridClass = item.images.length === 1 ? 'grid-1' : 
+                                 item.images.length === 2 ? 'grid-2' :
+                                 item.images.length === 3 ? 'grid-3' : 'grid-4';
+                
+                html += `
+                    <div class="message ${isOwn ? 'own' : 'other'}">
+                        <div class="message-bubble image-grid ${gridClass}">
+                            ${item.images.map(img => `
+                                <a href="${img.file_url}" target="_blank" class="grid-image">
+                                    <img src="${img.file_url}" alt="${this.escapeHtml(img.file_name || '')}">
+                                </a>
+                            `).join('')}
+                            <div class="message-time">${time}</div>
+                        </div>
                     </div>
-                </div>
-            `;
+                `;
+            } else {
+                // Обычное сообщение
+                html += this.renderSingleMessage(item);
+            }
         });
         
         container.innerHTML = html;
         container.scrollTop = container.scrollHeight;
+    }
+    
+    renderSingleMessage(msg) {
+        const isOwn = msg.sender_id === this.userId.toString();
+        const isSystem = msg.message_type === 'system';
+        const time = new Date(msg.created_at).toLocaleTimeString('ru-RU', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        
+        // Системное сообщение
+        if (isSystem) {
+            return `
+                <div class="message system">
+                    <div class="chat-system-message">
+                        ${this.escapeHtml(msg.message_text || '')}
+                        <div class="message-time">${time}</div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Изображение (одиночное)
+        if (msg.message_type === 'image' && msg.file_url) {
+            return `
+                <div class="message ${isOwn ? 'own' : 'other'}">
+                    <div class="message-bubble">
+                        <div class="chat-message-image">
+                            <a href="${msg.file_url}" target="_blank">
+                                <img src="${msg.file_url}" alt="${this.escapeHtml(msg.file_name || '')}" 
+                                     style="max-width: 100%; border-radius: 8px; cursor: pointer;">
+                            </a>
+                        </div>
+                        ${msg.message_text ? `<div class="message-text">${this.escapeHtml(msg.message_text)}</div>` : ''}
+                        <div class="message-time">${time}</div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Файл
+        if (msg.message_type === 'file' && msg.file_url) {
+            const fileIcon = msg.file_name?.endsWith('.pdf') ? '📄' : '📎';
+            return `
+                <div class="message ${isOwn ? 'own' : 'other'}">
+                    <div class="message-bubble">
+                        <a href="${msg.file_url}" target="_blank" class="file-link">
+                            <span class="file-icon">${fileIcon}</span>
+                            <div class="file-details">
+                                <div class="file-name">${this.escapeHtml(msg.file_name || 'File')}</div>
+                                ${msg.file_size ? `<div class="file-size">${this.formatFileSize(msg.file_size)}</div>` : ''}
+                            </div>
+                        </a>
+                        ${msg.message_text ? `<div class="message-text">${this.escapeHtml(msg.message_text)}</div>` : ''}
+                        <div class="message-time">${time}</div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Текстовое сообщение
+        return `
+            <div class="message ${isOwn ? 'own' : 'other'}">
+                <div class="message-bubble">
+                    <div class="message-text">${this.escapeHtml(msg.message_text || '')}</div>
+                    <div class="message-time">${time}</div>
+                </div>
+            </div>
+        `;
     }
     
     connectWebSocket(chatId) {
@@ -579,24 +691,7 @@ class SellerChatsManager {
             return;
         }
         
-        const messageText = data.message_text || data.message || '';
-        const senderId = data.sender_id || '';
-        
-        const isOwn = senderId === this.userId.toString();
-        const time = new Date().toLocaleTimeString('ru-RU', {
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-        
-        const messageHTML = `
-            <div class="message ${isOwn ? 'own' : 'other'}">
-                <div class="message-bubble">
-                    <div class="message-text">${this.escapeHtml(messageText)}</div>
-                    <div class="message-time">${time}</div>
-                </div>
-            </div>
-        `;
-        
+        const messageHTML = this.renderSingleMessage(data);
         container.insertAdjacentHTML('beforeend', messageHTML);
         container.scrollTop = container.scrollHeight;
         console.log('[SellerChats] Message added to UI');
@@ -605,22 +700,40 @@ class SellerChatsManager {
     async sendMessage() {
         const input = document.getElementById('sellerChatInput');
         const text = input.value.trim();
+        const file = this.selectedFile;
         
-        if (!text || !this.selectedChatId) {
-            console.log('[SellerChats] Send cancelled: text=', text, 'chatId=', this.selectedChatId);
+        if ((!text && !file) || !this.selectedChatId) {
+            console.log('[SellerChats] Send cancelled: text=', text, 'file=', file, 'chatId=', this.selectedChatId);
             return;
         }
         
-        console.log('[SellerChats] Sending message:', text);
-        console.log('[SellerChats] WebSocket state:', this.ws ? this.ws.readyState : 'no ws');
+        console.log('[SellerChats] Sending message:', text, 'file:', file?.name);
         
         try {
+            let fileData = null;
+            
+            // Загружаем файл если есть
+            if (file) {
+                console.log('[SellerChats] Uploading file...');
+                fileData = await this.uploadFile(file);
+                console.log('[SellerChats] File uploaded:', fileData);
+                this.removeFile();
+            }
+            
             if (this.ws && this.ws.readyState === WebSocket.OPEN) {
                 const payload = {
                     type: 'message',
-                    message_text: text,
+                    message_text: text || null,
                     sender_is_registered: true
                 };
+                
+                // Добавляем данные файла
+                if (fileData) {
+                    payload.message_type = file.type.startsWith('image/') ? 'image' : 'file';
+                    payload.file_url = fileData.public_url;
+                    payload.file_name = file.name;
+                    payload.file_size = file.size;
+                }
                 
                 console.log('[SellerChats] Sending payload:', payload);
                 this.ws.send(JSON.stringify(payload));
@@ -795,8 +908,167 @@ class SellerChatsManager {
         div.textContent = text;
         return div.innerHTML;
     }
+    
+    // === РАБОТА С ФАЙЛАМИ ===
+    
+    handleFileSelect(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        // Проверка размера (макс 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+            alert('Файл слишком большой. Максимум 10MB');
+            return;
+        }
+        
+        this.selectedFile = file;
+        this.showFilePreview(file);
+    }
+    
+    showFilePreview(file) {
+        const preview = document.getElementById('sellerFilePreview');
+        // Показываем все файлы как иконки с названием (без превью изображений)
+        const isImage = file.type.startsWith('image/');
+        const icon = isImage ? '🖼️' : '📄';
+        const truncatedName = file.name.length > 15 
+            ? file.name.substring(0, 12) + '...' + file.name.split('.').pop()
+            : file.name;
+        
+        preview.innerHTML = `
+            <span class="file-preview-name">${icon} ${this.escapeHtml(truncatedName)}</span>
+            <button class="remove-file-btn" onclick="window.sellerChatsManager.removeFile()">×</button>
+        `;
+        preview.style.display = 'flex';
+    }
+    
+    removeFile() {
+        this.selectedFile = null;
+        const preview = document.getElementById('sellerFilePreview');
+        const fileInput = document.getElementById('sellerFileInput');
+        preview.style.display = 'none';
+        preview.innerHTML = '';
+        fileInput.value = '';
+    }
+    
+    async uploadFile(file) {
+        try {
+            // Загружаем файл напрямую на сервер
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            const uploadResponse = await fetch('/api/v1/chat/upload-file', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!uploadResponse.ok) {
+                const error = await uploadResponse.json();
+                throw new Error(error.detail || 'File upload failed');
+            }
+            
+            const result = await uploadResponse.json();
+            console.log('[SellerChats] File uploaded:', result);
+            
+            return result;
+        } catch (error) {
+            console.error('[SellerChats] Upload error:', error);
+            throw error;
+        }
+    }
+    
+    formatFileSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+    
+    groupConsecutiveImages(messages) {
+        const grouped = [];
+        let currentGroup = null;
+        
+        messages.forEach(msg => {
+            const isImage = msg.message_type === 'image' && msg.file_url;
+            
+            if (isImage && currentGroup && currentGroup.sender_id === msg.sender_id) {
+                // Добавляем в текущую группу
+                currentGroup.images.push(msg);
+            } else {
+                // Сохраняем предыдущую группу
+                if (currentGroup) {
+                    grouped.push(currentGroup);
+                }
+                
+                // Создаем новую группу или обычное сообщение
+                if (isImage) {
+                    currentGroup = {
+                        type: 'image_group',
+                        sender_id: msg.sender_id,
+                        created_at: msg.created_at,
+                        images: [msg]
+                    };
+                } else {
+                    grouped.push(msg);
+                    currentGroup = null;
+                }
+            }
+        });
+        
+        // Добавляем последнюю группу
+        if (currentGroup) {
+            grouped.push(currentGroup);
+        }
+        
+        return grouped;
+    }
+    
+    // Обновление бейджа с количеством непрочитанных
+    updateUnreadBadge(totalUnread) {
+        const badge = document.getElementById('sellerChatsUnreadBadge');
+        if (!badge) return;
+        
+        if (totalUnread > 0) {
+            badge.textContent = totalUnread > 99 ? '99+' : totalUnread;
+            badge.style.display = 'flex';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+    
+    // Периодически проверять непрочитанные сообщения
+    startUnreadCheck() {
+        // Проверяем сразу
+        this.checkUnreadMessages();
+        
+        // И каждые 15 секунд
+        setInterval(() => {
+            this.checkUnreadMessages();
+        }, 15000);
+    }
+    
+    async checkUnreadMessages() {
+        if (!this.userId) return;
+        
+        try {
+            const response = await fetch(`/api/v1/chat/chats/seller/${this.userId}/grouped`);
+            if (!response.ok) return;
+            
+            const groupedChats = await response.json();
+            // groupedChats это объект {iphone_id: [chat1, chat2, ...]}, нужно получить все чаты
+            const allChats = Object.values(groupedChats).flat();
+            const totalUnread = allChats.reduce((sum, chat) => sum + (chat.unread_count || 0), 0);
+            this.updateUnreadBadge(totalUnread);
+        } catch (error) {
+            console.error('[SellerChats] Error checking unread:', error);
+        }
+    }
 }
 
 if (document.getElementById('profilePage')) {
     window.sellerChatsManager = new SellerChatsManager();
+    // Запускаем проверку непрочитанных через 2 секунды
+    setTimeout(() => {
+        if (window.sellerChatsManager) {
+            window.sellerChatsManager.startUnreadCheck();
+        }
+    }, 2000);
 }

@@ -80,8 +80,8 @@ class NotificationManager {
         try {
             const defaultOptions = {
                 body: window.i18n?.js_notif_new_message || 'У вас новое сообщение',
-                icon: '/static/icon-192.png',
-                badge: '/static/badge-72.png',
+                icon: '/templates/static/icon-192.png',
+                badge: '/templates/static/badge-72.png',
                 vibrate: [200, 100, 200],
                 tag: 'chat-message',
                 requireInteraction: false,
@@ -91,15 +91,15 @@ class NotificationManager {
             
             const notificationOptions = { ...defaultOptions, ...options };
             
-            if (this.swRegistration) {
+            if (this.swRegistration && this.swRegistration.active) {
                 // Показываем через Service Worker
                 await this.swRegistration.showNotification(title, notificationOptions);
+                console.log('[Notifications] ' + (window.i18n?.js_notif_shown || 'Уведомление показано:'), title);
             } else {
                 // Fallback - показываем напрямую
                 new Notification(title, notificationOptions);
+                console.log('[Notifications] ' + (window.i18n?.js_notif_shown || 'Уведомление показано:'), title);
             }
-            
-            console.log('[Notifications] ' + (window.i18n?.js_notif_shown || 'Уведомление показано:'), title);
         } catch (error) {
             console.error('[Notifications] ' + (window.i18n?.js_notif_show_error || 'Ошибка показа уведомления:'), error);
         }
@@ -110,21 +110,32 @@ class NotificationManager {
      */
     async notifyNewMessage(senderName, messageText, chatId) {
         if (!this.isSupported || this.permission !== 'granted') {
+            console.log('[Notifications] Нет разрешения на уведомления');
             return;
         }
         
-        // Не показываем уведомление если окно активно
-        if (document.visibilityState === 'visible' && document.hasFocus()) {
+        // Не показываем уведомление если окно активно И чат открыт
+        const isWindowActive = document.visibilityState === 'visible' && !document.hidden;
+        const isChatOpen = window.currentOpenChatId && window.currentOpenChatId == chatId;
+        
+        if (isWindowActive && isChatOpen) {
             console.log('[Notifications] ' + (window.i18n?.js_notif_window_active || 'Окно активно, уведомление не показано'));
             return;
         }
         
         const title = `${window.i18n?.js_notif_new_message_from || 'Новое сообщение от'} ${senderName}`;
+        const bodyText = messageText && messageText.length > 0 
+            ? (messageText.length > 100 ? messageText.substring(0, 100) + '...' : messageText)
+            : (window.i18n?.js_notif_default_body || 'У вас новое сообщение');
+        
         const options = {
-            body: messageText.length > 100 ? messageText.substring(0, 100) + '...' : messageText,
-            icon: '/static/icon-192.png',
-            badge: '/static/badge-72.png',
+            body: bodyText,
+            icon: '/templates/static/icon-192.png',
+            badge: '/templates/static/badge-72.png',
             tag: `chat-${chatId}`,
+            renotify: true,
+            requireInteraction: false,
+            vibrate: [200, 100, 200],
             data: {
                 chatId: chatId,
                 url: window.location.origin + '/profile'

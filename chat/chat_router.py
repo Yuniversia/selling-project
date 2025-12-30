@@ -1,6 +1,6 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException, Query
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException, Query, UploadFile, File
 from sqlmodel import Session
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import json
 from datetime import datetime
 
@@ -11,6 +11,7 @@ from models import (
 )
 from chat_service import ChatService
 from websocket_manager import manager
+from cloudflare_r2 import r2_client
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
@@ -216,6 +217,235 @@ def delete_chat(
     return {"deleted": True}
 
 
+@router.post("/chats/{chat_id}/invite-support")
+def invite_support(
+    chat_id: int,
+    user_id: str = Query(..., description="ID пользователя, который приглашает поддержку"),
+    session: Session = Depends(get_session)
+):
+    """Пригласить тех поддержку в чат"""
+    chat = ChatService.get_chat_by_id(session, chat_id)
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    
+    if chat.support_joined:
+        raise HTTPException(status_code=400, detail="Support already joined")
+    
+    chat.support_joined = True
+    session.add(chat)
+    session.commit()
+    session.refresh(chat)
+    
+    # Создаем системное сообщение о приглашении поддержки
+    system_message = MessageCreate(
+        message_text="🛠️ Техническая поддержка приглашена в чат",
+        message_type="system",
+        sender_id="system",
+        sender_is_registered=True
+    )
+    ChatService.add_message(session, chat_id, system_message)
+    
+    return {"success": True, "message": "Support invited"}
+
+
+@router.post("/chats/{chat_id}/join-support")
+def join_support(
+    chat_id: int,
+    support_user_id: int = Query(..., description="ID сотрудника поддержки"),
+    session: Session = Depends(get_session)
+):
+    """Сотрудник поддержки присоединяется к чату"""
+    chat = ChatService.get_chat_by_id(session, chat_id)
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    
+    if not chat.support_joined:
+        raise HTTPException(status_code=400, detail="Support was not invited")
+    
+    chat.support_user_id = support_user_id
+    session.add(chat)
+    session.commit()
+    session.refresh(chat)
+    
+    # Создаем системное сообщение о присоединении поддержки
+    system_message = MessageCreate(
+        message_text="✅ Техническая поддержка присоединилась к чату",
+        message_type="system",
+        sender_id="system",
+        sender_is_registered=True
+    )
+    ChatService.add_message(session, chat_id, system_message)
+    
+    return {"success": True, "message": "Support joined"}
+
+
+@router.post("/chats/{chat_id}/leave-support")
+def leave_support(
+    chat_id: int,
+    support_user_id: int = Query(..., description="ID сотрудника поддержки"),
+    session: Session = Depends(get_session)
+):
+    """Сотрудник поддержки покидает чат"""
+    chat = ChatService.get_chat_by_id(session, chat_id)
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    
+    if chat.support_user_id != support_user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    chat.support_joined = False
+    chat.support_user_id = None
+    session.add(chat)
+    session.commit()
+    session.refresh(chat)
+    
+    # Создаем системное сообщение о выходе поддержки
+    system_message = MessageCreate(
+        message_text="👋 Техническая поддержка покинула чат",
+        message_type="system",
+        sender_id="system",
+        sender_is_registered=True
+    )
+    ChatService.add_message(session, chat_id, system_message)
+    
+    return {"success": True, "message": "Support left"}
+
+
+@router.get("/chats/support/pending")
+def get_pending_support_chats(
+    session: Session = Depends(get_session)
+):
+    """Получить чаты, ожидающие помощи поддержки (для админов/поддержки)"""
+    from sqlmodel import select
+    
+    chats = session.exec(
+        select(Chat).where(
+            Chat.support_joined == True,
+            Chat.support_user_id == None
+        )
+    ).all()
+    
+    result = []
+    for chat in chats:
+        # Получаем информацию о чате
+        chat_info = ChatService.get_user_chats(session, str(chat.seller_id), is_seller=True)
+        matching_chat = next((c for c in chat_info if c["id"] == chat.id), None)
+        if matching_chat:
+            result.append(matching_chat)
+    
+    return result
+
+
+@router.post("/upload-url")
+async def get_file_upload_url(file_name: str = Query(...), content_type: str = Query(...)):
+    """
+    Получить URL для загрузки файла в чат
+    
+    Args:
+        file_name: имя файла
+        content_type: MIME тип файла
+    
+    Returns:
+        {
+            "upload_url": "URL для загрузки через сервер",
+            "id": "ID файла (object key)",
+            "method": "server_upload"
+        }
+    """
+    try:
+        upload_data = await r2_client.get_upload_url(file_name)
+        return upload_data
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error getting upload URL: {str(e)}"
+        )
+
+
+@router.post("/upload-file")
+async def upload_file_to_server(file: UploadFile = File(...)):
+    """
+    Загрузить файл на сервер (временное решение вместо прямой загрузки в R2)
+    
+    Returns:
+        {
+            "file_id": "ID файла",
+            "file_name": "имя файла",
+            "file_size": размер в байтах,
+            "public_url": "публичный URL"
+        }
+    """
+    try:
+        # Читаем файл
+        file_data = await file.read()
+        
+        # Генерируем object_key
+        import uuid
+        import time
+        timestamp = int(time.time())
+        unique_id = str(uuid.uuid4())[:8]
+        file_extension = file.filename.split('.')[-1] if '.' in file.filename else 'bin'
+        object_key = f"chat-files/{timestamp}_{unique_id}.{file_extension}"
+        
+        # Загружаем файл
+        public_url = await r2_client.upload_file_to_r2(
+            file_data=file_data,
+            object_key=object_key,
+            content_type=file.content_type or 'application/octet-stream'
+        )
+        
+        return {
+            "file_id": object_key,
+            "file_name": file.filename,
+            "file_size": len(file_data),
+            "public_url": public_url
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error uploading file: {str(e)}"
+        )
+
+
+@router.get("/upload-url")
+async def get_file_upload_url_old():
+    """Устаревший endpoint для обратной совместимости"""
+    raise HTTPException(
+        status_code=400,
+        detail="Use POST /upload-url with file_name and content_type parameters"
+    )
+
+
+@router.post("/file-uploaded")
+def confirm_file_upload(
+    file_id: str = Query(..., description="ID загруженного файла"),
+    file_name: str = Query(..., description="Имя файла"),
+    file_size: int = Query(..., description="Размер файла в байтах")
+):
+    """
+    Подтвердить успешную загрузку файла и получить публичный URL
+    
+    Returns:
+        {
+            "public_url": "публичный URL файла",
+            "file_id": "ID файла"
+        }
+    """
+    try:
+        public_url = r2_client.get_public_url(file_id)
+        return {
+            "public_url": public_url,
+            "file_id": file_id,
+            "file_name": file_name,
+            "file_size": file_size
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error confirming upload: {str(e)}"
+        )
+
+
 @router.websocket("/ws/{chat_id}")
 async def websocket_endpoint(
     websocket: WebSocket,
@@ -266,7 +496,11 @@ async def websocket_endpoint(
             if message_data.get("type") == "message":
                 # Сохраняем сообщение в БД
                 message_create = MessageCreate(
-                    message_text=message_data["message_text"],
+                    message_text=message_data.get("message_text"),
+                    message_type=message_data.get("message_type", "text"),
+                    file_url=message_data.get("file_url"),
+                    file_name=message_data.get("file_name"),
+                    file_size=message_data.get("file_size"),
                     sender_id=user_id,
                     sender_is_registered=message_data.get("sender_is_registered", False)
                 )
@@ -282,6 +516,10 @@ async def websocket_endpoint(
                         "sender_id": message.sender_id,
                         "sender_is_registered": message.sender_is_registered,
                         "message_text": message.message_text,
+                        "message_type": message.message_type,
+                        "file_url": message.file_url,
+                        "file_name": message.file_name,
+                        "file_size": message.file_size,
                         "is_read": message.is_read,
                         "created_at": message.created_at.isoformat()
                     }
@@ -316,6 +554,39 @@ async def websocket_endpoint(
                     },
                     exclude=websocket
                 )
+            
+            elif message_data.get("type") == "invite_support":
+                # Приглашение поддержки в чат
+                chat = ChatService.get_chat_by_id(session, chat_id)
+                if not chat.support_joined:
+                    chat.support_joined = True
+                    session.add(chat)
+                    session.commit()
+                    
+                    # Создаем системное сообщение
+                    system_message = MessageCreate(
+                        message_text="🛠️ Техническая поддержка приглашена в чат",
+                        message_type="system",
+                        sender_id="system",
+                        sender_is_registered=True
+                    )
+                    message = ChatService.add_message(session, chat_id, system_message)
+                    
+                    # Уведомляем всех участников
+                    await manager.broadcast_to_chat(
+                        chat_id,
+                        {
+                            "type": "support_invited",
+                            "message": {
+                                "id": message.id,
+                                "chat_id": message.chat_id,
+                                "sender_id": message.sender_id,
+                                "message_text": message.message_text,
+                                "message_type": message.message_type,
+                                "created_at": message.created_at.isoformat()
+                            }
+                        }
+                    )
     
     except WebSocketDisconnect:
         manager.disconnect(websocket, chat_id)

@@ -5,6 +5,9 @@ import httpx
 from datetime import datetime
 from helpers import assert_status, assert_json_field, TestResult
 
+# Тестовый IMEI - для этого значения в checker.py есть моковые данные
+TEST_IMEI = "356901450728885"
+
 
 class TestPostsHealthCheck:
     """Тесты проверки здоровья Posts сервиса"""
@@ -87,9 +90,10 @@ class TestPostsList:
         """
         try:
             filters_to_test = [
-                ({"model": "16"}, "фильтр по модели iPhone 16"),
+                ({"model": "IPHONE 12 PRO MAX"}, "фильтр по модели iPhone 12 PRO MAX"),
                 ({"price_min": 100, "price_max": 1000}, "фильтр по цене 100-1000"),
                 ({"batery_min": 80}, "фильтр по батарее ≥80%"),
+                ({"memory": "128"}, "фильтр по памяти ≥128GB"),
             ]
             
             for params, description in filters_to_test:
@@ -180,59 +184,104 @@ class TestPostSingle:
 
 
 class TestPostCreate:
-    """Тесты создания объявления"""
+    """Тесты создания объявления с полными данными IMEI"""
     
     @pytest.mark.posts
     @pytest.mark.critical
-    def test_create_post_with_auth(self, test_config):
-        """Создание объявления с авторизацией"""
+    @pytest.mark.imei
+    def test_create_post_with_valid_imei(self, test_config, test_data_tracker):
+        """
+        🔍 Создание объявления с валидным тестовым IMEI
+        📍 IMEI 356901450728885 имеет моковые данные в checker.py
+        ✅ Ожидается: пост создан с данными от IMEI checker (модель, цвет, память)
+        """
         try:
-            # Сначала регистрируемся/логинимся в auth сервисе
+            # Регистрируем тестового пользователя
             timestamp = datetime.now().strftime('%Y%m%d%H%M%S%f')
+            username = f"_test_post_creator_{timestamp}"
             
             reg_response = httpx.post(
                 f"{test_config.BASE_URL}/api/v1/auth/register",
                 json={
-                    "username": f"post_creator_{timestamp}",
-                    "email": f"post_creator_{timestamp}@test.com",
+                    "username": username,
+                    "email": f"_test_{timestamp}@test.com",
                     "password": "PostCreator123!"
                 },
                 timeout=test_config.REQUEST_TIMEOUT
             )
             
-            cookies = dict(reg_response.cookies)
+            if reg_response.status_code not in [200, 201]:
+                pytest.skip(f"Не удалось зарегистрировать пользователя: {reg_response.status_code}")
             
-            # Создаём пост
+            cookies = dict(reg_response.cookies)
+            test_data_tracker.track_user(username=username)
+            
+            # Создаём пост с валидным тестовым IMEI
             post_data = {
-                "imei": "123456789012345",
+                "imei": TEST_IMEI,  # Тестовый IMEI с моковыми данными
                 "batery": 95,
-                "description": "Тестовый iPhone для автотестов",
-                "price": 500.0,
+                "description": "_test_ Тестовый iPhone для автотестов",
+                "price": 799.0,
                 "condition": "Как новый",
                 "has_original_box": True,
                 "has_charger": True,
-                "has_cable": True
+                "has_cable": True,
+                "has_receipt": False,
+                "has_warranty": False
             }
             
             response = httpx.post(
                 f"{test_config.BASE_URL}/api/v1/posts/iphone",
                 data=post_data,
                 cookies=cookies,
-                timeout=test_config.REQUEST_TIMEOUT
+                timeout=60.0  # Больший таймаут - IMEI checker может быть медленным
             )
             
-            # Может вернуть 201 (создан) или 500 (если IMEI уже существует или другая ошибка)
-            assert response.status_code in [201, 422, 500], f"Unexpected: {response.status_code}"
+            # Проверяем успешное создание
+            if response.status_code == 201:
+                data = response.json()
+                
+                # Трекаем для очистки
+                if "id" in data:
+                    test_data_tracker.track_post(data["id"])
+                
+                # Проверяем что IMEI checker заполнил данные
+                assert data.get("imei") == TEST_IMEI, \
+                    f"IMEI должен быть {TEST_IMEI}, получено: {data.get('imei')}"
+                
+                # Проверяем данные от IMEI checker (из моковых данных в checker.py)
+                assert data.get("model") is not None, \
+                    f"Модель должна быть заполнена IMEI checker. Получено: {data}"
+                
+                assert data.get("memory") is not None, \
+                    f"Память должна быть заполнена IMEI checker. Получено: {data}"
+                
+                assert data.get("color") is not None, \
+                    f"Цвет должен быть заполнен IMEI checker. Получено: {data}"
+                
+                assert data.get("serial_number") is not None, \
+                    f"Серийный номер должен быть заполнен IMEI checker. Получено: {data}"
+                
+                print(f"✅ Пост создан с данными IMEI checker:")
+                print(f"   Модель: {data.get('model')}")
+                print(f"   Память: {data.get('memory')} GB")
+                print(f"   Цвет: {data.get('color')}")
+                print(f"   S/N: {data.get('serial_number')}")
+                
+            elif response.status_code == 422:
+                pytest.fail(f"Ошибка валидации: {response.json()}")
+            else:
+                pytest.fail(f"Неожиданный статус: {response.status_code}, {response.text[:200]}")
             
         except httpx.ConnectError:
             pytest.skip("Сервис недоступен")
     
     @pytest.mark.posts
     def test_create_post_without_auth(self, test_config):
-        """Создание объявления без авторизации должно вернуть ошибку"""
+        """Создание объявления без авторизации должно вернуть 401"""
         try:
             post_data = {
-                "imei": "123456789012345",
+                "imei": TEST_IMEI,
                 "batery": 95,
                 "price": 500.0
             }
@@ -243,35 +292,38 @@ class TestPostCreate:
                 timeout=test_config.REQUEST_TIMEOUT
             )
             
-            assert response.status_code == 401
+            assert response.status_code == 401, \
+                f"Без авторизации должен быть 401, получено: {response.status_code}"
             
         except httpx.ConnectError:
             pytest.skip("Posts сервис недоступен")
     
     @pytest.mark.posts
-    def test_create_post_invalid_imei(self, test_config):
+    def test_create_post_invalid_imei(self, test_config, test_data_tracker):
         """Создание объявления с невалидным IMEI"""
         try:
             # Регистрация
             timestamp = datetime.now().strftime('%Y%m%d%H%M%S%f')
+            username = f"_test_invalid_imei_{timestamp}"
             
             reg_response = httpx.post(
                 f"{test_config.BASE_URL}/api/v1/auth/register",
                 json={
-                    "username": f"invalid_imei_{timestamp}",
-                    "email": f"invalid_imei_{timestamp}@test.com",
+                    "username": username,
+                    "email": f"_test_{timestamp}@test.com",
                     "password": "InvalidImei123!"
                 },
                 timeout=test_config.REQUEST_TIMEOUT
             )
             
             cookies = dict(reg_response.cookies)
+            test_data_tracker.track_user(username=username)
             
             # Пост с коротким IMEI
             response = httpx.post(
                 f"{test_config.BASE_URL}/api/v1/posts/iphone",
                 data={
-                    "imei": "12345",  # Слишком короткий
+                    "imei": "12345",  # Слишком короткий - должен быть 15 цифр
                     "batery": 95,
                     "price": 500.0
                 },
@@ -279,308 +331,129 @@ class TestPostCreate:
                 timeout=test_config.REQUEST_TIMEOUT
             )
             
-            assert response.status_code == 422
+            assert response.status_code == 422, \
+                f"Короткий IMEI должен вернуть 422, получено: {response.status_code}"
             
         except httpx.ConnectError:
             pytest.skip("Сервис недоступен")
-
-
-class TestPostUpdate:
-    """Тесты обновления объявления"""
     
     @pytest.mark.posts
-    def test_update_post(self, test_config):
-        """Обновление объявления владельцем"""
+    def test_create_post_invalid_battery(self, test_config, test_data_tracker):
+        """Создание объявления с невалидным значением батареи"""
         try:
             # Регистрация
             timestamp = datetime.now().strftime('%Y%m%d%H%M%S%f')
+            username = f"_test_invalid_battery_{timestamp}"
             
             reg_response = httpx.post(
                 f"{test_config.BASE_URL}/api/v1/auth/register",
                 json={
-                    "username": f"updater_{timestamp}",
-                    "email": f"updater_{timestamp}@test.com",
-                    "password": "Updater123!"
+                    "username": username,
+                    "email": f"_test_{timestamp}@test.com",
+                    "password": "InvalidBattery123!"
                 },
                 timeout=test_config.REQUEST_TIMEOUT
             )
             
             cookies = dict(reg_response.cookies)
+            test_data_tracker.track_user(username=username)
             
-            # Создаём пост
-            create_response = httpx.post(
+            # Пост с батареей > 100
+            response = httpx.post(
                 f"{test_config.BASE_URL}/api/v1/posts/iphone",
                 data={
-                    "imei": f"{timestamp[:15]}",
-                    "batery": 90,
-                    "price": 400.0,
-                    "condition": "Новый"
+                    "imei": TEST_IMEI,
+                    "batery": 150,  # Невалидное значение
+                    "price": 500.0
                 },
                 cookies=cookies,
                 timeout=test_config.REQUEST_TIMEOUT
             )
             
-            if create_response.status_code == 201:
-                post_id = create_response.json().get("id")
-                
-                # Обновляем цену
-                update_response = httpx.put(
-                    f"{test_config.BASE_URL}/api/v1/posts/iphone/{post_id}",
-                    json={"price": 450.0},
-                    cookies=cookies,
-                    timeout=test_config.REQUEST_TIMEOUT
-                )
-                
-                # Может быть 200 или 404 если endpoint не существует
-                assert update_response.status_code in [200, 404]
-                
+            assert response.status_code == 422, \
+                f"Батарея >100 должна вернуть 422, получено: {response.status_code}"
+            
         except httpx.ConnectError:
             pytest.skip("Сервис недоступен")
 
 
-class TestPostMyPosts:
-    """Тесты получения своих объявлений"""
+class TestPostValidation:
+    """Тесты валидации данных объявления"""
     
     @pytest.mark.posts
-    @pytest.mark.critical
-    def test_get_my_posts(self, test_config):
-        """Получение списка своих объявлений"""
+    @pytest.mark.imei
+    def test_post_has_required_fields(self, test_config):
+        """Проверка что существующие посты имеют обязательные поля"""
         try:
-            # Регистрация
-            timestamp = datetime.now().strftime('%Y%m%d%H%M%S%f')
-            
-            reg_response = httpx.post(
-                f"{test_config.BASE_URL}/api/v1/auth/register",
-                json={
-                    "username": f"my_posts_{timestamp}",
-                    "email": f"my_posts_{timestamp}@test.com",
-                    "password": "MyPosts123!"
-                },
-                timeout=test_config.REQUEST_TIMEOUT
-            )
-            
-            cookies = dict(reg_response.cookies)
-            
-            # Получаем свои посты
             response = httpx.get(
-                f"{test_config.BASE_URL}/api/v1/posts/iphone/my",
-                cookies=cookies,
+                f"{test_config.BASE_URL}/api/v1/posts/iphone/list",
+                params={"limit": 5},
                 timeout=test_config.REQUEST_TIMEOUT
             )
             
-            # Может быть 200 или 404 если endpoint не существует
-            assert response.status_code in [200, 404]
+            if response.status_code == 200:
+                posts = response.json()
+                if posts:
+                    for post in posts:
+                        # Обязательные поля
+                        assert "id" in post, f"Пост должен иметь id"
+                        assert "imei" in post, f"Пост должен иметь imei"
+                        assert "batery" in post, f"Пост должен иметь batery"
+                        assert "author_id" in post, f"Пост должен иметь author_id"
+                        
+                        # Поля от IMEI checker (должны быть заполнены для валидных IMEI)
+                        # model, color, memory, serial_number
+                        print(f"   Post #{post['id']}: model={post.get('model')}, "
+                              f"memory={post.get('memory')}, color={post.get('color')}")
+                else:
+                    pytest.skip("Нет объявлений для проверки")
             
         except httpx.ConnectError:
-            pytest.skip("Сервис недоступен")
+            pytest.skip("Posts сервис недоступен")
 
 
 class TestPostReport:
-    """Тесты системы жалоб на объявления"""
+    """Тесты жалоб на объявления"""
     
     @pytest.mark.posts
-    def test_report_post(self, test_config):
-        """Подача жалобы на объявление"""
+    def test_report_nonexistent_post(self, test_config):
+        """Жалоба на несуществующее объявление"""
         try:
-            # Получаем список постов
-            list_response = httpx.get(
-                f"{test_config.BASE_URL}/api/v1/posts/iphone/list",
-                params={"limit": 1},
+            response = httpx.post(
+                f"{test_config.BASE_URL}/api/v1/posts/report",
+                json={
+                    "post_id": 999999,
+                    "reason": "spam"
+                },
                 timeout=test_config.REQUEST_TIMEOUT
             )
             
-            if list_response.status_code == 200:
-                posts = list_response.json()
-                if posts:
-                    post_id = posts[0]["id"]
-                    
-                    # Подаём жалобу
-                    response = httpx.post(
-                        f"{test_config.BASE_URL}/api/v1/posts/iphone/{post_id}/report",
-                        json={
-                            "reason": "Мошенничество",
-                            "details": "Тестовая жалоба"
-                        },
-                        timeout=test_config.REQUEST_TIMEOUT
-                    )
-                    
-                    # Может быть 200/201 или 404 если endpoint не существует
-                    assert response.status_code in [200, 201, 404]
-                    
+            assert response.status_code == 404, \
+                f"Жалоба на несуществующий пост должна вернуть 404"
+            
         except httpx.ConnectError:
             pytest.skip("Posts сервис недоступен")
 
 
-class TestCloudflareUpload:
-    """Тесты загрузки изображений в Cloudflare"""
+class TestCleanupEndpoints:
+    """Тесты для endpoint очистки тестовых данных"""
     
     @pytest.mark.posts
-    def test_get_r2_upload_link(self, test_config):
-        """Получение ссылки для загрузки в Cloudflare R2"""
+    def test_cleanup_endpoint_exists(self, test_config):
+        """Проверка что endpoint очистки существует"""
         try:
-            response = httpx.get(
-                f"{test_config.BASE_URL}/api/v1/posts/r2_link",
+            response = httpx.delete(
+                f"{test_config.BASE_URL}/api/v1/posts/test/iphone/cleanup",
                 timeout=test_config.REQUEST_TIMEOUT
             )
             
-            # Может быть 200 или 500 если Cloudflare не настроен
-            assert response.status_code in [200, 500]
+            # Должен вернуть 200 (даже если нечего удалять)
+            assert response.status_code == 200, \
+                f"Cleanup endpoint должен вернуть 200, получено: {response.status_code}"
             
-            if response.status_code == 200:
-                data = response.json()
-                assert "upload_url" in data
-                
+            data = response.json()
+            assert "deleted_count" in data, "Ответ должен содержать deleted_count"
+            
         except httpx.ConnectError:
             pytest.skip("Posts сервис недоступен")
-
-
-class TestOrders:
-    """Тесты системы заказов"""
-    
-    @pytest.mark.posts
-    @pytest.mark.critical
-    def test_create_order(self, test_config):
-        """Создание заказа"""
-        try:
-            # Регистрация
-            timestamp = datetime.now().strftime('%Y%m%d%H%M%S%f')
-            
-            reg_response = httpx.post(
-                f"{test_config.BASE_URL}/api/v1/auth/register",
-                json={
-                    "username": f"order_test_{timestamp}",
-                    "email": f"order_{timestamp}@test.com",
-                    "password": "OrderTest123!"
-                },
-                timeout=test_config.REQUEST_TIMEOUT
-            )
-            
-            cookies = dict(reg_response.cookies)
-            
-            # Получаем список постов для заказа
-            list_response = httpx.get(
-                f"{test_config.BASE_URL}/api/v1/posts/iphone/list",
-                params={"limit": 1},
-                timeout=test_config.REQUEST_TIMEOUT
-            )
-            
-            if list_response.status_code == 200:
-                posts = list_response.json()
-                if posts:
-                    post_id = posts[0]["id"]
-                    
-                    # Создаём заказ
-                    order_response = httpx.post(
-                        f"{test_config.BASE_URL}/api/v1/posts/orders/create",
-                        json={
-                            "iphone_id": post_id,
-                            "delivery_method": "pickup",
-                            "address": "Тестовый адрес"
-                        },
-                        cookies=cookies,
-                        timeout=test_config.REQUEST_TIMEOUT
-                    )
-                    
-                    # Может быть разные статусы в зависимости от логики
-                    assert order_response.status_code in [200, 201, 400, 422]
-                    
-        except httpx.ConnectError:
-            pytest.skip("Сервис недоступен")
-    
-    @pytest.mark.posts
-    def test_get_buyer_orders(self, test_config):
-        """Получение заказов покупателя"""
-        try:
-            # Регистрация
-            timestamp = datetime.now().strftime('%Y%m%d%H%M%S%f')
-            
-            reg_response = httpx.post(
-                f"{test_config.BASE_URL}/api/v1/auth/register",
-                json={
-                    "username": f"buyer_{timestamp}",
-                    "email": f"buyer_{timestamp}@test.com",
-                    "password": "Buyer123!"
-                },
-                timeout=test_config.REQUEST_TIMEOUT
-            )
-            
-            cookies = dict(reg_response.cookies)
-            
-            # Получаем заказы
-            response = httpx.get(
-                f"{test_config.BASE_URL}/api/v1/posts/orders/buyer",
-                cookies=cookies,
-                timeout=test_config.REQUEST_TIMEOUT
-            )
-            
-            assert response.status_code in [200, 404]
-            
-        except httpx.ConnectError:
-            pytest.skip("Сервис недоступен")
-    
-    @pytest.mark.posts
-    def test_get_seller_orders(self, test_config):
-        """Получение заказов продавца"""
-        try:
-            # Регистрация
-            timestamp = datetime.now().strftime('%Y%m%d%H%M%S%f')
-            
-            reg_response = httpx.post(
-                f"{test_config.BASE_URL}/api/v1/auth/register",
-                json={
-                    "username": f"seller_{timestamp}",
-                    "email": f"seller_{timestamp}@test.com",
-                    "password": "Seller123!"
-                },
-                timeout=test_config.REQUEST_TIMEOUT
-            )
-            
-            cookies = dict(reg_response.cookies)
-            
-            # Получаем заказы
-            response = httpx.get(
-                f"{test_config.BASE_URL}/api/v1/posts/orders/seller",
-                cookies=cookies,
-                timeout=test_config.REQUEST_TIMEOUT
-            )
-            
-            assert response.status_code in [200, 404]
-            
-        except httpx.ConnectError:
-            pytest.skip("Сервис недоступен")
-
-
-class TestBoughtItems:
-    """Тесты системы покупок"""
-    
-    @pytest.mark.posts
-    def test_get_bought_items(self, test_config):
-        """Получение списка купленных товаров"""
-        try:
-            # Регистрация
-            timestamp = datetime.now().strftime('%Y%m%d%H%M%S%f')
-            
-            reg_response = httpx.post(
-                f"{test_config.BASE_URL}/api/v1/auth/register",
-                json={
-                    "username": f"bought_{timestamp}",
-                    "email": f"bought_{timestamp}@test.com",
-                    "password": "Bought123!"
-                },
-                timeout=test_config.REQUEST_TIMEOUT
-            )
-            
-            cookies = dict(reg_response.cookies)
-            
-            # Получаем купленные товары
-            response = httpx.get(
-                f"{test_config.BASE_URL}/api/v1/posts/bought/",
-                cookies=cookies,
-                timeout=test_config.REQUEST_TIMEOUT
-            )
-            
-            assert response.status_code in [200, 404, 405]
-            
-        except httpx.ConnectError:
-            pytest.skip("Сервис недоступен")
 

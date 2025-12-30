@@ -11,6 +11,8 @@ class Chat(SQLModel, table=True):
     seller_id: int = Field(index=True)  # FK будет создан через SQL миграцию
     buyer_id: Optional[str] = Field(default=None, index=True)  # ID или UUID покупателя
     buyer_is_registered: bool = Field(default=False)  # Зарегистрирован ли покупатель
+    support_joined: bool = Field(default=False)  # Присоединилась ли тех поддержка
+    support_user_id: Optional[int] = Field(default=None, index=True)  # ID сотрудника поддержки
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -21,7 +23,11 @@ class Message(SQLModel, table=True):
     chat_id: int = Field(index=True)  # FK будет создан через SQL миграцию
     sender_id: str = Field(index=True)  # ID пользователя или UUID анонима
     sender_is_registered: bool = Field(default=False)
-    message_text: str = Field(max_length=2000)
+    message_text: Optional[str] = Field(default=None, max_length=2000)
+    message_type: str = Field(default="text")  # text, image, file, system
+    file_url: Optional[str] = Field(default=None)  # URL файла в Cloudflare R2
+    file_name: Optional[str] = Field(default=None)  # Имя файла
+    file_size: Optional[int] = Field(default=None)  # Размер файла в байтах
     is_read: bool = Field(default=False)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -29,7 +35,11 @@ class Message(SQLModel, table=True):
 # Pydantic схемы для API
 class MessageCreate(SQLModel):
     """Схема для создания сообщения"""
-    message_text: str = Field(max_length=2000)
+    message_text: Optional[str] = Field(default=None, max_length=2000)
+    message_type: str = Field(default="text")
+    file_url: Optional[str] = Field(default=None)
+    file_name: Optional[str] = Field(default=None)
+    file_size: Optional[int] = Field(default=None)
     sender_id: str
     sender_is_registered: bool = False
 
@@ -40,7 +50,11 @@ class MessageResponse(SQLModel):
     chat_id: int
     sender_id: str
     sender_is_registered: bool
-    message_text: str
+    message_text: Optional[str] = None
+    message_type: str = "text"
+    file_url: Optional[str] = None
+    file_name: Optional[str] = None
+    file_size: Optional[int] = None
     is_read: bool
     created_at: datetime
 
@@ -60,6 +74,8 @@ class ChatResponse(SQLModel):
     seller_id: int
     buyer_id: str
     buyer_is_registered: bool
+    support_joined: bool = False
+    support_user_id: Optional[int] = None
     created_at: datetime
     updated_at: datetime
     unread_count: int = 0
