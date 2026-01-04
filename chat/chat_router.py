@@ -193,6 +193,45 @@ def send_message(
     
     message = ChatService.add_message(session, chat_id, message_data)
     
+    # Send push notifications ВСЕГДА (даже если чат закрыт)
+    try:
+        sender_id = message_data.sender_id
+        
+        # Determine recipient based on sender
+        if sender_id == str(chat.seller_id):
+            # Seller sent message, notify buyer
+            recipient_id = chat.buyer_id
+            print(f"[Push REST] Will notify buyer: {recipient_id}")
+        else:
+            # Buyer sent message, notify seller
+            recipient_id = str(chat.seller_id)
+            print(f"[Push REST] Will notify seller: {recipient_id}")
+        
+        # Send push notification
+        sender_name = f"User {sender_id}"  # TODO: Get actual user name
+        message_text = message.message_text or "Отправил файл"
+        
+        notification_data = {
+            "chatId": chat_id,
+            "iphone_id": chat.iphone_id,
+            "buyer_is_registered": chat.buyer_is_registered if recipient_id == chat.buyer_id else True
+        }
+        
+        count = push_service.send_chat_notification(
+            user_id=recipient_id,
+            sender_name=sender_name,
+            message_text=message_text,
+            chat_id=chat_id,
+            data=notification_data
+        )
+        print(f"[Push REST] Sent {count} notification(s) to {recipient_id}")
+        
+    except Exception as e:
+        print(f"[Push REST] ❌ Error sending push notification: {e}")
+        import traceback
+        traceback.print_exc()
+        # Don't fail message delivery if push fails
+    
     return MessageResponse(
         id=message.id,
         chat_id=message.chat_id,
@@ -590,30 +629,24 @@ async def websocket_endpoint(
                         await manager.broadcast_to_seller(chat.seller_id, response_data)
                         print(f"[GlobalWS] Sent message to seller {chat.seller_id} global WebSocket")
                 
-                # Send push notifications to offline users
+                # Send push notifications
+                # ВСЕГДА отправляем push - Service Worker решит, показывать ли уведомление
+                # SW проверит, виден ли чат пользователю (не свернут браузер, окно в фокусе)
                 try:
                     chat = ChatService.get_chat_by_id(session, chat_id)
-                    online_users = manager.get_active_users(chat_id)
                     
-                    print(f"[Push] Online users in chat {chat_id}: {online_users}")
                     print(f"[Push] Sender: {user_id}, Seller: {chat.seller_id}, Buyer: {chat.buyer_id}")
                     
                     # Determine recipients based on sender
                     recipients = []
                     if user_id == str(chat.seller_id):
-                        # Seller sent message, notify buyer if offline
-                        if chat.buyer_id not in online_users:
-                            recipients.append(chat.buyer_id)
-                            print(f"[Push] Will notify buyer: {chat.buyer_id}")
-                        else:
-                            print(f"[Push] Buyer {chat.buyer_id} is online, skipping push")
+                        # Seller sent message, notify buyer
+                        recipients.append(chat.buyer_id)
+                        print(f"[Push] Will notify buyer: {chat.buyer_id}")
                     else:
-                        # Buyer sent message, notify seller if offline
-                        if str(chat.seller_id) not in online_users:
-                            recipients.append(str(chat.seller_id))
-                            print(f"[Push] Will notify seller: {chat.seller_id}")
-                        else:
-                            print(f"[Push] Seller {chat.seller_id} is online, skipping push")
+                        # Buyer sent message, notify seller
+                        recipients.append(str(chat.seller_id))
+                        print(f"[Push] Will notify seller: {chat.seller_id}")
                     
                     # Send push notifications
                     sender_name = f"User {user_id}"  # TODO: Get actual user name

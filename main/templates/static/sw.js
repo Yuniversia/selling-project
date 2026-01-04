@@ -1,5 +1,5 @@
-// Service Worker для Push-уведомлений
-const CACHE_NAME = 'lais-chat-v36';  // Updated for modal fixes
+// Service Worker для Push-уведомлений v44: ВСЕГДА показываем push
+const CACHE_NAME = 'lais-chat-v44';
 
 self.addEventListener('install', (event) => {
     console.log('[SW] Service Worker установлен');
@@ -15,7 +15,7 @@ self.addEventListener('activate', (event) => {
     );
 });
 
-// Обработка push-уведомлений
+// Обработка push-уведомлений - ВСЕГДА показываем
 self.addEventListener('push', (event) => {
     console.log('[SW] ' + (self.i18n?.js_sw_push_received || 'Push-уведомление получено'));
     
@@ -34,6 +34,9 @@ self.addEventListener('push', (event) => {
         }
     }
     
+    // ВСЕГДА показываем уведомление (убрали проверку visibility)
+    console.log('[SW] Showing notification');
+    
     const options = {
         body: data.body || 'У вас новое сообщение в чате',
         icon: data.icon || '/templates/static/icon-192.png.svg',
@@ -46,7 +49,8 @@ self.addEventListener('push', (event) => {
         sound: '/templates/static/sounds/notification.mp3',
         data: {
             url: data.url || '/profile',
-            chatId: data.chatId
+            chatId: data.chatId,
+            ...data.data
         },
         actions: [
             {
@@ -62,8 +66,10 @@ self.addEventListener('push', (event) => {
         ]
     };
     
+    const title = data.title || (self.i18n?.js_notif_new_message || 'Новое сообщение');
+    
     event.waitUntil(
-        self.registration.showNotification(data.title || (self.i18n?.js_notif_new_message || 'Новое сообщение'), options)
+        self.registration.showNotification(title, options)
     );
 });
 

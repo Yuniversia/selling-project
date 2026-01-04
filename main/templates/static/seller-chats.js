@@ -40,6 +40,9 @@ class SellerChatsManager {
         // Подключаемся к глобальному WebSocket для получения уведомлений о новых сообщениях
         this.connectGlobalWebSocket();
         
+        // Обработка Page Visibility API - перезагружаем чат при возврате на страницу
+        this.setupPageVisibilityHandler();
+        
         console.log('[SellerChats] Chats will be loaded when modal opens');
     }
     
@@ -411,21 +414,32 @@ class SellerChatsManager {
             .flat()
             .reduce((sum, chat) => sum + chat.unread_count, 0);
         
-        console.log('[SellerChats] Badge update. Total unread:', totalUnread);
+        console.log('[SellerChats] 🔔 Badge update. Total unread:', totalUnread);
         
-        const badge = document.getElementById('sellerChatsUnreadBadge');
-        if (!badge) {
-            console.error('[SellerChats] Element sellerChatsUnreadBadge not found!');
-            return;
+        // Обновляем badge в модальном окне (если открыто)
+        const modalBadge = document.getElementById('sellerChatsUnreadBadge');
+        if (modalBadge) {
+            if (totalUnread > 0) {
+                modalBadge.textContent = totalUnread > 99 ? '99+' : totalUnread;
+                modalBadge.style.display = 'block';
+                console.log('[SellerChats] Modal badge shown:', modalBadge.textContent);
+            } else {
+                modalBadge.style.display = 'none';
+            }
         }
         
-        if (totalUnread > 0) {
-            badge.textContent = totalUnread > 99 ? '99+' : totalUnread;
-            badge.style.display = 'block';
-            console.log('[SellerChats] Badge shown:', badge.textContent);
+        // Обновляем badge на floating button (всегда должен быть)
+        const floatBadge = document.getElementById('unreadBadgeFloat');
+        if (floatBadge) {
+            if (totalUnread > 0) {
+                floatBadge.textContent = totalUnread > 99 ? '99+' : totalUnread;
+                floatBadge.style.display = 'flex';
+                console.log('[SellerChats] ✅ Float badge shown:', floatBadge.textContent);
+            } else {
+                floatBadge.style.display = 'none';
+            }
         } else {
-            badge.style.display = 'none';
-            console.log('[SellerChats] Badge hidden (no unread)');
+            console.error('[SellerChats] ❌ Float badge element #unreadBadgeFloat NOT FOUND!');
         }
     }
     
@@ -764,33 +778,22 @@ class SellerChatsManager {
                     const messageData = data.message || data;
                     const chatId = messageData.chat_id;
                     
-                    // Обновляем badge непрочитанных
-                    this.checkUnreadMessages();
+                    console.log('[SellerChats] Message from globalWs, chatId:', chatId, 'sender:', messageData.sender_id);
                     
-                    // Показываем push-уведомление если сообщение НЕ от нас И (чат не открыт ИЛИ окно неактивно)
-                    if (messageData.sender_id !== this.userId.toString()) {
-                        const isWindowActive = document.visibilityState === 'visible' && !document.hidden;
-                        const isChatOpen = this.selectedChatId && this.selectedChatId === chatId;
-                        
-                        // Показываем уведомление если окно неактивно ИЛИ чат закрыт
-                        if (!isWindowActive || !isChatOpen) {
-                            if (window.notificationManager && window.notificationManager.isEnabled()) {
-                                const senderName = 'Покупатель';
-                                const messageText = messageData.message_text || 'Отправил файл';
-                                
-                                console.log('[SellerChats] Показываем уведомление:', senderName, messageText);
-                                window.notificationManager.notifyNewMessage(
-                                    senderName,
-                                    messageText,
-                                    chatId
-                                ).catch(err => {
-                                    console.warn('[SellerChats] Ошибка показа уведомления:', err);
-                                });
-                            }
-                        } else {
-                            console.log('[SellerChats] Уведомление пропущено: окно активно и чат открыт');
-                        }
-                    }
+                    // ВСЕГДА обновляем badge при получении нового сообщения
+                    // Загружаем свежие данные чатов
+                    this.loadChats().then(() => {
+                        this.updateUnreadBadge();
+                        console.log('[SellerChats] Badge updated after new message');
+                    }).catch(err => {
+                        console.error('[SellerChats] Error loading chats for badge update:', err);
+                        // Пробуем обновить badge с текущими данными
+                        this.updateUnreadBadge();
+                    });
+                    
+                    // НЕ показываем локальное уведомление - сервер отправит push
+                    // Push-уведомления работают даже когда браузер в фоне
+                    console.log('[SellerChats] Message received, server will send push if needed');
                     
                     // Если это текущий открытый чат - добавляем сообщение в UI
                     if (this.selectedChatId === chatId) {
@@ -816,6 +819,36 @@ class SellerChatsManager {
                 this.connectGlobalWebSocket();
             }, 5000);
         };
+    }
+    
+    /**
+     * Setup Page Visibility API handler
+     * Reloads chat messages when page becomes visible again
+     */
+    setupPageVisibilityHandler() {
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && this.selectedChatId) {
+                console.log('[SellerChats] 👁️ Page visible again, reloading chat messages');
+                
+                // Перезагружаем сообщения текущего чата
+                this.loadMessages(this.selectedChatId).then(() => {
+                    console.log('[SellerChats] Messages reloaded after page visibility change');
+                    // Помечаем как прочитанное
+                    this.markAsRead(this.selectedChatId);
+                }).catch(err => {
+                    console.error('[SellerChats] Error reloading messages:', err);
+                });
+                
+                // Обновляем список чатов и badge
+                this.loadChats().then(() => {
+                    this.updateUnreadBadge();
+                }).catch(err => {
+                    console.error('[SellerChats] Error reloading chats:', err);
+                });
+            }
+        });
+        
+        console.log('[SellerChats] ✅ Page Visibility handler setup');
     }
     
     connectWebSocket(chatId) {
@@ -1248,45 +1281,24 @@ class SellerChatsManager {
         }
     }
     
-    // Обновление бейджа с количеством непрочитанных
-    updateUnreadBadge(totalUnread) {
-        const badge = document.getElementById('sellerChatsUnreadBadge');
-        if (!badge) return;
-        
-        if (totalUnread > 0) {
-            badge.textContent = totalUnread > 99 ? '99+' : totalUnread;
-            badge.style.display = 'flex';
-        } else {
-            badge.style.display = 'none';
-        }
-    }
-    
     // Периодически проверять непрочитанные сообщения
     startUnreadCheck() {
         // Проверяем сразу
-        this.checkUnreadMessages();
+        this.updateUnreadBadge();
         
         // И каждые 15 секунд
-        setInterval(() => {
-            this.checkUnreadMessages();
+        setInterval(async () => {
+            // Обновляем данные чатов и badge
+            try {
+                const response = await fetch(`/api/v1/chat/chats/seller/${this.userId}/grouped`);
+                if (response.ok) {
+                    this.groupedChats = await response.json();
+                    this.updateUnreadBadge();
+                }
+            } catch (error) {
+                console.error('[SellerChats] Error updating chats:', error);
+            }
         }, 15000);
-    }
-    
-    async checkUnreadMessages() {
-        if (!this.userId) return;
-        
-        try {
-            const response = await fetch(`/api/v1/chat/chats/seller/${this.userId}/grouped`);
-            if (!response.ok) return;
-            
-            const groupedChats = await response.json();
-            // groupedChats это объект {iphone_id: [chat1, chat2, ...]}, нужно получить все чаты
-            const allChats = Object.values(groupedChats).flat();
-            const totalUnread = allChats.reduce((sum, chat) => sum + (chat.unread_count || 0), 0);
-            this.updateUnreadBadge(totalUnread);
-        } catch (error) {
-            console.error('[SellerChats] Error checking unread:', error);
-        }
     }
 }
 

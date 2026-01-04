@@ -34,6 +34,9 @@ class ChatManager {
                 this.userId = userData.id.toString();
                 this.isRegistered = true;
                 console.log('[Chat] Пользователь авторизован:', this.userId);
+                
+                // Удаляем старый анонимный UUID - больше не нужен
+                localStorage.removeItem('anonymous_user_id');
             } else {
                 // Генерируем или получаем UUID для анонима
                 this.userId = this.getOrCreateAnonymousId();
@@ -198,6 +201,9 @@ class ChatManager {
             console.log('[Chat] Skipping event binding - chat UI not present');
             return;
         }
+        
+        // Setup Page Visibility handler для перезагрузки сообщений
+        this.setupPageVisibilityHandler();
         
         closeChatBtn.addEventListener('click', () => this.closeChat());
         
@@ -450,6 +456,29 @@ class ChatManager {
             this.ws.close();
             this.ws = null;
         }
+    }
+    
+    /**
+     * Setup Page Visibility API handler
+     * Reloads chat messages when page becomes visible again
+     */
+    setupPageVisibilityHandler() {
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && this.isOpen && this.chatId) {
+                console.log('[Chat] 👁️ Page visible again, reloading chat messages');
+                
+                // Перезагружаем сообщения текущего чата
+                this.loadMessages().then(() => {
+                    console.log('[Chat] Messages reloaded after page visibility change');
+                    // Помечаем как прочитанное
+                    this.markAsRead();
+                }).catch(err => {
+                    console.error('[Chat] Error reloading messages:', err);
+                });
+            }
+        });
+        
+        console.log('[Chat] ✅ Page Visibility handler setup');
     }
     
     /**

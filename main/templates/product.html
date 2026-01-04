@@ -7,11 +7,12 @@
     {% include 'seo_meta.html' %}
     {% include 'product_structured_data.html' %}
     <title>{{ page_title }}</title>
-    <link rel="stylesheet" href="/templates/static/styles2.css?v=36">
-    <script src="/templates/static/cache-manager.js?v=36"></script>
-    <script src="/templates/static/auth-interceptor.js?v=36"></script>
-    <script src="/templates/static/notifications.js?v=36" defer></script>
-    <script src="/templates/static/notification-prompt.js?v=36" defer></script>
+    <link rel="stylesheet" href="/templates/static/styles2.css?v=42">
+    <script src="/templates/static/cache-manager.js?v=42"></script>
+    <script src="/templates/static/auth-interceptor.js?v=42"></script>
+    <script src="/templates/static/push-init.js?v=5" defer></script>
+    <script src="/templates/static/notifications.js?v=42" defer></script>
+    <script src="/templates/static/notification-prompt.js?v=42" defer></script>
     <script>
         // Global translations object for JavaScript
         window.i18n = {
@@ -55,7 +56,7 @@
             js_sw_open: "{{ t.js_sw_open }}"
         };
     </script>
-    <script src="/templates/static/chat.js?v=36" defer></script>
+    <script src="/templates/static/chat.js?v=43" defer></script>
     <script>
         // API Configuration - единый стандарт /api/v1/<service>
         const API_V1 = "/api/v1";

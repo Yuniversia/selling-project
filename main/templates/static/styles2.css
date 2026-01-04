@@ -1068,6 +1068,7 @@ body.modal-open {
     justify-content: center;
     z-index: 999;
     transition: var(--transition);
+    overflow: visible; /* КРИТИЧНО: позволяет badge выходить за границы кнопки */
 }
 
 .seller-chats-float-btn:hover {
@@ -1129,11 +1130,15 @@ body.modal-open {
 
 /* ????? ?????? - ?????? ????? */
 .seller-chats-sidebar {
-    width: 400px;
+    flex-shrink: 0;
     display: flex;
     flex-direction: column;
     border-right: 1px solid var(--color-border);
     background: #f8f9fa;
+    position: relative;
+    z-index: 1;
+    overflow: hidden;
+    box-sizing: border-box;
 }
 
 .seller-chats-header {
@@ -1345,7 +1350,6 @@ body.modal-open {
     flex-direction: column;
     background: white;
     min-width: 0;
-    position: relative;
 }
 
 .seller-chat-empty {
@@ -1366,7 +1370,6 @@ body.modal-open {
     flex: 1;
     display: none;
     flex-direction: column;
-    overflow: hidden;
     min-height: 0;
     height: 100%;
 }
@@ -1448,6 +1451,7 @@ body.modal-open {
     background: white;
     flex-shrink: 0;
     display: flex;
+    flex-direction: column;
     gap: 8px;
     position: relative;
     z-index: 10;
@@ -1457,6 +1461,7 @@ body.modal-open {
     display: flex;
     gap: 12px;
     align-items: flex-end;
+    width: 100%;
 }
 
 .chat-file-preview {

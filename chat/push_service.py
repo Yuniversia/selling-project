@@ -7,6 +7,7 @@ import json
 import logging
 from typing import Optional, List
 from pywebpush import webpush, WebPushException
+from py_vapid import Vapid01
 from sqlmodel import Session, select
 from push_models import PushSubscription, PushSubscriptionCreate
 from database import engine
@@ -19,20 +20,34 @@ class PushNotificationService:
     
     def __init__(self):
         # VAPID keys for push notifications
-        # In production, these should be stored in environment variables
-        self.vapid_private_key = os.getenv("VAPID_PRIVATE_KEY")
+        vapid_private_key_raw = os.getenv("VAPID_PRIVATE_KEY")
         self.vapid_public_key = os.getenv("VAPID_PUBLIC_KEY")
-        self.vapid_claims = {
-            "sub": os.getenv("VAPID_SUBJECT", "mailto:admin@ss.lv")
-        }
         
-        if not self.vapid_private_key or not self.vapid_public_key:
+        if not vapid_private_key_raw or not self.vapid_public_key:
             logger.warning("⚠️ VAPID keys not configured. Push notifications will not work.")
-            logger.warning(f"VAPID_PRIVATE_KEY: {'SET' if self.vapid_private_key else 'NOT SET'}")
+            logger.warning(f"VAPID_PRIVATE_KEY: {'SET' if vapid_private_key_raw else 'NOT SET'}")
             logger.warning(f"VAPID_PUBLIC_KEY: {'SET' if self.vapid_public_key else 'NOT SET'}")
+            self.vapid_key = None
         else:
             logger.info("✅ VAPID keys configured successfully")
             logger.info(f"VAPID Public Key: {self.vapid_public_key[:20]}...")
+            
+            try:
+                # Используем py-vapid для парсинга base64url ключа
+                # Pywebpush принимает объект Vapid01 напрямую!
+                self.vapid_key = Vapid01.from_raw(vapid_private_key_raw.encode('utf-8'))
+                
+                self.vapid_claims = {
+                    "sub": os.getenv("VAPID_SUBJECT", "mailto:admin@ss.lv")
+                }
+                
+                logger.info("✅ VAPID key object created successfully")
+                
+            except Exception as e:
+                logger.error(f"❌ Failed to create VAPID key: {e}")
+                import traceback
+                traceback.print_exc()
+                self.vapid_key = None
     
     def save_subscription(self, user_id: str, subscription_data: PushSubscriptionCreate) -> Optional[PushSubscription]:
         """
@@ -147,7 +162,7 @@ class PushNotificationService:
         Returns:
             Number of successfully sent notifications
         """
-        if not self.vapid_private_key or not self.vapid_public_key:
+        if not self.vapid_key:
             logger.warning("Cannot send push: VAPID keys not configured")
             return 0
         
@@ -186,11 +201,23 @@ class PushNotificationService:
                     }
                 }
                 
+                # Извлекаем origin из endpoint для 'aud' claim
+                from urllib.parse import urlparse
+                parsed = urlparse(subscription.endpoint)
+                aud = f"{parsed.scheme}://{parsed.netloc}"
+                
+                # Создаем claims с 'aud' для этой подписки
+                claims = {
+                    **self.vapid_claims,
+                    "aud": aud
+                }
+                
+                # Передаем объект Vapid01 напрямую - pywebpush поддерживает это!
                 webpush(
                     subscription_info=subscription_info,
                     data=json.dumps(payload),
-                    vapid_private_key=self.vapid_private_key,
-                    vapid_claims=self.vapid_claims
+                    vapid_private_key=self.vapid_key,  # Объект Vapid01
+                    vapid_claims=claims
                 )
                 
                 success_count += 1
@@ -214,7 +241,7 @@ class PushNotificationService:
         return success_count
     
     def send_chat_notification(self, user_id: str, sender_name: str, 
-                              message_text: str, chat_id: int) -> int:
+                              message_text: str, chat_id: int, data: Optional[dict] = None) -> int:
         """
         Send chat message notification
         
@@ -223,6 +250,7 @@ class PushNotificationService:
             sender_name: Name of message sender
             message_text: Message content (will be truncated)
             chat_id: Chat ID
+            data: Additional data to pass to notification (buyer_is_registered, iphone_id, etc)
             
         Returns:
             Number of successfully sent notifications
@@ -232,13 +260,17 @@ class PushNotificationService:
         # Truncate long messages
         body = message_text if len(message_text) <= 100 else message_text[:97] + "..."
         
-        data = {
+        notification_data = {
             "chatId": chat_id,
             "url": "/profile",
             "tag": f"chat-{chat_id}"
         }
         
-        return self.send_notification(user_id, title, body, data)
+        # Merge additional data if provided
+        if data:
+            notification_data.update(data)
+        
+        return self.send_notification(user_id, title, body, notification_data)
 
 
 # Global service instance
