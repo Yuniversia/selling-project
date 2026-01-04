@@ -165,6 +165,8 @@ TRANSLATIONS = {
         
         # Мои заказы (my-orders)
         "my_orders": "Мои заказы",
+        "my_purchases_chats": "💬 Мои покупки",
+        "my_sales_chats": "🛒 Мои продажи",
         "order_number": "Заказ",
         "order_date": "Дата заказа",
         "order_status": "Статус",
@@ -697,6 +699,8 @@ TRANSLATIONS = {
         
         # Mani pasūtījumi
         "my_orders": "Mani pasūtījumi",
+        "my_purchases_chats": "💬 Mani pirkumi",
+        "my_sales_chats": "🛒 Manas pārdošanas",
         "order_number": "Pasūtījums",
         "order_date": "Pasūtījuma datums",
         "order_status": "Statuss",
@@ -1348,6 +1352,8 @@ TRANSLATIONS = {
         
         # My Orders
         "my_orders": "My Orders",
+        "my_purchases_chats": "💬 My Purchases",
+        "my_sales_chats": "🛒 My Sales",
         "order_number": "Order",
         "order_date": "Order Date",
         "order_status": "Status",

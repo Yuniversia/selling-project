@@ -58,6 +58,13 @@
 
         // Если получили 401 и это не сам запрос на refresh
         if (response.status === 401 && !args[0].includes('/auth/refresh')) {
+            // Проверяем, это запрос к /me (проверка авторизации)
+            if (args[0].includes('/auth/me')) {
+                // Это нормально для неавторизованных - не редиректим
+                console.log('[AuthInterceptor] User not authenticated (expected for guests)');
+                return response;
+            }
+            
             console.log('[AuthInterceptor] Got 401, attempting refresh');
             
             const refreshed = await refreshToken();

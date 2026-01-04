@@ -156,6 +156,14 @@ def my_sales_page(request: Request):
         get_template_context(request, "Мои продажи")
     )
 
+@frontend_router.get("/push-test", name="push_test")
+def push_test_page(request: Request):
+    """Отдает страницу тестирования push-уведомлений."""
+    return templates.TemplateResponse(
+        "push-test.html", 
+        get_template_context(request, "Push Notifications Test")
+    )
+
 @frontend_router.get("/debug/token", name="debug_token")
 def debug_token(request: Request):
     """Debug endpoint - показывает содержимое токена."""

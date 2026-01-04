@@ -12,6 +12,8 @@ class ConnectionManager:
         self.active_connections: Dict[int, List[WebSocket]] = {}
         # {websocket: user_id}
         self.connection_users: Dict[WebSocket, str] = {}
+        # {seller_id: [websocket1, websocket2, ...]} - глобальные подключения продавцов
+        self.seller_connections: Dict[int, List[WebSocket]] = {}
     
     async def connect(self, websocket: WebSocket, chat_id: int, user_id: str):
         """Подключить пользователя к чату"""
@@ -81,6 +83,50 @@ class ConnectionManager:
     def is_user_online(self, chat_id: int, user_id: str) -> bool:
         """Проверить онлайн ли пользователь в чате"""
         return user_id in self.get_active_users(chat_id)
+    
+    async def connect_seller_global(self, websocket: WebSocket, seller_id: int):
+        """Подключить продавца к глобальному WebSocket для всех его чатов"""
+        await websocket.accept()
+        
+        if seller_id not in self.seller_connections:
+            self.seller_connections[seller_id] = []
+        
+        self.seller_connections[seller_id].append(websocket)
+        print(f"[GlobalWS] Seller {seller_id} connected to global WebSocket")
+        print(f"[GlobalWS] Active seller connections for {seller_id}: {len(self.seller_connections[seller_id])}")
+    
+    def disconnect_seller_global(self, websocket: WebSocket, seller_id: int):
+        """Отключить продавца от глобального WebSocket"""
+        if seller_id in self.seller_connections:
+            if websocket in self.seller_connections[seller_id]:
+                self.seller_connections[seller_id].remove(websocket)
+                print(f"[GlobalWS] Seller {seller_id} disconnected from global WebSocket")
+            
+            # Удаляем продавца из словаря если никого не осталось
+            if not self.seller_connections[seller_id]:
+                del self.seller_connections[seller_id]
+    
+    async def broadcast_to_seller(self, seller_id: int, message_data: dict):
+        """Отправить сообщение всем глобальным подключениям продавца"""
+        if seller_id not in self.seller_connections:
+            print(f"[GlobalWS] No global connections for seller {seller_id}")
+            return
+        
+        message_json = json.dumps(message_data, default=str)
+        
+        # Отправляем всем глобальным подключениям продавца
+        disconnected = []
+        for connection in self.seller_connections[seller_id]:
+            try:
+                await connection.send_text(message_json)
+                print(f"[GlobalWS] Sent message to seller {seller_id} global connection")
+            except Exception as e:
+                print(f"[GlobalWS] Error sending to seller {seller_id}: {e}")
+                disconnected.append(connection)
+        
+        # Удаляем отключенные соединения
+        for conn in disconnected:
+            self.disconnect_seller_global(conn, seller_id)
 
 
 # Глобальный экземпляр менеджера

@@ -147,6 +147,9 @@ services:
       - PORT=4000
       - AUTH_SERVICE_URL=http://auth-service:8000
       - POSTS_SERVICE_URL=http://posts-service:3000
+      - VAPID_PRIVATE_KEY=hLTeehNuQqW99CbCks54TobPBcGljECpB42lPXQzNPo
+      - VAPID_PUBLIC_KEY=BLlY3Ha6wMRK7ARnvHYxIjvGvzsbE8NCsjFwUeUBmxSsfEpcdJeA4wH6zJs8eS-d8o_OpRCOAgzv-zt36DZynxg
+      - VAPID_SUBJECT=mailto:donbosik1@gmail.com
     expose:
       - "4000"
     depends_on:

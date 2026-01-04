@@ -7,11 +7,11 @@
     {% include 'seo_meta.html' %}
     {% include 'product_structured_data.html' %}
     <title>{{ page_title }}</title>
-    <link rel="stylesheet" href="/templates/static/styles2.css?v=20">
-    <script src="/templates/static/cache-manager.js?v=20"></script>
-    <script src="/templates/static/auth-interceptor.js?v=20"></script>
-    <script src="/templates/static/notifications.js?v=20" defer></script>
-    <script src="/templates/static/notification-prompt.js?v=20" defer></script>
+    <link rel="stylesheet" href="/templates/static/styles2.css?v=36">
+    <script src="/templates/static/cache-manager.js?v=36"></script>
+    <script src="/templates/static/auth-interceptor.js?v=36"></script>
+    <script src="/templates/static/notifications.js?v=36" defer></script>
+    <script src="/templates/static/notification-prompt.js?v=36" defer></script>
     <script>
         // Global translations object for JavaScript
         window.i18n = {
@@ -55,7 +55,7 @@
             js_sw_open: "{{ t.js_sw_open }}"
         };
     </script>
-    <script src="/templates/static/chat.js?v=20" defer></script>
+    <script src="/templates/static/chat.js?v=36" defer></script>
     <script>
         // API Configuration - единый стандарт /api/v1/<service>
         const API_V1 = "/api/v1";
@@ -64,6 +64,30 @@
         const CHAT_API = `${API_V1}/chat`;
         const IMEI_API = `${API_V1}/imei`;
         console.log('🔧 API BASE:', API_V1);
+        
+        // Listen for messages from Service Worker (push notification clicks)
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.addEventListener('message', (event) => {
+                console.log('[Product] Received message from SW:', event.data);
+                
+                if (event.data.type === 'OPEN_CHAT' && event.data.chatId) {
+                    console.log('[Product] Opening chat from push notification:', event.data.chatId);
+                    
+                    // Wait for chat.js to be loaded
+                    const tryOpenChat = () => {
+                        if (typeof window.openChat === 'function') {
+                            window.openChat(event.data.chatId);
+                        } else {
+                            console.log('[Product] chat.js not loaded yet, waiting...');
+                            setTimeout(tryOpenChat, 500);
+                        }
+                    };
+                    
+                    // Start trying to open chat
+                    setTimeout(tryOpenChat, 100);
+                }
+            });
+        }
     </script>
 </head>
 <body>

@@ -11,6 +11,9 @@ class Chat(SQLModel, table=True):
     seller_id: int = Field(index=True)  # FK будет создан через SQL миграцию
     buyer_id: Optional[str] = Field(default=None, index=True)  # ID или UUID покупателя
     buyer_is_registered: bool = Field(default=False)  # Зарегистрирован ли покупатель
+    anonymous_buyer_number: Optional[int] = Field(default=None)  # Номер анонимного покупателя (1, 2, 3...)
+    is_hidden_by_buyer: bool = Field(default=False)  # Скрыт ли чат для покупателя
+    is_hidden_by_seller: bool = Field(default=False)  # Скрыт ли чат для продавца
     support_joined: bool = Field(default=False)  # Присоединилась ли тех поддержка
     support_user_id: Optional[int] = Field(default=None, index=True)  # ID сотрудника поддержки
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -74,6 +77,9 @@ class ChatResponse(SQLModel):
     seller_id: int
     buyer_id: str
     buyer_is_registered: bool
+    anonymous_buyer_number: Optional[int] = None
+    is_hidden_by_buyer: bool = False
+    is_hidden_by_seller: bool = False
     support_joined: bool = False
     support_user_id: Optional[int] = None
     created_at: datetime

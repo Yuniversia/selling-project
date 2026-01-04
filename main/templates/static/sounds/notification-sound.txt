@@ -1,0 +1,14 @@
+# Sound file placeholder
+# Для полноценной работы звуковых уведомлений нужно добавить файл notification.mp3
+
+# Можно использовать любой короткий звук (1-2 секунды)
+# Рекомендуемые источники бесплатных звуков:
+# - https://notificationsounds.com/
+# - https://mixkit.co/free-sound-effects/notification/
+# - https://freesound.org/
+
+# Или создать простой beep с помощью онлайн генератора:
+# - https://www.soundjay.com/beep-sounds-1.html
+# - https://www.zapsplat.com/
+
+# Положите файл notification.mp3 в эту директорию

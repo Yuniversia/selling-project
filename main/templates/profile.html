@@ -5,11 +5,11 @@
     {% set page_description = t.manage_ads %}
     {% include 'seo_meta.html' %}
     <title>{{ page_title }}</title>
-    <link rel="stylesheet" href="/templates/static/styles2.css?v=20">
-    <script src="/templates/static/cache-manager.js?v=20"></script>
-    <script src="/templates/static/auth-interceptor.js?v=20"></script>
-    <script src="/templates/static/notifications.js?v=20" defer></script>
-    <script src="/templates/static/notification-prompt.js?v=20" defer></script>
+    <link rel="stylesheet" href="/templates/static/styles2.css?v=36">
+    <script src="/templates/static/cache-manager.js?v=36"></script>
+    <script src="/templates/static/auth-interceptor.js?v=36"></script>
+    <script src="/templates/static/notifications.js?v=36" defer></script>
+    <script src="/templates/static/notification-prompt.js?v=36" defer></script>
     <script>
         // Global translations object for JavaScript
         window.i18n = {
@@ -92,7 +92,7 @@
             js_data_saved_console: "{{ t.js_data_saved_console }}"
         };
     </script>
-    <script src="/templates/static/chat.js?v=20" defer></script>
+    <script src="/templates/static/chat.js?v=36" defer></script>
     <script>
         // API Configuration - единый стандарт /api/v1/<service>
         const API_V1 = "/api/v1";
@@ -101,8 +101,41 @@
         const CHAT_API = `${API_V1}/chat`;
         const IMEI_API = `${API_V1}/imei`;
         console.log('🔧 API BASE:', API_V1);
+        
+        // Listen for messages from Service Worker (push notification clicks)
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.addEventListener('message', (event) => {
+                console.log('[Profile] Received message from SW:', event.data);
+                
+                if (event.data.type === 'OPEN_CHAT' && event.data.chatId) {
+                    console.log('[Profile] Opening seller chats modal from push notification');
+                    
+                    // Wait for seller-chats.js to be loaded
+                    const tryOpenChatsModal = () => {
+                        if (typeof window.openChatsModal === 'function') {
+                            // Open the modal with seller filter (default)
+                            window.openChatsModal('seller');
+                            
+                            // Try to open the specific chat after modal is opened
+                            setTimeout(() => {
+                                const chatElement = document.querySelector(`[data-chat-id="${event.data.chatId}"]`);
+                                if (chatElement) {
+                                    chatElement.click();
+                                }
+                            }, 500);
+                        } else {
+                            console.log('[Profile] seller-chats.js not loaded yet, waiting...');
+                            setTimeout(tryOpenChatsModal, 500);
+                        }
+                    };
+                    
+                    // Start trying to open modal
+                    setTimeout(tryOpenChatsModal, 100);
+                }
+            });
+        }
     </script>
-    <script src="/templates/static/seller-chats.js?v=20" defer></script>
+    <script src="/templates/static/seller-chats.js?v=37" defer></script>
     <style>
         /* Специфичные стили для профиля */
         .profile-layout {

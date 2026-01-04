@@ -1,4 +1,4 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException, Query, UploadFile, File
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException, Query, UploadFile, File, Body
 from sqlmodel import Session
 from typing import List, Optional, Dict, Any
 import json
@@ -9,9 +9,11 @@ from models import (
     Chat, Message, ChatCreate, ChatResponse, 
     MessageCreate, MessageResponse, ChatWithMessages
 )
+from push_models import PushSubscriptionCreate, PushSubscriptionResponse
 from chat_service import ChatService
 from websocket_manager import manager
 from cloudflare_r2 import r2_client
+from push_service import push_service
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
@@ -55,12 +57,16 @@ def find_chat(
     session: Session = Depends(get_session)
 ):
     """Найти существующий чат или вернуть null"""
+    # Определяем зарегистрирован ли пользователь по формату ID
+    # UUID формат: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx (содержит дефисы)
+    buyer_is_registered = '-' not in buyer_id
+    
     chat = ChatService.get_or_create_chat(
         session=session,
         iphone_id=iphone_id,
         seller_id=seller_id,
         buyer_id=buyer_id,
-        buyer_is_registered=True  # Будет определяться по формату buyer_id
+        buyer_is_registered=buyer_is_registered
     )
     
     if chat:
@@ -163,6 +169,10 @@ def get_chat_messages(
             sender_id=msg.sender_id,
             sender_is_registered=msg.sender_is_registered,
             message_text=msg.message_text,
+            message_type=msg.message_type,
+            file_url=msg.file_url,
+            file_name=msg.file_name,
+            file_size=msg.file_size,
             is_read=msg.is_read,
             created_at=msg.created_at
         )
@@ -203,6 +213,50 @@ def mark_as_read(
     """Пометить сообщения как прочитанные"""
     count = ChatService.mark_messages_as_read(session, chat_id, user_id)
     return {"marked_as_read": count}
+
+
+@router.post("/chats/{chat_id}/hide")
+async def hide_chat(
+    chat_id: int,
+    user_id: str = Query(..., description="ID пользователя"),
+    session: Session = Depends(get_session)
+):
+    """
+    Скрыть чат для текущего пользователя (мягкое удаление)
+    Чат остается в базе данных, но не показывается пользователю
+    """
+    # Определяем, является ли пользователь продавцом
+    chat = ChatService.get_chat_by_id(session, chat_id)
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    
+    try:
+        is_seller = str(chat.seller_id) == user_id
+    except:
+        is_seller = False
+    
+    success = ChatService.hide_chat(session, chat_id, user_id, is_seller)
+    if not success:
+        raise HTTPException(status_code=403, detail="Not authorized to hide this chat")
+    
+    return {"message": f"Chat {chat_id} hidden successfully"}
+
+
+@router.post("/chats/hide-for-order")
+async def hide_chats_for_order(
+    post_id: int = Query(..., description="ID объявления"),
+    buyer_id: str = Query(..., description="ID покупателя"),
+    session: Session = Depends(get_session)
+):
+    """
+    Скрыть все чаты связанные с заказом (для обоих пользователей)
+    Вызывается после подтверждения получения товара
+    """
+    hidden_count = ChatService.hide_chats_for_order(session, post_id, buyer_id)
+    return {
+        "message": f"Hidden {hidden_count} chat(s)",
+        "hidden_count": hidden_count
+    }
 
 
 @router.delete("/chats/{chat_id}")
@@ -528,6 +582,74 @@ async def websocket_endpoint(
                 # Broadcast всем в чате
                 await manager.broadcast_to_chat(chat_id, response_data)
                 
+                # Отправляем продавцу через глобальный WebSocket (если он подключен)
+                chat = ChatService.get_chat_by_id(session, chat_id)
+                if chat:
+                    # Если сообщение от покупателя - отправляем продавцу
+                    if user_id != str(chat.seller_id):
+                        await manager.broadcast_to_seller(chat.seller_id, response_data)
+                        print(f"[GlobalWS] Sent message to seller {chat.seller_id} global WebSocket")
+                
+                # Send push notifications to offline users
+                try:
+                    chat = ChatService.get_chat_by_id(session, chat_id)
+                    online_users = manager.get_active_users(chat_id)
+                    
+                    print(f"[Push] Online users in chat {chat_id}: {online_users}")
+                    print(f"[Push] Sender: {user_id}, Seller: {chat.seller_id}, Buyer: {chat.buyer_id}")
+                    
+                    # Determine recipients based on sender
+                    recipients = []
+                    if user_id == str(chat.seller_id):
+                        # Seller sent message, notify buyer if offline
+                        if chat.buyer_id not in online_users:
+                            recipients.append(chat.buyer_id)
+                            print(f"[Push] Will notify buyer: {chat.buyer_id}")
+                        else:
+                            print(f"[Push] Buyer {chat.buyer_id} is online, skipping push")
+                    else:
+                        # Buyer sent message, notify seller if offline
+                        if str(chat.seller_id) not in online_users:
+                            recipients.append(str(chat.seller_id))
+                            print(f"[Push] Will notify seller: {chat.seller_id}")
+                        else:
+                            print(f"[Push] Seller {chat.seller_id} is online, skipping push")
+                    
+                    # Send push notifications
+                    sender_name = f"User {user_id}"  # TODO: Get actual user name
+                    message_text = message.message_text or "Отправил файл"
+                    
+                    for recipient_id in recipients:
+                        print(f"[Push] Sending notification to {recipient_id}: {message_text[:50]}")
+                        
+                        # Determine notification data based on recipient type
+                        notification_data = {
+                            "chatId": chat_id,
+                            "iphone_id": chat.iphone_id
+                        }
+                        
+                        # If recipient is buyer, check if they are registered
+                        if recipient_id == chat.buyer_id:
+                            notification_data["buyer_is_registered"] = chat.buyer_is_registered
+                        else:
+                            # Seller is always registered
+                            notification_data["buyer_is_registered"] = True
+                        
+                        count = push_service.send_chat_notification(
+                            user_id=recipient_id,
+                            sender_name=sender_name,
+                            message_text=message_text,
+                            chat_id=chat_id,
+                            data=notification_data
+                        )
+                        print(f"[Push] Sent {count} notification(s) to {recipient_id}")
+                        
+                except Exception as e:
+                    print(f"[Push] ❌ Error sending push notification: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    # Don't fail message delivery if push fails
+                
             elif message_data.get("type") == "read":
                 # Пометить сообщения как прочитанные
                 count = ChatService.mark_messages_as_read(session, chat_id, user_id)
@@ -603,3 +725,156 @@ async def websocket_endpoint(
     except Exception as e:
         print(f"WebSocket error: {e}")
         manager.disconnect(websocket, chat_id)
+
+
+@router.websocket("/ws/seller/{seller_id}")
+async def seller_global_websocket(
+    websocket: WebSocket,
+    seller_id: int,
+    user_id: str = Query(..., description="ID пользователя (должен совпадать с seller_id)"),
+    session: Session = Depends(get_session)
+):
+    """
+    Глобальный WebSocket для продавца - получает уведомления о сообщениях во ВСЕХ его чатах
+    
+    Этот WebSocket не предназначен для отправки сообщений, только для получения уведомлений.
+    Для отправки сообщений используйте обычный /ws/{chat_id} endpoint.
+    
+    Сообщения от сервера в формате:
+    {
+        "type": "message",
+        "message": {
+            "id": 123,
+            "chat_id": 456,
+            "sender_id": "buyer_uuid",
+            "message_text": "Hello",
+            ...
+        }
+    }
+    """
+    # Проверяем что user_id соответствует seller_id
+    if str(seller_id) != str(user_id):
+        await websocket.close(code=1008, reason="user_id must match seller_id")
+        return
+    
+    # Подключаем продавца к глобальному WebSocket
+    await manager.connect_seller_global(websocket, seller_id)
+    
+    try:
+        # Отправляем приветственное сообщение
+        await websocket.send_text(json.dumps({
+            "type": "connected",
+            "message": f"Connected to global chat notifications for seller {seller_id}"
+        }))
+        
+        # Ждем сообщений (но не обрабатываем их - это только для получения уведомлений)
+        while True:
+            try:
+                # Просто держим соединение открытым
+                data = await websocket.receive_text()
+                # Можно добавить ping/pong для keepalive
+                if data == "ping":
+                    await websocket.send_text(json.dumps({"type": "pong"}))
+            except Exception as e:
+                print(f"[GlobalWS] Error receiving from seller {seller_id}: {e}")
+                break
+    
+    except WebSocketDisconnect:
+        manager.disconnect_seller_global(websocket, seller_id)
+        print(f"[GlobalWS] Seller {seller_id} disconnected")
+    
+    except Exception as e:
+        print(f"[GlobalWS] Error for seller {seller_id}: {e}")
+        manager.disconnect_seller_global(websocket, seller_id)
+
+
+# ==================== Push Notification Endpoints ====================
+
+@router.post("/push/subscribe", response_model=dict)
+def subscribe_to_push(
+    user_id: str = Query(..., description="User ID or UUID"),
+    subscription: dict = Body(..., description="Push subscription object from browser")
+):
+    """
+    Subscribe user to push notifications
+    
+    Request body example:
+    {
+        "endpoint": "https://fcm.googleapis.com/...",
+        "keys": {
+            "p256dh": "...",
+            "auth": "..."
+        }
+    }
+    """
+    try:
+        print(f"[Push Subscribe] Received subscription request for user: {user_id}")
+        print(f"[Push Subscribe] Subscription data keys: {subscription.keys()}")
+        print(f"[Push Subscribe] Endpoint: {subscription.get('endpoint', 'MISSING')[:80]}...")
+        
+        subscription_data = PushSubscriptionCreate(**subscription)
+        result = push_service.save_subscription(user_id, subscription_data)
+        
+        if result:
+            print(f"[Push Subscribe] ✅ Successfully saved subscription for user {user_id}")
+            return {
+                "success": True,
+                "message": "Push subscription saved successfully"
+            }
+        else:
+            print(f"[Push Subscribe] ❌ Failed to save subscription for user {user_id}")
+            raise HTTPException(status_code=500, detail="Failed to save subscription")
+            
+    except Exception as e:
+        print(f"Error subscribing to push: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/push/unsubscribe")
+def unsubscribe_from_push(
+    endpoint: str = Body(..., embed=True, description="Push service endpoint to remove")
+):
+    """
+    Unsubscribe from push notifications
+    """
+    success = push_service.remove_subscription(endpoint)
+    
+    if success:
+        return {"success": True, "message": "Unsubscribed successfully"}
+    else:
+        return {"success": False, "message": "Subscription not found"}
+
+
+@router.get("/push/vapid-public-key")
+def get_vapid_public_key():
+    """
+    Get VAPID public key for push subscription
+    """
+    if not push_service.vapid_public_key:
+        raise HTTPException(
+            status_code=503, 
+            detail="Push notifications not configured on server"
+        )
+    
+    return {"publicKey": push_service.vapid_public_key}
+
+
+@router.post("/push/test")
+def test_push_notification(
+    user_id: str = Query(..., description="User ID to send test notification to")
+):
+    """
+    Send test push notification (for debugging)
+    """
+    count = push_service.send_notification(
+        user_id=user_id,
+        title="Test Notification",
+        body="This is a test push notification from ss.lv",
+        data={"test": True}
+    )
+    
+    return {
+        "success": count > 0,
+        "sent_count": count,
+        "message": f"Sent {count} notifications"
+    }

@@ -342,6 +342,39 @@ async def confirm_receipt(
         order.confirmed_by_buyer = True
         order.status = OrderStatus.COMPLETED.value
         
+        print(f"[CONFIRM] ✅ Order #{order.id} confirmed by buyer {user['user_id']}")
+        print(f"[CONFIRM] Post ID: {order.post_id}, Buyer ID: {user['user_id']}")
+        
+        # Скрываем чаты связанные с этим заказом через HTTP-запрос к chat-service
+        try:
+            import httpx
+            
+            buyer_id_for_chat = str(user["user_id"])
+            chat_api_url = "http://chat-service:4000/api/chat/chats/hide-for-order"
+            
+            print(f"[CONFIRM] Calling chat-service API: {chat_api_url}")
+            print(f"[CONFIRM] Params: post_id={order.post_id}, buyer_id={buyer_id_for_chat}")
+            
+            with httpx.Client(timeout=5.0) as client:
+                response = client.post(
+                    chat_api_url,
+                    params={
+                        "post_id": order.post_id,
+                        "buyer_id": buyer_id_for_chat
+                    }
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    print(f"[CONFIRM] ✅ Hidden {result.get('hidden_count', 0)} chat(s)")
+                else:
+                    print(f"[CONFIRM] ⚠️ Chat service returned status {response.status_code}: {response.text}")
+        except Exception as e:
+            import traceback
+            print(f"[CONFIRM] ❌ Error hiding chats: {e}")
+            print(traceback.format_exc())
+            # Не прерываем выполнение если не удалось скрыть чаты
+        
         # Обновляем статистику продавца
         seller_statement = select(User).where(User.id == order.seller_id)
         seller = db.exec(seller_statement).first()

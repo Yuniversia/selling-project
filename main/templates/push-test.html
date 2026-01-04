@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Push Notifications Test</title>
+    <script src="/templates/static/notifications.js?v=32"></script>
+    <script src="/templates/static/chat.js?v=32"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 10px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+    </style>
+</head>
+<body>
+    <h1>🔔 Push Notifications Test</h1>
+    
+    <div id="status"></div>
+    
+    <h2>Status</h2>
+    <div id="support-status" class="status info">Checking...</div>
+    <div id="permission-status" class="status info">Checking...</div>
+    <div id="subscription-status" class="status info">Checking...</div>
+    
+    <h2>Actions</h2>
+    <button onclick="requestPermission()">Request Permission</button>
+    <button onclick="subscribe()">Subscribe to Push</button>
+    <button onclick="testNotification()">Test Local Notification</button>
+    <button onclick="playSound()">Test Sound</button>
+    <button onclick="checkStatus()">Check Status</button>
+    
+    <h2>Debug Info</h2>
+    <pre id="debug-info"></pre>
+    
+    <script>
+        // Check support
+        function checkStatus() {
+            const supported = 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
+            const permission = Notification.permission;
+            
+            document.getElementById('support-status').innerHTML = 
+                `<strong>Browser Support:</strong> ${supported ? '✅ Supported' : '❌ Not Supported'}`;
+            document.getElementById('support-status').className = 
+                `status ${supported ? 'success' : 'error'}`;
+            
+            document.getElementById('permission-status').innerHTML = 
+                `<strong>Permission:</strong> ${permission}`;
+            document.getElementById('permission-status').className = 
+                `status ${permission === 'granted' ? 'success' : permission === 'denied' ? 'error' : 'info'}`;
+            
+            if (window.notificationManager) {
+                const sub = window.notificationManager.subscription;
+                document.getElementById('subscription-status').innerHTML = 
+                    `<strong>Subscription:</strong> ${sub ? '✅ Active' : '❌ Not Active'}`;
+                document.getElementById('subscription-status').className = 
+                    `status ${sub ? 'success' : 'error'}`;
+                
+                document.getElementById('debug-info').textContent = JSON.stringify({
+                    userId: window.notificationManager.getUserId(),
+                    permission: window.notificationManager.getPermission(),
+                    subscribed: !!sub,
+                    vapidKeyLoaded: !!window.notificationManager.vapidPublicKey
+                }, null, 2);
+            }
+        }
+        
+        async function requestPermission() {
+            if (window.notificationManager) {
+                const granted = await window.notificationManager.requestPermission();
+                alert(granted ? 'Permission granted!' : 'Permission denied');
+                checkStatus();
+            }
+        }
+        
+        async function subscribe() {
+            if (window.notificationManager) {
+                await window.notificationManager.subscribeToPush();
+                alert('Subscription attempt completed. Check console.');
+                checkStatus();
+            }
+        }
+        
+        async function testNotification() {
+            if (window.notificationManager) {
+                await window.notificationManager.showNotification('Test Notification', {
+                    body: 'This is a test notification from LAIS',
+                    icon: '/templates/static/icon-192.png.svg',
+                    sound: '/templates/static/sounds/notification.mp3'
+                });
+            } else {
+                alert('NotificationManager not loaded');
+            }
+        }
+        
+        function playSound() {
+            // Проверяем есть ли файл
+            const audio = new Audio('/templates/static/sounds/notification.mp3');
+            audio.play().catch(err => {
+                console.warn('[Test] Sound file not available (this is OK for testing):', err.message);
+                alert('Звуковой файл не найден. Это нормально - добавьте notification.mp3 в /templates/static/sounds/ для звука.');
+            });
+        }
+        
+        // Auto-check on load
+        window.addEventListener('load', () => {
+            setTimeout(checkStatus, 1000);
+        });
+    </script>
+</body>
+</html>

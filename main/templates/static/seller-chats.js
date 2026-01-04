@@ -11,6 +11,7 @@ class SellerChatsManager {
         this.cachedIphoneData = {};
         this.lastChatsUpdate = 0;
         this.updateInterval = null;
+        this.chatFilter = 'all'; // 'all', 'buyer', 'seller'
         
         this.init();
     }
@@ -35,6 +36,9 @@ class SellerChatsManager {
         console.log('[SellerChats] userId set:', this.userId);
         
         this.createChatsUI();
+        
+        // Подключаемся к глобальному WebSocket для получения уведомлений о новых сообщениях
+        this.connectGlobalWebSocket();
         
         console.log('[SellerChats] Chats will be loaded when modal opens');
     }
@@ -112,6 +116,25 @@ class SellerChatsManager {
                             <h2>${window.i18n?.my_chats || 'Мои чаты'}</h2>
                             <button id="closeSellerChatsBtn" class="close-btn">×</button>
                         </div>
+                        
+                        <!-- Кнопки фильтрации чатов -->
+                        <div style="display: flex; gap: 8px; padding: 12px 20px; border-bottom: 1px solid var(--color-border);">
+                            <button id="filterBuyerChatsBtn" class="chat-filter-btn" data-filter="buyer">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                                    <path d="M9 10h6M9 14h3"></path>
+                                </svg>
+                                <span>Покупки</span>
+                            </button>
+                            <button id="filterSellerChatsBtn" class="chat-filter-btn active" data-filter="seller">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                                    <path d="M12 8v4M12 16h.01"></path>
+                                </svg>
+                                <span>Продажи</span>
+                            </button>
+                        </div>
+                        
                         <div id="sellerChatsList" class="seller-chats-list">
                             <div class="chats-loading">${window.i18n?.chatsLoading || 'Загрузка чатов...'}</div>
                         </div>
@@ -160,19 +183,21 @@ class SellerChatsManager {
                             
                             <div class="chat-input-wrapper">
                                 <div id="sellerFilePreview" class="chat-file-preview" style="display: none;"></div>
-                                <input type="file" id="sellerFileInput" accept="image/*,.pdf" style="display: none;" />
-                                <button id="sellerAttachBtn" class="chat-attach-btn" title="Прикрепить файл">
-                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
-                                    </svg>
-                                </button>
-                                <textarea id="sellerChatInput" class="chat-input" placeholder="${window.i18n?.writeMessage || 'Написать сообщение...'}" rows="1"></textarea>
-                                <button id="sellerSendBtn" class="chat-send-btn">
-                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <line x1="22" y1="2" x2="11" y2="13"></line>
-                                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                                    </svg>
-                                </button>
+                                <div class="chat-input-controls">
+                                    <input type="file" id="sellerFileInput" accept="image/*,.pdf" style="display: none;" />
+                                    <button id="sellerAttachBtn" class="chat-attach-btn" title="Прикрепить файл">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+                                        </svg>
+                                    </button>
+                                    <textarea id="sellerChatInput" class="chat-input" placeholder="${window.i18n?.writeMessage || 'Написать сообщение...'}" rows="1"></textarea>
+                                    <button id="sellerSendBtn" class="chat-send-btn">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <line x1="22" y1="2" x2="11" y2="13"></line>
+                                            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                                        </svg>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -194,6 +219,26 @@ class SellerChatsManager {
         const backBtn = document.getElementById('backToChatListBtn');
         
         closeBtn.addEventListener('click', () => this.closeChatsModal());
+        
+        // Обработчики кнопок фильтрации
+        const filterBuyerBtn = document.getElementById('filterBuyerChatsBtn');
+        const filterSellerBtn = document.getElementById('filterSellerChatsBtn');
+        
+        filterBuyerBtn?.addEventListener('click', () => {
+            filterBuyerBtn.classList.add('active');
+            filterSellerBtn.classList.remove('active');
+            this.chatFilter = 'buyer';
+            console.log('[SellerChats] Filter changed to: buyer');
+            this.loadChats();
+        });
+        
+        filterSellerBtn?.addEventListener('click', () => {
+            filterSellerBtn.classList.add('active');
+            filterBuyerBtn.classList.remove('active');
+            this.chatFilter = 'seller';
+            console.log('[SellerChats] Filter changed to: seller');
+            this.loadChats();
+        });
         
         // Кнопка "Назад" для мобильных
         backBtn.addEventListener('click', () => {
@@ -231,10 +276,27 @@ class SellerChatsManager {
         deleteBtn.addEventListener('click', () => this.deleteChat());
     }
     
-    openChatsModal() {
+    openChatsModal(filter = 'seller') {
+        this.chatFilter = filter;
+        console.log('[SellerChats] Opening modal with filter:', filter);
+        
         document.getElementById('sellerChatsModal').classList.add('active');
         document.body.classList.add('modal-open');
         document.body.style.overflow = 'hidden';
+        
+        // Обновляем активную кнопку фильтра
+        const filterBuyerBtn = document.getElementById('filterBuyerChatsBtn');
+        const filterSellerBtn = document.getElementById('filterSellerChatsBtn');
+        
+        if (filterBuyerBtn && filterSellerBtn) {
+            if (filter === 'buyer') {
+                filterBuyerBtn.classList.add('active');
+                filterSellerBtn.classList.remove('active');
+            } else {
+                filterSellerBtn.classList.add('active');
+                filterBuyerBtn.classList.remove('active');
+            }
+        }
         
         // Загружаем чаты только если прошло больше 10 секунд с последней загрузки
         const timeSinceUpdate = Date.now() - this.lastChatsUpdate;
@@ -243,6 +305,7 @@ class SellerChatsManager {
             this.loadChats();
         } else {
             console.log('[SellerChats] Using cached chats');
+            this.renderChats(); // Перерендерим с новым фильтром
         }
         
         if (this.updateInterval) clearInterval(this.updateInterval);
@@ -258,6 +321,12 @@ class SellerChatsManager {
         document.body.style.overflow = '';
         this.selectedChatId = null;
         this.showEmptyState();
+        
+        // Очищаем контейнер сообщений при закрытии
+        const messagesContainer = document.getElementById('sellerChatMessages');
+        if (messagesContainer) {
+            messagesContainer.innerHTML = `<div class="chat-loading">${window.i18n?.messagesLoading || 'Загрузка сообщений...'}</div>`;
+        }
         
         if (this.updateInterval) {
             clearInterval(this.updateInterval);
@@ -287,17 +356,42 @@ class SellerChatsManager {
             return;
         }
         
-        console.log('[SellerChats] Loading chats for seller:', this.userId);
+        console.log('[SellerChats] Loading chats for user:', this.userId, 'filter:', this.chatFilter);
         
         try {
-            const url = `/api/v1/chat/chats/seller/${this.userId}/grouped`;
+            let url;
+            if (this.chatFilter === 'buyer') {
+                // Загружаем чаты где пользователь покупатель
+                url = `/api/v1/chat/chats/my?user_id=${this.userId}&is_seller=false`;
+            } else if (this.chatFilter === 'seller') {
+                // Загружаем чаты где пользователь продавец
+                url = `/api/v1/chat/chats/seller/${this.userId}/grouped`;
+            } else {
+                // Загружаем все чаты (и как продавец, и как покупатель)
+                url = `/api/v1/chat/chats/seller/${this.userId}/grouped`;
+            }
+            
             console.log('[SellerChats] Request to:', url);
             
             const response = await fetch(url);
             console.log('[SellerChats] Response status:', response.status);
             
             if (response.ok) {
-                this.groupedChats = await response.json();
+                const data = await response.json();
+                
+                // Если это чаты покупателя, преобразуем в формат groupedChats
+                if (this.chatFilter === 'buyer' && Array.isArray(data)) {
+                    this.groupedChats = {};
+                    data.forEach(chat => {
+                        if (!this.groupedChats[chat.iphone_id]) {
+                            this.groupedChats[chat.iphone_id] = [];
+                        }
+                        this.groupedChats[chat.iphone_id].push(chat);
+                    });
+                } else {
+                    this.groupedChats = data;
+                }
+                
                 this.lastChatsUpdate = Date.now();
                 console.log('[SellerChats] Chats received:', this.groupedChats);
                 this.renderChats();
@@ -416,6 +510,8 @@ class SellerChatsManager {
         
         const buyerName = chat.buyer_is_registered ? 
             `${window.i18n?.buyer || 'Покупатель'} #${chat.buyer_id}` : 
+            chat.anonymous_buyer_number ? 
+            `${window.i18n?.buyer || 'Покупатель'} ${chat.anonymous_buyer_number}` :
             (window.i18n?.anonymous_buyer || 'Анонимный покупатель');
         
         return `
@@ -480,6 +576,8 @@ class SellerChatsManager {
             
             const buyerName = chat.buyer_is_registered ? 
                 `${window.i18n?.buyer || 'Покупатель'} #${chat.buyer_id}` : 
+                chat.anonymous_buyer_number ?
+                `${window.i18n?.buyer || 'Покупатель'} ${chat.anonymous_buyer_number}` :
                 (window.i18n?.anonymous_buyer || 'Анонимный покупатель');
             document.getElementById('activeChatBuyerName').textContent = buyerName;
             
@@ -547,9 +645,9 @@ class SellerChatsManager {
                     <div class="message ${isOwn ? 'own' : 'other'}">
                         <div class="message-bubble image-grid ${gridClass}">
                             ${item.images.map(img => `
-                                <a href="${img.file_url}" target="_blank" class="grid-image">
+                                <div class="grid-image" data-image-url="${img.file_url}">
                                     <img src="${img.file_url}" alt="${this.escapeHtml(img.file_name || '')}">
-                                </a>
+                                </div>
                             `).join('')}
                             <div class="message-time">${time}</div>
                         </div>
@@ -563,6 +661,15 @@ class SellerChatsManager {
         
         container.innerHTML = html;
         container.scrollTop = container.scrollHeight;
+        
+        // Добавляем обработчики кликов на изображения
+        container.querySelectorAll('[data-image-url]').forEach(imageEl => {
+            imageEl.addEventListener('click', (e) => {
+                e.preventDefault();
+                const imageUrl = imageEl.dataset.imageUrl;
+                this.openImageModal(imageUrl);
+            });
+        });
     }
     
     renderSingleMessage(msg) {
@@ -590,11 +697,9 @@ class SellerChatsManager {
             return `
                 <div class="message ${isOwn ? 'own' : 'other'}">
                     <div class="message-bubble">
-                        <div class="chat-message-image">
-                            <a href="${msg.file_url}" target="_blank">
-                                <img src="${msg.file_url}" alt="${this.escapeHtml(msg.file_name || '')}" 
-                                     style="max-width: 100%; border-radius: 8px; cursor: pointer;">
-                            </a>
+                        <div class="chat-message-image" data-image-url="${msg.file_url}">
+                            <img src="${msg.file_url}" alt="${this.escapeHtml(msg.file_name || '')}" 
+                                 style="max-width: 100%; border-radius: 8px; cursor: pointer;">
                         </div>
                         ${msg.message_text ? `<div class="message-text">${this.escapeHtml(msg.message_text)}</div>` : ''}
                         <div class="message-time">${time}</div>
@@ -634,6 +739,85 @@ class SellerChatsManager {
         `;
     }
     
+    /**
+     * Глобальный WebSocket для получения уведомлений о новых сообщениях во ВСЕХ чатах продавца
+     */
+    connectGlobalWebSocket() {
+        if (!this.userId) return;
+        
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${wsProtocol}//${window.location.host}/api/v1/chat/ws/seller/${this.userId}?user_id=${this.userId}`;
+        console.log('[SellerChats] Connecting to global WebSocket:', wsUrl);
+        
+        this.globalWs = new WebSocket(wsUrl);
+        
+        this.globalWs.onopen = () => {
+            console.log('[SellerChats] ✅ Global WebSocket connected');
+        };
+        
+        this.globalWs.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                console.log('[SellerChats] 📨 Global message received:', data);
+                
+                if (data.type === 'message') {
+                    const messageData = data.message || data;
+                    const chatId = messageData.chat_id;
+                    
+                    // Обновляем badge непрочитанных
+                    this.checkUnreadMessages();
+                    
+                    // Показываем push-уведомление если сообщение НЕ от нас И (чат не открыт ИЛИ окно неактивно)
+                    if (messageData.sender_id !== this.userId.toString()) {
+                        const isWindowActive = document.visibilityState === 'visible' && !document.hidden;
+                        const isChatOpen = this.selectedChatId && this.selectedChatId === chatId;
+                        
+                        // Показываем уведомление если окно неактивно ИЛИ чат закрыт
+                        if (!isWindowActive || !isChatOpen) {
+                            if (window.notificationManager && window.notificationManager.isEnabled()) {
+                                const senderName = 'Покупатель';
+                                const messageText = messageData.message_text || 'Отправил файл';
+                                
+                                console.log('[SellerChats] Показываем уведомление:', senderName, messageText);
+                                window.notificationManager.notifyNewMessage(
+                                    senderName,
+                                    messageText,
+                                    chatId
+                                ).catch(err => {
+                                    console.warn('[SellerChats] Ошибка показа уведомления:', err);
+                                });
+                            }
+                        } else {
+                            console.log('[SellerChats] Уведомление пропущено: окно активно и чат открыт');
+                        }
+                    }
+                    
+                    // Если это текущий открытый чат - добавляем сообщение в UI
+                    if (this.selectedChatId === chatId) {
+                        this.appendMessage(messageData);
+                        // Помечаем как прочитанное
+                        this.markAsRead(chatId);
+                    }
+                }
+            } catch (error) {
+                console.error('[SellerChats] Error handling global WebSocket message:', error);
+            }
+        };
+        
+        this.globalWs.onerror = (error) => {
+            console.error('[SellerChats] ❌ Global WebSocket error:', error);
+        };
+        
+        this.globalWs.onclose = (event) => {
+            console.log('[SellerChats] 🔌 Global WebSocket closed:', event.code, event.reason);
+            // Переподключаемся через 5 секунд
+            setTimeout(() => {
+                console.log('[SellerChats] Reconnecting global WebSocket...');
+                this.connectGlobalWebSocket();
+            }, 5000);
+        };
+    }
+    
     connectWebSocket(chatId) {
         if (this.ws) {
             this.ws.close();
@@ -641,7 +825,7 @@ class SellerChatsManager {
         
         const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = `${wsProtocol}//${window.location.host}/api/v1/chat/ws/${chatId}?user_id=${this.userId}`;
-        console.log('[SellerChats] Connecting to WebSocket:', wsUrl);
+        console.log('[SellerChats] Connecting to chat WebSocket:', wsUrl);
         this.ws = new WebSocket(wsUrl);
         
         this.ws.onopen = () => {
@@ -649,7 +833,7 @@ class SellerChatsManager {
         };
         
         this.ws.onmessage = (event) => {
-            console.log('[SellerChats] WebSocket message received:', event.data);
+            console.log('[SellerChats] Chat WebSocket message received:', event.data);
             const data = JSON.parse(event.data);
             console.log('[SellerChats] Parsed data:', data);
             
@@ -657,19 +841,12 @@ class SellerChatsManager {
                 const messageData = data.message || data;
                 this.appendMessage(messageData);
                 
+                // Помечаем как прочитанное если сообщение не от нас
                 if (messageData.sender_id !== this.userId.toString()) {
-                    if (window.notificationManager && window.notificationManager.isEnabled()) {
-                        const buyerName = this.currentChat?.buyer_is_registered 
-                            ? `${window.i18n?.buyer || 'Покупатель'} #${this.currentChat.buyer_id}` 
-                            : (window.i18n?.anonymous_buyer || 'Анонимный покупатель');
-                        
-                        window.notificationManager.notifyNewMessage(
-                            buyerName,
-                            messageData.message_text || messageData.message || '',
-                            this.selectedChatId
-                        );
-                    }
+                    this.markAsRead(this.selectedChatId);
                 }
+                
+                // Уведомления обрабатываются через globalWs, не дублируем
             }
         };
         
@@ -694,6 +871,20 @@ class SellerChatsManager {
         const messageHTML = this.renderSingleMessage(data);
         container.insertAdjacentHTML('beforeend', messageHTML);
         container.scrollTop = container.scrollHeight;
+        
+        // Добавляем обработчик клика для изображения
+        const lastMessage = container.lastElementChild;
+        if (lastMessage) {
+            const imageEl = lastMessage.querySelector('[data-image-url]');
+            if (imageEl) {
+                imageEl.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const imageUrl = imageEl.dataset.imageUrl;
+                    this.openImageModal(imageUrl);
+                });
+            }
+        }
+        
         console.log('[SellerChats] Message added to UI');
     }
     
@@ -1021,6 +1212,42 @@ class SellerChatsManager {
         return grouped;
     }
     
+    // Открыть изображение в модальном окне
+    openImageModal(imageUrl) {
+        // Создаем модальное окно если его нет
+        let modal = document.getElementById('imageViewModal');
+        if (!modal) {
+            const modalHTML = `
+                <div id="imageViewModal" class="image-view-modal">
+                    <span class="image-modal-close">&times;</span>
+                    <img class="image-modal-content" id="imageModalImg">
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+            modal = document.getElementById('imageViewModal');
+            
+            // Закрытие по клику на фон или крестик
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal || e.target.classList.contains('image-modal-close')) {
+                    this.closeImageModal();
+                }
+            });
+        }
+        
+        const img = document.getElementById('imageModalImg');
+        img.src = imageUrl;
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+    
+    closeImageModal() {
+        const modal = document.getElementById('imageViewModal');
+        if (modal) {
+            modal.style.display = 'none';
+            document.body.style.overflow = '';
+        }
+    }
+    
     // Обновление бейджа с количеством непрочитанных
     updateUnreadBadge(totalUnread) {
         const badge = document.getElementById('sellerChatsUnreadBadge');
@@ -1065,6 +1292,14 @@ class SellerChatsManager {
 
 if (document.getElementById('profilePage')) {
     window.sellerChatsManager = new SellerChatsManager();
+    
+    // Export functions to window for Service Worker access
+    window.openChatsModal = (filter = 'seller') => {
+        if (window.sellerChatsManager) {
+            window.sellerChatsManager.openChatsModal(filter);
+        }
+    };
+    
     // Запускаем проверку непрочитанных через 2 секунды
     setTimeout(() => {
         if (window.sellerChatsManager) {

@@ -115,6 +115,12 @@ services:
       - CF_ACCOUNT_ID=${CF_ACCOUNT_ID}
       - CF_ACCOUNT_HASH=${CF_ACCOUNT_HASH}
       - CF_API_TOKEN=${CF_API_TOKEN}
+      - CF_R2_ACCESS_KEY_ID=${CF_R2_ACCESS_KEY_ID}
+      - CF_R2_SECRET_ACCESS_KEY=${CF_R2_SECRET_ACCESS_KEY}
+      - CF_R2_BUCKET_NAME=${CF_R2_BUCKET_NAME:-lais-chat-files}
+      - VAPID_PRIVATE_KEY=hLTeehNuQqW99CbCks54TobPBcGljECpB42lPXQzNPo
+      - VAPID_PUBLIC_KEY=BLlY3Ha6wMRK7ARnvHYxIjvGvzsbE8NCsjFwUeUBmxSsfEpcdJeA4wH6zJs8eS-d8o_OpRCOAgzv-zt36DZynxg
+      - VAPID_SUBJECT=mailto:donbosik1@gmail.com
     ports:
       - "${CHAT_PORT:-4000}:${CHAT_PORT:-4000}"
     depends_on:
@@ -165,7 +171,7 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/ssl:/etc/nginx/ssl:ro  # Для SSL сертификатов (опционально)
-      - chat-uploads:/app/chat/uploads/chat-files:ro  # Раздача загруженных файлов чата
+      - chat-uploads:/app/uploads/chat-files  # Убран :ro для доступа на чтение
     depends_on:
       - main-service
       - auth-service

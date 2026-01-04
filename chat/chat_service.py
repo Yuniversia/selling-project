@@ -61,14 +61,37 @@ class ChatService:
                 buyer_id=buyer_id,
                 buyer_is_registered=buyer_is_registered
             )
-            chat = ChatService.create_chat(session, chat_data)
+            
+            # Если покупатель анонимный, присваиваем ему номер
+            anonymous_buyer_number = None
+            if not buyer_is_registered:
+                # Находим максимальный номер анонимного покупателя для этого продавца
+                max_number = session.exec(
+                    select(func.max(Chat.anonymous_buyer_number))
+                    .where(
+                        and_(
+                            Chat.seller_id == seller_id,
+                            Chat.buyer_is_registered == False
+                        )
+                    )
+                ).first()
+                
+                anonymous_buyer_number = (max_number or 0) + 1
+            
+            chat = Chat(
+                **chat_data.dict(),
+                anonymous_buyer_number=anonymous_buyer_number
+            )
+            session.add(chat)
+            session.commit()
+            session.refresh(chat)
         
         return chat
     
     @staticmethod
     def get_user_chats(session: Session, user_id: str, is_seller: bool = False) -> List[dict]:
         """
-        Получить все чаты пользователя
+        Получить все чаты пользователя (исключая скрытые)
         is_seller=True - получить чаты где пользователь продавец
         is_seller=False - получить чаты где пользователь покупатель
         """
@@ -76,11 +99,21 @@ class ChatService:
             # Конвертируем user_id в int для seller_id
             try:
                 seller_id_int = int(user_id)
-                chats_query = select(Chat).where(Chat.seller_id == seller_id_int)
+                chats_query = select(Chat).where(
+                    and_(
+                        Chat.seller_id == seller_id_int,
+                        Chat.is_hidden_by_seller == False  # Исключаем скрытые
+                    )
+                )
             except ValueError:
                 return []
         else:
-            chats_query = select(Chat).where(Chat.buyer_id == user_id)
+            chats_query = select(Chat).where(
+                and_(
+                    Chat.buyer_id == user_id,
+                    Chat.is_hidden_by_buyer == False  # Исключаем скрытые
+                )
+            )
         
         chats = session.exec(chats_query).all()
         
@@ -125,6 +158,9 @@ class ChatService:
                 "seller_id": chat.seller_id,
                 "buyer_id": chat.buyer_id,
                 "buyer_is_registered": chat.buyer_is_registered,
+                "anonymous_buyer_number": chat.anonymous_buyer_number,
+                "is_hidden_by_buyer": chat.is_hidden_by_buyer,
+                "is_hidden_by_seller": chat.is_hidden_by_seller,
                 "created_at": chat.created_at,
                 "updated_at": chat.updated_at,
                 "unread_count": unread_count,
@@ -220,6 +256,68 @@ class ChatService:
             count += 1
         
         session.commit()
+        return count
+    
+    @staticmethod
+    def hide_chat(session: Session, chat_id: int, user_id: str, is_seller: bool = False) -> bool:
+        """
+        Скрыть чат для пользователя (мягкое удаление)
+        """
+        chat = session.get(Chat, chat_id)
+        if not chat:
+            return False
+        
+        # Проверяем права пользователя
+        if is_seller:
+            try:
+                seller_id_int = int(user_id)
+                if chat.seller_id != seller_id_int:
+                    return False
+                chat.is_hidden_by_seller = True
+            except ValueError:
+                return False
+        else:
+            if chat.buyer_id != user_id:
+                return False
+            chat.is_hidden_by_buyer = True
+        
+        session.add(chat)
+        session.commit()
+        return True
+    
+    @staticmethod
+    def hide_chats_for_order(session: Session, iphone_id: int, buyer_id: str) -> int:
+        """
+        Скрыть все чаты связанные с заказом (вызывается при подтверждении получения)
+        Возвращает количество скрытых чатов
+        """
+        print(f"[ChatService] hide_chats_for_order called: iphone_id={iphone_id}, buyer_id={buyer_id}")
+        
+        chats = session.exec(
+            select(Chat).where(
+                and_(
+                    Chat.iphone_id == iphone_id,
+                    Chat.buyer_id == buyer_id
+                )
+            )
+        ).all()
+        
+        print(f"[ChatService] Found {len(chats)} chats to hide")
+        
+        count = 0
+        for chat in chats:
+            print(f"[ChatService] Hiding chat #{chat.id}: buyer_id={chat.buyer_id}, seller_id={chat.seller_id}, iphone_id={chat.iphone_id}")
+            chat.is_hidden_by_buyer = True
+            chat.is_hidden_by_seller = True
+            session.add(chat)
+            count += 1
+        
+        if count > 0:
+            session.commit()
+            print(f"[ChatService] ✅ Successfully hidden {count} chats")
+        else:
+            print(f"[ChatService] ⚠️ No chats found to hide")
+        
         return count
     
     @staticmethod

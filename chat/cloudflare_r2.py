@@ -3,6 +3,8 @@
 """
 import os
 import httpx
+import boto3
+from botocore.exceptions import ClientError
 from typing import Dict, Any, Optional
 from fastapi import HTTPException
 
@@ -14,23 +16,32 @@ class CloudflareR2Client:
         self.account_id = os.getenv('CF_ACCOUNT_ID')
         self.api_token = os.getenv('CF_API_TOKEN')
         self.account_hash = os.getenv('CF_ACCOUNT_HASH')
+        self.r2_access_key = os.getenv('CF_R2_ACCESS_KEY_ID')
+        self.r2_secret_key = os.getenv('CF_R2_SECRET_ACCESS_KEY')
+        self.r2_bucket_name = os.getenv('CF_R2_BUCKET_NAME', 'lais-chat-files')
         self.http_client: Optional[httpx.AsyncClient] = None
+        self.s3_client = None
         
-        # НЕ проверяем credentials при инициализации - они могут быть не нужны
-        if self.account_id and self.api_token:
+        # Инициализируем S3-совместимый клиент для R2 если есть credentials
+        if self.account_id and self.r2_access_key and self.r2_secret_key:
+            self.s3_client = boto3.client(
+                's3',
+                endpoint_url=f'https://{self.account_id}.r2.cloudflarestorage.com',
+                aws_access_key_id=self.r2_access_key,
+                aws_secret_access_key=self.r2_secret_key,
+                region_name='auto'
+            )
             self.base_url = f"https://api.cloudflare.com/client/v4/accounts/{self.account_id}/images/v1"
         else:
             self.base_url = None
     
     def _ensure_configured(self):
         """Проверить что credentials настроены"""
-        if not self.account_id or not self.api_token:
+        if not self.s3_client:
             raise HTTPException(
                 status_code=500,
-                detail="Cloudflare credentials not configured. File upload is not available."
+                detail="Cloudflare R2 credentials not configured. File upload is not available."
             )
-        if not self.http_client:
-            self.http_client = httpx.AsyncClient()
     
     async def get_upload_url(self, file_name: str) -> Dict[str, Any]:
         """
@@ -67,34 +78,57 @@ class CloudflareR2Client:
     
     async def upload_file_to_r2(self, file_data: bytes, object_key: str, content_type: str) -> str:
         """
-        Загрузить файл напрямую в R2 через сервер
+        Загрузить файл напрямую в R2 через boto3
         
         Args:
             file_data: содержимое файла
-            object_key: путь к файлу в бакете
+            object_key: путь к файлу в бакете (например: chat-files/123456_abc.jpg)
             content_type: MIME тип файла
         
         Returns:
             str: публичный URL загруженного файла
         """
-        # TODO: Реализовать загрузку в R2 через boto3/aioboto3
-        # Пока сохраняем файлы локально
-        import os
-        from pathlib import Path
+        self._ensure_configured()
         
-        # Используем абсолютный путь относительно текущего файла
-        current_dir = Path(__file__).parent
-        upload_dir = current_dir / "uploads" / "chat-files"
-        upload_dir.mkdir(parents=True, exist_ok=True)
+        print(f"[R2] Starting upload: {object_key}, ContentType: {content_type}, Size: {len(file_data)} bytes")
         
-        # Извлекаем только имя файла из object_key (без папки)
-        file_name = object_key.split('/')[-1]
-        file_path = upload_dir / file_name
-        with open(file_path, 'wb') as f:
-            f.write(file_data)
-        
-        # Возвращаем URL с полным путем включая chat-files
-        return f"/uploads/chat-files/{file_name}"
+        try:
+            # Загружаем файл в R2 через S3-совместимый API
+            self.s3_client.put_object(
+                Bucket=self.r2_bucket_name,
+                Key=object_key,
+                Body=file_data,
+                ContentType=content_type,
+                CacheControl='public, max-age=31536000',
+                # R2 автоматически делает файлы публичными если bucket настроен как public
+            )
+            
+            # Формируем публичный URL
+            # Если есть custom domain для R2 bucket, используем его
+            if self.account_hash:
+                public_url = f"https://pub-{self.account_hash}.r2.dev/{object_key}"
+            else:
+                # Fallback на стандартный R2 URL
+                public_url = f"https://{self.r2_bucket_name}.{self.account_id}.r2.cloudflarestorage.com/{object_key}"
+            
+            print(f"[R2] File uploaded successfully: {object_key} -> {public_url}")
+            print(f"[R2] Bucket: {self.r2_bucket_name}, Account: {self.account_id}, Hash: {self.account_hash}")
+            return public_url
+            
+        except ClientError as e:
+            error_code = e.response['Error']['Code']
+            error_message = e.response['Error']['Message']
+            print(f"[R2] Upload error: {error_code} - {error_message}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to upload to R2: {error_message}"
+            )
+        except Exception as e:
+            print(f"[R2] Unexpected error during upload: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to upload to R2: {str(e)}"
+            )
     
     def get_public_url(self, file_path: str, variant: str = "public") -> str:
         """
