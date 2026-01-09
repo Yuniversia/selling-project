@@ -1116,9 +1116,49 @@
             return conditionMap[condition] || condition;
         }
 
+        // Функция для сохранения фильтров в URL
+        function saveFiltersToURL() {
+            const params = new URLSearchParams();
+            
+            if (filterModel.value) params.append('model', filterModel.value);
+            if (filterBateryMin.value) params.append('batery_min', filterBateryMin.value);
+            if (filterBateryMax.value) params.append('batery_max', filterBateryMax.value);
+            if (filterCondition.value) params.append('condition', filterCondition.value);
+            if (filterColor.value) params.append('color', filterColor.value);
+            if (filterMemory.value) params.append('memory', filterMemory.value);
+            if (filterPriceMin.value) params.append('price_min', filterPriceMin.value);
+            if (filterPriceMax.value) params.append('price_max', filterPriceMax.value);
+            if (filterSortPrice.value && filterSortPrice.value !== '' && filterSortPrice.value !== 'all') params.append('sort_price', filterSortPrice.value);
+            if (filterSortDate.value && filterSortDate.value !== '' && filterSortDate.value !== 'all') params.append('sort_date', filterSortDate.value);
+            
+            const newURL = params.toString() ? `${window.location.pathname}?${params}` : window.location.pathname;
+            window.history.pushState({ filters: params.toString() }, '', newURL);
+        }
+
+        // Функция для восстановления фильтров из URL
+        function restoreFiltersFromURL() {
+            const params = new URLSearchParams(window.location.search);
+            
+            filterModel.value = params.get('model') || '';
+            filterBateryMin.value = params.get('batery_min') || '';
+            filterBateryMax.value = params.get('batery_max') || '';
+            filterCondition.value = params.get('condition') || '';
+            filterColor.value = params.get('color') || '';
+            filterMemory.value = params.get('memory') || '';
+            filterPriceMin.value = params.get('price_min') || '';
+            filterPriceMax.value = params.get('price_max') || '';
+            filterSortPrice.value = params.get('sort_price') || '';
+            filterSortDate.value = params.get('sort_date') || '';
+        }
+
         // Функция для загрузки и отображения постов
-        async function loadPosts() {
+        async function loadPosts(updateURL = true) {
             try {
+                // Сохраняем фильтры в URL при загрузке
+                if (updateURL) {
+                    saveFiltersToURL();
+                }
+
                 // Собираем параметры фильтров
                 const params = new URLSearchParams();
                 
@@ -1211,7 +1251,7 @@
         }
 
         // Обработчики кнопок фильтров
-        applyFiltersBtn.addEventListener('click', loadPosts);
+        applyFiltersBtn.addEventListener('click', () => loadPosts(true));
         clearFiltersBtn.addEventListener('click', () => {
             filterModel.value = '';
             filterBateryMin.value = '';
@@ -1223,11 +1263,18 @@
             filterPriceMax.value = '';
             filterSortPrice.value = '';
             filterSortDate.value = '';
-            loadPosts();
+            loadPosts(true);
         });
 
-        // Загружаем посты при загрузке страницы
-        loadPosts();
+        // Обработчик для кнопки назад/вперед браузера
+        window.addEventListener('popstate', () => {
+            restoreFiltersFromURL();
+            loadPosts(false); // false чтобы не создавать новую запись в истории
+        });
+
+        // Восстанавливаем фильтры из URL и загружаем посты при загрузке страницы
+        restoreFiltersFromURL();
+        loadPosts(false); // false при первой загрузке, чтобы не дублировать текущий URL
 
         // ================================
         // Toggle Filters (collapse/expand)
