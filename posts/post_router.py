@@ -231,6 +231,19 @@ async def router_post(
             detail="Недействительный токен: " + str(e)
         )
     
+    # Дополнительная валидация для защиты от некорректных данных с frontend
+    if batery is not None and (batery < 0 or batery > 100):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Уровень батареи должен быть от 0 до 100",
+        )
+    
+    if price is not None and price < 0:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Цена не может быть отрицательной",
+        )
+
     # Валидация Pydantic
     try:
         validated_data = IphonePostData(

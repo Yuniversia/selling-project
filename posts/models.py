@@ -33,7 +33,7 @@ class IphonePostData(BaseModel):
         return v
     
     description: Optional[str] = None
-    price: Optional[float] = PydanticField(default=None, description="Цена iPhone")
+    price: Optional[float] = PydanticField(default=None, ge=0, description="Цена iPhone (должна быть >= 0)")
     condition: Optional[str] = PydanticField(default=None, description="Состояние устройства (Новый, Как новый, Небольшие дефекты, С дефектом, На запчасти)")
     
     # Комплектация

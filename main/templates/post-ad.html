@@ -156,6 +156,104 @@
             font-weight: 700;
             color: #007AFF;
         }
+
+        /* Price Warning */
+        .price-warning {
+            background: #f0f8ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-top: 12px;
+            display: none;
+            align-items: center;
+            gap: 8px;
+            position: relative;
+        }
+
+        .price-warning.visible {
+            display: flex;
+        }
+
+        .price-warning-text {
+            flex: 1;
+            font-size: 14px;
+            color: #0066cc;
+        }
+
+        .price-final {
+            font-weight: 700;
+            font-size: 18px;
+            color: #007AFF;
+        }
+
+        .info-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #007AFF;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: help;
+            flex-shrink: 0;
+            transition: background 0.2s;
+        }
+
+        .info-icon:hover {
+            background: #0051ba;
+        }
+
+        .info-tooltip {
+            position: absolute;
+            bottom: calc(100% + 8px);
+            right: 0;
+            background: #333;
+            color: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            line-height: 1.5;
+            width: 280px;
+            max-width: 90vw;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            z-index: 10000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            pointer-events: none;
+        }
+
+        .info-tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            right: 10px;
+            border: 6px solid transparent;
+            border-top-color: #333;
+        }
+
+        .info-tooltip.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        @media (max-width: 768px) {
+            .info-tooltip {
+                right: auto;
+                left: 50%;
+                transform: translateX(-50%);
+                width: 260px;
+            }
+            
+            .info-tooltip::after {
+                right: auto;
+                left: 50%;
+                transform: translateX(-50%);
+            }
+        }
     </style>
 
 </head>
@@ -185,38 +283,6 @@
 
 
                         <div id="iphoneBlock" class="hidden-group">
-                            <div class="form-group">
-                                <label class="label">{{ t.model }}</label>
-                                <select id="iphoneModel" class="input">
-                                    <option value="">{{ t.select_model }}</option>
-                                    <option value="17">iPhone 17</option>
-                                    <option value="17plus">iPhone 17 Plus</option>
-                                    <option value="17pro">iPhone 17 Pro</option>
-                                    <option value="17promax">iPhone 17 Pro Max</option>
-                                    <option value="16">iPhone 16</option>
-                                    <option value="16plus">iPhone 16 Plus</option>
-                                    <option value="16pro">iPhone 16 Pro</option>
-                                    <option value="16promax">iPhone 16 Pro Max</option>
-                                    <option value="15pro">iPhone 15 Pro</option>
-                                    <option value="15promax">iPhone 15 Pro Max</option>
-                                    <option value="15">iPhone 15</option>
-                                    <option value="14pro">iPhone 14 Pro</option>
-                                    <option value="14promax">iPhone 14 Pro Max</option>
-                                    <option value="14">iPhone 14</option>
-                                    <option value="13pro">iPhone 13 Pro</option>
-                                    <option value="13promax">iPhone 13 Pro Max</option>
-                                    <option value="13">iPhone 13</option>
-                                    <option value="12pro">iPhone 12 Pro</option>
-                                    <option value="12promax">iPhone 12 Pro Max</option>
-                                    <option value="12">iPhone 12</option>
-                                    <option value="11pro">iPhone 11 Pro</option>
-                                    <option value="11">iPhone 11</option>
-                                    <option value="xsmax">iPhone XS Max</option>
-                                    <option value="xs">iPhone XS</option>
-                                    <option value="x">iPhone X</option>
-                                </select>
-                            </div>
-
                             <div class="form-group">
                                 <label class="label">{{ t.imei_label }} <a href="https://support.apple.com/ru-ru/HT204073" target="_blank" title="{{ t.how_to_find }}">❓</a></label>
                                 <input id="imei-input" type="text" class="input" placeholder="{{ t.imei_placeholder }}" required>
@@ -302,6 +368,15 @@
                 <div class="form-group">
                     <label class="label">{{ t.price_label }}</label>
                     <input id="price-input" type="number" class="input" style="font-size: 20px; font-weight: bold;" min="0" required>
+                    
+                    <!-- Price Warning with 5% fee -->
+                    <div class="price-warning" id="priceWarning">
+                        <div class="price-warning-text">
+                            <span class="price-final" id="finalPrice">0 €</span> - {{ t.final_price }}
+                        </div>
+                        <div class="info-icon" id="infoIcon">?</div>
+                        <div class="info-tooltip" id="infoTooltip">{{ t.fee_tooltip }}</div>
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -454,6 +529,48 @@
         iphoneBlock.style.display = 'block';
         commonSpecs.style.display = 'block';
 
+        // Расчет итоговой цены с комиссией 5%
+        const priceInput = document.getElementById('price-input');
+        const priceWarning = document.getElementById('priceWarning');
+        const finalPrice = document.getElementById('finalPrice');
+
+        priceInput.addEventListener('input', () => {
+            const price = parseFloat(priceInput.value) || 0;
+            
+            if (price > 0) {
+                const finalAmount = Math.round(price * 1.05); // +5%
+                finalPrice.textContent = `${finalAmount} €`;
+                priceWarning.classList.add('visible');
+            } else {
+                priceWarning.classList.remove('visible');
+            }
+        });
+
+        // Управление tooltip
+        const infoIcon = document.getElementById('infoIcon');
+        const infoTooltip = document.getElementById('infoTooltip');
+        
+        if (infoIcon && infoTooltip) {
+            infoIcon.addEventListener('mouseenter', () => {
+                infoTooltip.classList.add('visible');
+            });
+            
+            infoIcon.addEventListener('mouseleave', () => {
+                infoTooltip.classList.remove('visible');
+            });
+            
+            infoIcon.addEventListener('click', () => {
+                infoTooltip.classList.toggle('visible');
+            });
+            
+            // Закрытие tooltip при клике вне его
+            document.addEventListener('click', (e) => {
+                if (!infoIcon.contains(e.target) && !infoTooltip.contains(e.target)) {
+                    infoTooltip.classList.remove('visible');
+                }
+            });
+        }
+
         /* Логика выбора категорий закомментирована - сейчас только iPhone
         // Главная категория
         catSelect.addEventListener('change', (e) => {
@@ -534,10 +651,26 @@
                     return;
                 }
                 
+                const batteryValue = parseInt(batteryInput.value);
+                if (batteryValue < 0 || batteryValue > 100) {
+                    alert('{{ t.battery_condition }} должно быть от 0 до 100');
+                    progressModal.classList.remove('show');
+                    publishBtn.disabled = false;
+                    return;
+                }
+                
                 // Цена (обязательное поле)
                 const priceInput = document.getElementById('price-input');
                 if (!priceInput || !priceInput.value) {
                     alert('{{ t.price_label }} - обязательное поле');
+                    progressModal.classList.remove('show');
+                    publishBtn.disabled = false;
+                    return;
+                }
+                
+                const basePrice = parseFloat(priceInput.value);
+                if (basePrice <= 0) {
+                    alert('{{ t.price_label }} должна быть больше 0');
                     progressModal.classList.remove('show');
                     publishBtn.disabled = false;
                     return;
@@ -612,10 +745,13 @@
                 // ===== ШАГ 4: ПОДГОТОВКА ДАННЫХ ФОРМЫ =====
                 const formData = new FormData();
                 
+                // Рассчитываем конечную цену с комиссией 5%
+                const finalPrice = Math.round(basePrice * 1.05);
+                
                 // Все поля уже проверены выше, просто добавляем
                 formData.append('imei', imeiInput.value);
-                formData.append('batery', batteryInput.value);
-                formData.append('price', priceInput.value);
+                formData.append('batery', batteryValue);
+                formData.append('price', finalPrice); // Отправляем конечную цену с +5%
                 formData.append('condition', conditionInput.value);
                 
                 // Описание (необязательное)
