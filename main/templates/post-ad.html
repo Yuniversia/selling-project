@@ -506,7 +506,7 @@
             
             try {
                 // ===== ШАГ 1: ВАЛИДАЦИЯ ВСЕХ ПОЛЕЙ ПЕРЕД ЗАГРУЗКОЙ ФОТО =====
-                updateProgress(progressBar, progressText, progressPercent, 5, 'Проверка данных...');
+                updateProgress(progressBar, progressText, progressPercent, 5, '{{ t.checking_data }}');
                 
                 // Проверка фотографий
                 if (photos.length === 0) {
@@ -553,7 +553,7 @@
                 }
                 
                 // ===== ШАГ 2: ПРОВЕРКА АВТОРИЗАЦИИ И REFRESH ТОКЕНА =====
-                updateProgress(progressBar, progressText, progressPercent, 10, 'Проверка авторизации...');
+                updateProgress(progressBar, progressText, progressPercent, 10, '{{ t.checking_auth }}');
                 
                 const authCheck = await fetch(`${AUTH_API}/me`, {
                     method: 'GET',
@@ -590,7 +590,7 @@
                 }
                 
                 // ===== ШАГ 3: ЗАГРУЗКА ФОТОГРАФИЙ =====
-                updateProgress(progressBar, progressText, progressPercent, 20, 'Загружаем фото...');
+                updateProgress(progressBar, progressText, progressPercent, 20, '{{ t.uploading_photos }}');
                 
                 let imageUrls = [];
                 if (photos.length > 0) {
@@ -607,7 +607,7 @@
                 }
 
                 // Обновляем прогресс: 50% - фото загружены
-                updateProgress(progressBar, progressText, progressPercent, 50, 'Фото загружены, подготовка данных...');
+                updateProgress(progressBar, progressText, progressPercent, 50, '{{ t.preparing_data }}');
 
                 // ===== ШАГ 4: ПОДГОТОВКА ДАННЫХ ФОРМЫ =====
                 const formData = new FormData();
@@ -637,7 +637,7 @@
                 }
                 
                 // ===== ШАГ 5: ОТПРАВКА ДАННЫХ НА СЕРВЕР =====
-                updateProgress(progressBar, progressText, progressPercent, 80, 'Отправляем данные...');
+                updateProgress(progressBar, progressText, progressPercent, 80, '{{ t.sending_data }}');
                 
                 console.log('Отправляем данные на Posts API...');
                 const response = await fetch(`${POSTS_API}/iphone`, {
@@ -649,7 +649,7 @@
                 if (response.ok) {
                     const data = await response.json();
                     // Обновляем прогресс: 100% - успешно
-                    updateProgress(progressBar, progressText, progressPercent, 100, 'Готово!');
+                    updateProgress(progressBar, progressText, progressPercent, 100, '{{ t.upload_complete }}');
                     
                     setTimeout(() => {
                         alert(`Пост опубликован! ID: ${data.id}`);
@@ -692,48 +692,42 @@
                 for (let i = 0; i < photosArray.length; i++) {
                     const photo = photosArray[i];
                     
+                    // Обновляем прогресс загрузки фото
+                    const photoProgress = 20 + Math.floor((i / photosArray.length) * 30);
+                    updateProgress(
+                        progressBar, 
+                        progressText, 
+                        progressPercent, 
+                        photoProgress, 
+                        `{{ t.uploading_photos }} ${i + 1}/${photosArray.length}...`
+                    );
+                    
                     try {
-                        // Для каждой фотографии получаем свой URL загрузки
-                        console.log(`Запрашиваем URL для загрузки фото ${i + 1}/${photosArray.length}...`);
-                        const urlResponse = await fetch(`${POSTS_API}/r2_link`);
-                        
-                        if (!urlResponse.ok) {
-                            throw new Error(`Ошибка получения URL: ${urlResponse.status}`);
-                        }
-                        
-                        const linkData = await urlResponse.json();
-                        const uploadUrl = linkData.upload_url;
-                        const imageDeliveryBase = linkData.image_delivery_base;
-
-                        console.log(`Загружаем фото ${i + 1}/${photosArray.length}...`);
+                        console.log(`Загружаем фото ${i + 1}/${photosArray.length} в R2...`);
                         console.log(`Тип файла: ${photo.file.type}, Размер: ${(photo.file.size / 1024).toFixed(2)} KB`);
 
-                        // Создаем FormData для загрузки файла (Cloudflare ожидает именно это)
+                        // Создаем FormData для загрузки файла
                         const formData = new FormData();
-                        formData.append('file', photo.file);  // ВАЖНО: ключ должен быть 'file'
+                        formData.append('file', photo.file);
 
-                        // Загружаем файл в Cloudflare
-                        const uploadResponse = await fetch(uploadUrl, {
+                        // Загружаем файл напрямую в R2 через наш новый endpoint
+                        const uploadResponse = await fetch(`${POSTS_API}/upload-image`, {
                             method: 'POST',
-                            body: formData
-                            // НЕ устанавливаем Content-Type - браузер сам установит правильный multipart/form-data
+                            body: formData,
+                            credentials: 'include'
                         });
 
-                        console.log(`Ответ Cloudflare: ${uploadResponse.status} ${uploadResponse.statusText}`);
+                        console.log(`Ответ сервера: ${uploadResponse.status} ${uploadResponse.statusText}`);
 
                         if (!uploadResponse.ok) {
-                            const errorText = await uploadResponse.text();
-                            console.error(`Ошибка при загрузке фото ${i + 1}: ${uploadResponse.status}`);
-                            console.error(`Текст ошибки: ${errorText}`);
-                            continue;
+                            const error = await uploadResponse.json();
+                            console.error(`Ошибка загрузки фото ${i + 1}:`, error);
+                            throw new Error(error.detail || 'Upload failed');
                         }
 
-                        // Получаем ответ от Cloudflare с реальным image_id
-                        const cloudflareResponse = await uploadResponse.json();
-                        console.log(`Ответ Cloudflare (полный):`, cloudflareResponse);
-                        
-                        const imageId = cloudflareResponse.result.id;
-                        const publicUrl = `${imageDeliveryBase}/${imageId}/test`;
+                        // Получаем публичный URL из ответа
+                        const uploadResult = await uploadResponse.json();
+                        const publicUrl = uploadResult.public_url;
                         
                         console.log(`✓ Публичный URL: ${publicUrl}`);
                         
@@ -750,7 +744,7 @@
                 return uploadedUrls;
 
             } catch (error) {
-                console.error('Ошибка при загрузке фотографий в Cloudflare:', error);
+                console.error('Ошибка при загрузке фотографий в R2:', error);
                 return [];
             }
         }

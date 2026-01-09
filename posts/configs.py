@@ -18,10 +18,17 @@ class Configs:
     CF_ACCOUNT_HASH = os.getenv('CF_ACCOUNT_HASH')
     
     CF_R2_ACCESS_KEY_ID = os.getenv('CF_R2_ACCESS_KEY_ID')
-    CF_R2_SECRET_ACCESS_KEY_ID = os.getenv('CF_R2_SECRET_ACCESS_KEY')
+    CF_R2_SECRET_ACCESS_KEY = os.getenv('CF_R2_SECRET_ACCESS_KEY')
     
     CF_API_TOKEN = os.getenv('CF_API_TOKEN')
     CF_IMAGE_DELIVERY_URL = os.getenv('CF_IMAGE_DELIVERY_URL')
     
     # CF_BASE_URL формируется динамически
     CF_BASE_URL = _get_cf_base_url()
+    
+    # Posts R2 Configuration (отдельные credentials для posts)
+    POSTS_CF_ACCOUNT_ID = os.getenv('CF_ACCOUNT_ID', CF_ACCOUNT_ID)
+    POST_CF_R2_HASH = os.getenv('POST_CF_R2_HASH', CF_ACCOUNT_HASH)
+    POSTS_R2_ACCESS_KEY_ID = os.getenv('POST_CF_R2_ACCESS_KEY_ID')
+    POSTS_R2_SECRET_ACCESS_KEY = os.getenv('POST_CF_R2_SECRET_ACCESS_KEY', CF_R2_SECRET_ACCESS_KEY)
+    POSTS_R2_BUCKET_NAME = os.getenv('POST_CF_R2_BUCKET_NAME', 'lais-post-service')

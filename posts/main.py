@@ -15,7 +15,7 @@ print(f"  CF_ACCOUNT_ID: {'✓ SET' if Configs.CF_ACCOUNT_ID else '✗ NOT SET'}
 print(f"  CF_ACCOUNT_HASH: {'✓ SET' if Configs.CF_ACCOUNT_HASH else '✗ NOT SET'}")
 print(f"  CF_API_TOKEN: {'✓ SET' if Configs.CF_API_TOKEN else '✗ NOT SET'}")
 print(f"  CF_R2_ACCESS_KEY_ID: {'✓ SET' if Configs.CF_R2_ACCESS_KEY_ID else '✗ NOT SET'}")
-print(f"  CF_R2_SECRET_ACCESS_KEY: {'✓ SET' if Configs.CF_R2_SECRET_ACCESS_KEY_ID else '✗ NOT SET'}")
+print(f"  CF_R2_SECRET_ACCESS_KEY: {'✓ SET' if Configs.CF_R2_SECRET_ACCESS_KEY else '✗ NOT SET'}")
 print(f"  CF_IMAGE_DELIVERY_URL: {'✓ SET' if Configs.CF_IMAGE_DELIVERY_URL else '✗ NOT SET'}")
 print(f"  CF_BASE_URL: {Configs.CF_BASE_URL if Configs.CF_BASE_URL else '✗ NOT SET'}")
 

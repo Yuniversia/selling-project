@@ -85,12 +85,32 @@ def index_page(request: Request):
     return response
 
 @frontend_router.get("/product", name="product")
-def products_page(request: Request):
-    """Отдает страницу со списком продуктов."""
-    return templates.TemplateResponse(
-        "product.html", 
-        get_template_context(request, "Продукты")
+def products_page(request: Request, id: Optional[int] = None):
+    """
+    Отдает страницу товара.
+    JavaScript на клиенте сам проверит существование поста через /api/v1/posts/iphone.
+    Если пост не найден - JS покажет 404 или перенаправит.
+    """
+    # Если нет ID - показываем 404
+    if not id:
+        return templates.TemplateResponse(
+            "404.html",
+            get_template_context(request, "404 - Страница не найдена"),
+            status_code=404
+        )
+    
+    # Просто отдаем страницу, проверку существования делает JavaScript
+    context = get_template_context(request, "Товар")
+    response = templates.TemplateResponse(
+        "product.html",
+        context,
+        status_code=200
     )
+    # Отключаем кеширование HTML в браузере
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 @frontend_router.get("/seller", name="seller")
 def author_page(request: Request):
@@ -275,6 +295,6 @@ def not_found_page(request: Request):
     """Отдает кастомную 404 страницу."""
     return templates.TemplateResponse(
         "404.html",
-        {"request": request},
+        get_template_context(request, "404 - Страница не найдена"),
         status_code=404
     )

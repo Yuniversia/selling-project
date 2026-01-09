@@ -33,6 +33,7 @@ from models import (
     ReportResponse,
     ReportReason
 )
+from cloudflare_r2 import r2_client
 
 # API Router для постов
 api_router = APIRouter(prefix="/api/v1", tags=["Iphone Posts"])
@@ -114,6 +115,69 @@ async def get_direct_upload_url():
         print(f"[ERROR] Непредвиденная ошибка: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Непредвиденная ошибка: {str(e)}")
 
+
+@api_router.post("/upload-image")
+async def upload_image_to_r2(file: UploadFile = File(...)):
+    """
+    Загрузить изображение напрямую в Cloudflare R2
+    
+    Args:
+        file: загружаемое изображение
+    
+    Returns:
+        {
+            "file_id": "ID файла (object key)",
+            "file_name": "имя файла",
+            "file_size": размер в байтах,
+            "public_url": "публичный URL"
+        }
+    """
+    try:
+        # Проверка типа файла
+        if not file.content_type or not file.content_type.startswith('image/'):
+            raise HTTPException(
+                status_code=400,
+                detail="Только изображения разрешены для загрузки"
+            )
+        
+        # Проверка размера файла (максимум 10 МБ)
+        file_data = await file.read()
+        max_size = 10 * 1024 * 1024  # 10 MB
+        if len(file_data) > max_size:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Файл слишком большой. Максимум: {max_size / 1024 / 1024} МБ"
+            )
+        
+        # Генерируем object_key
+        import uuid
+        import time
+        timestamp = int(time.time())
+        unique_id = str(uuid.uuid4())[:8]
+        file_extension = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
+        object_key = f"posts/{timestamp}_{unique_id}.{file_extension}"
+        
+        # Загружаем файл в R2
+        public_url = await r2_client.upload_file_to_r2(
+            file_data=file_data,
+            object_key=object_key,
+            content_type=file.content_type
+        )
+        
+        return {
+            "file_id": object_key,
+            "file_name": file.filename,
+            "file_size": len(file_data),
+            "public_url": public_url
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[ERROR] Ошибка при загрузке изображения: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Ошибка при загрузке изображения: {str(e)}"
+        )
 
 
 @api_router.post(

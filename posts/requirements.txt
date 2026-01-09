@@ -10,6 +10,7 @@ python-multipart
 psycopg2-binary  # PostgreSQL driver
 python-dotenv    # For .env file support
 aiosmtplib==3.0.0
+boto3            # For Cloudflare R2 (S3-compatible) uploads
 
 # For checker.py
 requests

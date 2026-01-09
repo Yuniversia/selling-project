@@ -23,12 +23,14 @@ def get_current_user(access_token: str) -> dict:
     if not access_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
     
-    print(f"[AUTH] Attempting to decode token: {access_token[:50]}...")
-    print(f"[AUTH] Using secret_key: {Configs.secret_key[:10]}... algorithm: {Configs.token_algoritm}")
+    # БЕЗОПАСНОСТЬ: НЕ логируем токены и секретные ключи
+    # print(f"[AUTH] Attempting to decode token: {access_token[:50]}...")
+    # print(f"[AUTH] Using secret_key: {Configs.secret_key[:10]}... algorithm: {Configs.token_algoritm}")
     
     try:
         payload = jwt.decode(access_token, Configs.secret_key, algorithms=[Configs.token_algoritm])
-        print(f"[AUTH] ✅ Token decoded successfully! Payload: {payload}")
+        # НЕ логируем payload - может содержать чувствительную информацию
+        # print(f"[AUTH] ✅ Token decoded successfully! Payload: {payload}")
         user_id = payload.get("user_id")
         if not user_id:
             print(f"[AUTH] ❌ No user_id in payload!")
@@ -40,7 +42,7 @@ def get_current_user(access_token: str) -> dict:
         }
     except Exception as e:
         # Ловим все исключения JWT (ExpiredSignatureError, InvalidTokenError, DecodeError и т.д.)
-        print(f"[AUTH] ❌ Exception during token decode: {type(e).__name__}: {str(e)}")
+        print(f"[AUTH] ❌ Token validation failed: {type(e).__name__}")
         raise HTTPException(status_code=401, detail=f"Token validation failed: {str(e)}")
 
 
@@ -155,10 +157,10 @@ async def create_order(
             db.rollback()
             raise HTTPException(status_code=500, detail="Ошибка сохранения заказа в базу данных")
         
+        # БЕЗОПАСНОСТЬ: НЕ логируем персональные данные (имя, email, телефон)
         print(f"[CREATE ORDER] ✅ Order #{order.id} created successfully")
         print(f"  buyer_id: {order.buyer_id} (None = anonymous)")
         print(f"  seller_id: {order.seller_id}")
-        print(f"  buyer: {order.buyer_first_name} {order.buyer_last_name}")
         print(f"  post_id: {order.post_id}")
         print(f"  price: {order.price}")
         print(f"  status: {order.status}")

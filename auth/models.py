@@ -41,6 +41,25 @@ class PublicUser(BaseModel):
         from_attributes = True
 
 
+# Безопасная модель для публичной информации о продавце (без email и phone)
+class PublicUserMinimal(BaseModel):
+    """
+    Минимальная публичная информация о пользователе для отображения на странице товара.
+    НЕ включает чувствительные данные: email, phone, hashed_password.
+    """
+    username: str
+    name: Optional[str] = None
+    surname: Optional[str] = None
+    avatar_url: Optional[str] = None
+    rating: float
+    posts_count: int
+    sells_count: int
+    joined_date: str  # Форматированная дата в виде строки
+
+    class Config:
+        from_attributes = True
+
+
 # Схема для ввода данных при регистрации
 class UserCreate(BaseModel):
     username: str

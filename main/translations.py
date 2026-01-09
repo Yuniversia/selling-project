@@ -109,6 +109,11 @@ TRANSLATIONS = {
         "effective_date": "Дата вступления в силу",
         "all_rights_reserved": "Все права защищены",
         
+        # 404 Page
+        "page_not_found": "Страница не найдена",
+        "page_not_found_message": "К сожалению, запрашиваемая страница не существует или была перемещена. Возможно, вы перешли по устаревшей ссылке.",
+        "to_home": "На главную",
+        
         # Профиль
         "my_ads": "Мои объявления",
         "active_ads": "Активные",
@@ -210,6 +215,8 @@ TRANSLATIONS = {
         "product_not_found": "Товар не найден",
         "loading_error_product": "Ошибка загрузки товара",
         "connection_error": "Ошибка подключения",
+        "chat_unavailable_inactive": "Нельзя писать продавцу - объявление неактивно",
+        "buy_unavailable_inactive": "Нельзя купить - объявление неактивно",
         
         # Product specs
         "model_label": "Модель",
@@ -317,6 +324,10 @@ TRANSLATIONS = {
         "uploading_photos": "Загружаем фото...",
         "photos_uploaded": "Фото загружены, подготовка данных...",
         "sending_data": "Отправляем данные...",
+        "checking_data": "Проверка данных...",
+        "checking_auth": "Проверка авторизации...",
+        "preparing_data": "Подготовка данных...",
+        "upload_complete": "Готово!",
         "done": "Готово!",
         "post_published": "Пост опубликован! ID:",
         "error_prefix": "Ошибка:",
@@ -643,6 +654,11 @@ TRANSLATIONS = {
         "effective_date": "Spēkā stāšanās datums",
         "all_rights_reserved": "Visas tiesības aizsargātas",
         
+        # 404 Page
+        "page_not_found": "Lapa nav atrasta",
+        "page_not_found_message": "Diemžēl pieprasītā lapa neeksistē vai ir pārvietota. Iespējams, jūs izmantojāt novecojušu saiti.",
+        "to_home": "Uz sākumu",
+        
         # Profils
         "my_ads": "Mani sludinājumi",
         "active_ads": "Aktīvie",
@@ -742,6 +758,10 @@ TRANSLATIONS = {
         "status_active": "Aktīvs",
         "status_inactive": "Neaktīvs",
         "product_not_found": "Prece nav atrasta",
+        "loading_error_product": "Kļūda ielādējot preci",
+        "connection_error": "Savienojuma kļūda",
+        "chat_unavailable_inactive": "Nevar rakstīt pārdevējam - sludinājums nav aktīvs",
+        "buy_unavailable_inactive": "Nevar pirkt - sludinājums nav aktīvs",
         "loading_error_product": "Kļūda, ielādējot preci",
         "connection_error": "Savienojuma kļūda",
         
@@ -851,6 +871,10 @@ TRANSLATIONS = {
         "uploading_photos": "Augšupielādējam fotoattēlus...",
         "photos_uploaded": "Fotoattēli augšupielādēti, datu sagatavošana...",
         "sending_data": "Nosūtām datus...",
+        "checking_data": "Datu pārbaude...",
+        "checking_auth": "Autentifikācijas pārbaude...",
+        "preparing_data": "Datu sagatavošana...",
+        "upload_complete": "Gatavs!",
         "done": "Gatavs!",
         "post_published": "Sludinājums publicēts! ID:",
         "error_prefix": "Kļūda:",
@@ -1296,6 +1320,16 @@ TRANSLATIONS = {
         "effective_date": "Effective Date",
         "all_rights_reserved": "All Rights Reserved",
         
+        # 404 Page
+        "page_not_found": "Page Not Found",
+        "page_not_found_message": "Sorry, the requested page does not exist or has been moved. You may have followed an outdated link.",
+        "to_home": "Go to Home",
+        
+        # 404 Page
+        "page_not_found": "Page Not Found",
+        "page_not_found_message": "Sorry, the requested page does not exist or has been moved. You may have followed an outdated link.",
+        "to_home": "Go to Home",
+        
         # Profile
         "my_ads": "My Ads",
         "active_ads": "Active",
@@ -1394,6 +1428,11 @@ TRANSLATIONS = {
         "views_count": "Views",
         "status_active": "Active",
         "status_inactive": "Inactive",
+        "product_not_found": "Product not found",
+        "loading_error_product": "Error loading product",
+        "connection_error": "Connection error",
+        "chat_unavailable_inactive": "Cannot message seller - listing is inactive",
+        "buy_unavailable_inactive": "Cannot buy - listing is inactive",
         "product_not_found": "Product not found",
         "loading_error_product": "Error loading product",
         "connection_error": "Connection error",
@@ -1504,6 +1543,10 @@ TRANSLATIONS = {
         "uploading_photos": "Uploading photos...",
         "photos_uploaded": "Photos uploaded, preparing data...",
         "sending_data": "Sending data...",
+        "checking_data": "Checking data...",
+        "checking_auth": "Checking authorization...",
+        "preparing_data": "Preparing data...",
+        "upload_complete": "Done!",
         "done": "Done!",
         "post_published": "Post published! ID:",
         "error_prefix": "Error:",

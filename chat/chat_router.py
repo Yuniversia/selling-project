@@ -2,6 +2,8 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPExce
 from sqlmodel import Session
 from typing import List, Optional, Dict, Any
 import json
+import httpx
+import os
 from datetime import datetime
 
 from database import get_session
@@ -16,6 +18,9 @@ from cloudflare_r2 import r2_client
 from push_service import push_service
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
+
+# URL posts сервиса для проверки активности объявлений
+POSTS_API_URL = os.getenv('POSTS_SERVICE_URL', 'http://localhost:3000')
 
 
 @router.post("/chats", response_model=ChatResponse)
@@ -50,13 +55,52 @@ def get_my_chats(
 
 
 @router.get("/chats/find")
-def find_chat(
+async def find_chat(
     iphone_id: int = Query(..., description="ID объявления"),
     seller_id: int = Query(..., description="ID продавца"),
     buyer_id: str = Query(..., description="ID покупателя или UUID"),
     session: Session = Depends(get_session)
 ):
-    """Найти существующий чат или вернуть null"""
+    """
+    Найти существующий чат или создать новый.
+    БЕЗОПАСНОСТЬ: Проверяет активность объявления перед созданием чата.
+    """
+    # Проверяем активность объявления через posts API
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{POSTS_API_URL}/api/v1/posts/iphone",
+                params={"id": iphone_id},
+                timeout=5.0
+            )
+            
+            if not response.is_success:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Объявление не найдено"
+                )
+            
+            post_data = response.json()
+            
+            # Запрещаем создание чата для неактивных объявлений
+            if not post_data.get("active", False):
+                raise HTTPException(
+                    status_code=403,
+                    detail="Невозможно написать продавцу - объявление неактивно"
+                )
+    except httpx.TimeoutException:
+        raise HTTPException(
+            status_code=503,
+            detail="Сервис объявлений недоступен"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Ошибка проверки объявления: {str(e)}"
+        )
+    
     # Определяем зарегистрирован ли пользователь по формату ID
     # UUID формат: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx (содержит дефисы)
     buyer_is_registered = '-' not in buyer_id

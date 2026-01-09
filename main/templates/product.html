@@ -7,12 +7,12 @@
     {% include 'seo_meta.html' %}
     {% include 'product_structured_data.html' %}
     <title>{{ page_title }}</title>
-    <link rel="stylesheet" href="/templates/static/styles2.css?v=42">
-    <script src="/templates/static/cache-manager.js?v=42"></script>
-    <script src="/templates/static/auth-interceptor.js?v=42"></script>
-    <script src="/templates/static/push-init.js?v=5" defer></script>
-    <script src="/templates/static/notifications.js?v=42" defer></script>
-    <script src="/templates/static/notification-prompt.js?v=42" defer></script>
+    <link rel="stylesheet" href="/templates/static/styles2.css?v=45">
+    <script src="/templates/static/cache-manager.js?v=45"></script>
+    <script src="/templates/static/auth-interceptor.js?v=45"></script>
+    <script src="/templates/static/push-init.js?v=6" defer></script>
+    <script src="/templates/static/notifications.js?v=45" defer></script>
+    <script src="/templates/static/notification-prompt.js?v=45" defer></script>
     <script>
         // Global translations object for JavaScript
         window.i18n = {
@@ -56,15 +56,19 @@
             js_sw_open: "{{ t.js_sw_open }}"
         };
     </script>
-    <script src="/templates/static/chat.js?v=43" defer></script>
+    <script src="/templates/static/chat.js?v=45" defer></script>
     <script>
-        // API Configuration - единый стандарт /api/v1/<service>
+        // API Configuration - прямые пути к эндпоинтам
         const API_V1 = "/api/v1";
         const AUTH_API = `${API_V1}/auth`;
-        const POSTS_API = `${API_V1}/posts`;
+        const POSTS_API = `${API_V1}/posts`;  // Nginx routing: /api/v1/posts/...
         const CHAT_API = `${API_V1}/chat`;
         const IMEI_API = `${API_V1}/imei`;
-        console.log('🔧 API BASE:', API_V1);
+        console.log('🔧 API Configuration:');
+        console.log('  API_V1:', API_V1);
+        console.log('  POSTS_API:', POSTS_API);
+        console.log('  AUTH_API:', AUTH_API);
+        console.log('  CHAT_API:', CHAT_API);
         
         // Listen for messages from Service Worker (push notification clicks)
         if ('serviceWorker' in navigator) {
@@ -89,6 +93,62 @@
                 }
             });
         }
+
+        /**
+         * Проверяет авторизацию пользователя и обновляет токен если необходимо
+         * Используется при возврате пользователя на страницу
+         */
+        async function checkAuthAndRefresh() {
+            try {
+                console.log('[Product] 🔄 Checking auth status...');
+                
+                // Проверяем текущий статус авторизации
+                const response = await fetch(`${AUTH_API}/me`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include'
+                });
+
+                // Если 401 - пробуем обновить access_token используя refresh_token
+                if (response.status === 401) {
+                    console.log('[Product] 🔑 Token expired, attempting refresh...');
+                    
+                    const refreshResponse = await fetch(`${AUTH_API}/refresh`, {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        credentials: 'include'
+                    });
+
+                    // Если refresh успешен - токен обновлен
+                    if (refreshResponse.ok) {
+                        console.log('[Product] ✅ Token refreshed successfully');
+                    } else {
+                        console.log('[Product] ❌ Refresh failed - user session expired');
+                    }
+                } else if (response.ok) {
+                    console.log('[Product] ✅ User authenticated');
+                }
+            } catch (error) {
+                console.log('[Product] ⚠️ Auth check error:', error);
+            }
+        }
+
+        /**
+         * Обработчик возврата на страницу - проверяет токен при активации вкладки
+         */
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                console.log('[Product] 👁️ Page visible again, checking auth...');
+                checkAuthAndRefresh();
+            }
+        });
+
+        // Проверяем авторизацию при загрузке страницы
+        checkAuthAndRefresh();
     </script>
 </head>
 <body>
@@ -487,12 +547,22 @@
 
             try {
                 console.log(`Загружаем данные поста с ID: ${postId}`);
+                const apiUrl = `${POSTS_API}/iphone?id=${postId}`;
+                console.log('📡 Запрос к API:', apiUrl);
+                
                 // Кешируем данные объявления на 10 минут
                 const response = await cachedFetch(
-                    `${POSTS_API}/iphone?id=${postId}`,
+                    apiUrl,
                     {},
                     10 * 60 * 1000
                 );
+                
+                // Если пост не найден (404) - перенаправляем на 404 страницу
+                if (response.status === 404) {
+                    console.log('Пост не найден, перенаправление на 404');
+                    window.location.href = '/404';
+                    return;
+                }
                 
                 if (!response.ok) {
                     console.error('Ошибка при загрузке поста:', response.status);
@@ -501,7 +571,8 @@
                 }
 
                 currentPostData = await response.json();
-                console.log('Данные поста получены:', currentPostData);
+                // НЕ логируем данные поста в продакшене - могут содержать чувствительную информацию
+                // console.log('Данные поста получены:', currentPostData);
                 
                 // Отображаем информацию о посте
                 updateProductDisplay(currentPostData);
@@ -539,9 +610,28 @@
             document.getElementById('viewCount').textContent = postData.view_count || 0;
             document.getElementById('viewsInfo').style.display = 'block';
             
+            // Если пост неактивен - показываем статус и отключаем действия
             if (!postData.active) {
                 document.getElementById('statusBadge').textContent = '✗ Неактивно';
                 document.getElementById('statusBadge').style.color = '#f44336';
+                
+                // БЕЗОПАСНОСТЬ: Отключаем кнопку чата для неактивных объявлений
+                const chatBtn = document.getElementById('openChatBtn');
+                if (chatBtn) {
+                    chatBtn.disabled = true;
+                    chatBtn.style.opacity = '0.5';
+                    chatBtn.style.cursor = 'not-allowed';
+                    chatBtn.title = '{{ t.chat_unavailable_inactive }}';
+                }
+                
+                // Также можно отключить кнопку покупки
+                const buyBtn = document.getElementById('BuyButon');
+                if (buyBtn) {
+                    buyBtn.disabled = true;
+                    buyBtn.style.opacity = '0.5';
+                    buyBtn.style.cursor = 'not-allowed';
+                    buyBtn.title = '{{ t.buy_unavailable_inactive }}';
+                }
             }
 
             // Заполняем спеки
@@ -649,7 +739,8 @@
                 
                 if (response.ok) {
                     const authorData = await response.json();
-                    console.log('Данные об авторе получены:', authorData);
+                    // НЕ логируем данные автора в продакшене
+                    // console.log('Данные об авторе получены:', authorData);
                     
                     // Сохраняем данные автора для модального окна контакта
                     currentAuthorData = authorData;
@@ -1003,7 +1094,8 @@
                 } else {
                     const error = await response.json();
                     console.error('Ошибка валидации:', error);
-                    console.log('Отправленные данные:', orderData);
+                    // НЕ логируем данные заказа - содержат персональную информацию
+                    // console.log('Отправленные данные:', orderData);
                     
                     // Формируем понятное сообщение об ошибке
                     let errorMessage = 'Ошибка при создании заказа';
@@ -1197,7 +1289,8 @@
                 
                 if (response.ok) {
                     const result = await response.json();
-                    console.log('Жалоба отправлена:', result);
+                    // НЕ логируем результат жалобы - может содержать персональную информацию
+                    // console.log('Жалоба отправлена:', result);
                     
                     // Показываем успешное сообщение
                     successDiv.style.display = 'block';

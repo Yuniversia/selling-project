@@ -135,6 +135,64 @@
                 }
             });
         }
+
+        /**
+         * Проверяет авторизацию пользователя и обновляет токен если необходимо
+         * Используется при возврате пользователя на страницу
+         */
+        async function checkAuthAndRefresh() {
+            try {
+                console.log('[Profile] 🔄 Checking auth status...');
+                
+                // Проверяем текущий статус авторизации
+                const response = await fetch(`${AUTH_API}/me`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include'
+                });
+
+                // Если 401 - пробуем обновить access_token используя refresh_token
+                if (response.status === 401) {
+                    console.log('[Profile] 🔑 Token expired, attempting refresh...');
+                    
+                    const refreshResponse = await fetch(`${AUTH_API}/refresh`, {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        credentials: 'include'
+                    });
+
+                    // Если refresh успешен - токен обновлен
+                    if (refreshResponse.ok) {
+                        console.log('[Profile] ✅ Token refreshed successfully');
+                    } else {
+                        console.log('[Profile] ❌ Refresh failed - user session expired');
+                        // Перенаправляем на главную страницу если сессия истекла
+                        window.location.href = '/';
+                    }
+                } else if (response.ok) {
+                    console.log('[Profile] ✅ User authenticated');
+                }
+            } catch (error) {
+                console.log('[Profile] ⚠️ Auth check error:', error);
+            }
+        }
+
+        /**
+         * Обработчик возврата на страницу - проверяет токен при активации вкладки
+         */
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                console.log('[Profile] 👁️ Page visible again, checking auth...');
+                checkAuthAndRefresh();
+            }
+        });
+
+        // Проверяем авторизацию при загрузке страницы
+        checkAuthAndRefresh();
     </script>
     <script src="/templates/static/seller-chats.js?v=44" defer></script>
     <style>

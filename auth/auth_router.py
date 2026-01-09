@@ -10,7 +10,7 @@ from starlette.responses import RedirectResponse
 
 from typing_extensions import Annotated
 
-from models import UserCreate, Token, User, PublicUser, UserLogin
+from models import UserCreate, Token, User, PublicUser, UserLogin, PublicUserMinimal
 from database import get_session
 from auth_service import (
     register_user,
@@ -36,10 +36,13 @@ oauth.register(
 )
 
 @auth_router.get("/user")
-def get_user(id: int = Query(..., description="ID поста iPhone для получения"),
+def get_user(id: int = Query(..., description="ID пользователя для получения"),
     db: Session = Depends(get_session)):
     """
-    Получает информацию о пользователе по ID."""
+    Получает публичную информацию о пользователе по ID.
+    БЕЗОПАСНО: Возвращает только имя, фамилию, username и аватар.
+    НЕ возвращает чувствительные данные: email, phone, hashed_password.
+    """
 
     try:
         user = get_user_by_id(db, user_id=id)
@@ -48,17 +51,16 @@ def get_user(id: int = Query(..., description="ID поста iPhone для по�
                 content={"detail": "Пользователь не найден"})
             return response
             
+        # Используем безопасную модель без email и phone
         response = JSONResponse(
             content={
-                "username": f"{user.username}",
-                "email": f"{user.email}",
+                "username": user.username,
                 "name": user.name,
                 "surname": user.surname,
                 "avatar_url": user.avatar_url,
-                "phone": user.phone,
-                "posts_count": f"{user.posts_count}",
-                "sells_count": f"{user.sells_count}",
-                "rating": f"{user.rating}",
+                "rating": float(user.rating),
+                "posts_count": user.posts_count,
+                "sells_count": user.sells_count,
                 "joined_date": user.created_at.strftime("%d.%m.%Y")
             })
         return response
