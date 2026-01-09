@@ -7,12 +7,12 @@
     {% include 'seo_meta.html' %}
     {% include 'product_structured_data.html' %}
     <title>{{ page_title }}</title>
-    <link rel="stylesheet" href="/templates/static/styles2.css?v=45">
-    <script src="/templates/static/cache-manager.js?v=45"></script>
-    <script src="/templates/static/auth-interceptor.js?v=45"></script>
+    <link rel="stylesheet" href="/templates/static/styles2.css?v=46">
+    <script src="/templates/static/cache-manager.js?v=46"></script>
+    <script src="/templates/static/auth-interceptor.js?v=46"></script>
     <script src="/templates/static/push-init.js?v=6" defer></script>
-    <script src="/templates/static/notifications.js?v=45" defer></script>
-    <script src="/templates/static/notification-prompt.js?v=45" defer></script>
+    <script src="/templates/static/notifications.js?v=46" defer></script>
+    <script src="/templates/static/notification-prompt.js?v=46" defer></script>
     <script>
         // Global translations object for JavaScript
         window.i18n = {
@@ -56,7 +56,7 @@
             js_sw_open: "{{ t.js_sw_open }}"
         };
     </script>
-    <script src="/templates/static/chat.js?v=45" defer></script>
+    <script src="/templates/static/chat.js?v=46" defer></script>
     <script>
         // API Configuration - прямые пути к эндпоинтам
         const API_V1 = "/api/v1";
@@ -403,8 +403,8 @@
                 <div style="font-size: 13px; color: var(--color-text-light); margin-bottom: 8px;" id="breadcrumb">iPhone</div>
                 <h1 id="productTitle">Загружается...</h1>
                 <div id="viewsInfo" style="font-size: 13px; color: var(--color-text-light); margin-bottom: 15px; display: none;">
-                    👁️ Просмотров: <span id="viewCount">0</span> | 
-                    <span id="statusBadge" style="color: #4CAF50;">✓ Активно</span>
+                    👁️ {{ t.views_count }}: <span id="viewCount">0</span> | 
+                    <span id="statusBadge" style="color: #4CAF50;">✓ {{ t.status_active }}</span>
                 </div>
 
                 <div style="background: #fff; padding: 20px; border-radius: 16px; border: 1px solid var(--color-border); margin-top: 20px;">
@@ -601,6 +601,20 @@
                 return `${memoryGB}GB`;
             }
 
+            // Функция для перевода состояния
+            function translateCondition(condition) {
+                if (!condition) return '—';
+                const conditionMap = {
+                    'New': '{{ t.condition_new }}',
+                    'Like New': '{{ t.condition_like_new }}',
+                    'Minor Defects': '{{ t.condition_minor_defects }}',
+                    'With Defect': '{{ t.condition_with_defect }}',
+                    'For Parts': '{{ t.condition_for_parts }}',
+                    'Used': '{{ t.condition_used }}'
+                };
+                return conditionMap[condition] || condition;
+            }
+
             // Обновляем заголовок и основную информацию
             const model = postData.model || 'iPhone';
             document.getElementById('productTitle').textContent = model;
@@ -612,7 +626,7 @@
             
             // Если пост неактивен - показываем статус и отключаем действия
             if (!postData.active) {
-                document.getElementById('statusBadge').textContent = '✗ Неактивно';
+                document.getElementById('statusBadge').textContent = '✗ {{ t.status_inactive }}';
                 document.getElementById('statusBadge').style.color = '#f44336';
                 
                 // БЕЗОПАСНОСТЬ: Отключаем кнопку чата для неактивных объявлений
@@ -670,7 +684,7 @@
             }
 
             document.getElementById("BuyButon").innerHTML = `{{ t.buy_button }} ${postData.price || '0'} eur`;
-            document.getElementById('specCondition').textContent = postData.condition || '—';
+            document.getElementById('specCondition').textContent = translateCondition(postData.condition);
 
             // Обновляем комплектацию
             document.getElementById('cb_original_box').checked = postData.has_original_box || false;
