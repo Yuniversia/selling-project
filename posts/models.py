@@ -78,6 +78,9 @@ class Iphone(SQLModel, table=True):
 
     images_url: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    # Источник данных IMEI (для прозрачности)
+    imei_data_source: Optional[str] = Field(default=None, max_length=50, description="Source of IMEI data (imei.info, imei.org, cache, mock)")
 
 # Модель для GET ответа (необязательно, но полезно)
 class IphonePublic(BaseModel):
@@ -98,6 +101,9 @@ class IphonePublic(BaseModel):
     
     images_url: Optional[str]
     description: Optional[str]
+    
+    # Источник данных IMEI
+    imei_data_source: Optional[str] = Field(default=None)
 
     # Поля от мошеничествества
     activated: Optional[bool] = Field(default=None)

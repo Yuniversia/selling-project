@@ -592,14 +592,24 @@
                 loadingSubtext.textContent = stage.subtext;
             }
 
-            // Запрашиваем данные с сервера
+            // Запрашиваем данные с нового IMEI сервиса
             try {
-                const response = await fetch(`/api/v1/imei/check-imei?imei=${imei}`);
+                const response = await fetch('/api/v1/imei/check-warranty', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        imei: imei,
+                        check_type: 'warranty'
+                    })
+                });
                 
                 if (!response.ok) {
-                    throw new Error('Не удалось получить данные');
+                    const error = await response.json();
+                    throw new Error(error.detail || 'IMEI check failed');
                 }
-
+                
                 const data = await response.json();
                 
                 // Скрываем загрузку
@@ -609,13 +619,15 @@
                 displayResults(data);
                 
                 // Загружаем похожие товары
-                await loadSimilarProducts(data.model, data.memory);
+                if (data.model && data.memory) {
+                    await loadSimilarProducts(data.model, data.memory);
+                }
                 
             } catch (error) {
-                console.error('Ошибка проверки IMEI:', error);
+                console.error('❌ IMEI check error:', error);
                 loadingSection.style.display = 'none';
-                alert(window.t.js_imei_check_failed);
                 document.getElementById('inputSection').style.display = 'block';
+                alert(window.t.js_imei_check_failed + '\n\n' + error.message);
             }
         }
 
@@ -670,6 +682,26 @@
             document.getElementById('resultSerial').textContent = data.serial_number || window.t.not_found;
             document.getElementById('resultPurchaseDate').textContent = data.purchase_date || window.t.unknown;
             document.getElementById('resultWarranty').textContent = data.warranty_status || window.t.expired;
+
+            // ✅ НОВОЕ: Показываем источник данных и кеш статус
+            const existingSourceInfo = resultSection.querySelector('.source-info');
+            if (existingSourceInfo) {
+                existingSourceInfo.remove();
+            }
+            
+            const sourceInfo = document.createElement('div');
+            sourceInfo.className = 'source-info';
+            sourceInfo.style.cssText = 'margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #007bff;';
+            sourceInfo.innerHTML = `
+                <div style="font-size: 14px; font-weight: 600; color: #495057; margin-bottom: 5px;">
+                    📊 Data source: <strong>${data.source}</strong>
+                    ${data.cached ? '<span style="color: #28a745;">(cached ✓)</span>' : '<span style="color: #17a2b8;">(live)</span>'}
+                </div>
+                <div style="font-size: 12px; color: #6c757d;">
+                    Checked at: ${new Date(data.checked_at).toLocaleString()}
+                </div>
+            `;
+            resultSection.appendChild(sourceInfo);
 
             resultSection.style.display = 'block';
         }

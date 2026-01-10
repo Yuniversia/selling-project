@@ -1,24 +1,38 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
+from sqlmodel import Session
 import sys
 import os
+import logging
 
 # Добавляем путь к модулю iphone_cheker
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from checker import iphone_check, get_balance
+from database import get_session, create_db_and_tables
+from models import IMEICheckRequest, IMEICheckResponse
+from imei_service import IMEIService
+from configs import Configs
 
-# Режим работы: TEST или PRODUCTION
-# Установить через переменную окружения: USE_TEST_MODE=true
-USE_TEST_MODE = os.getenv("USE_TEST_MODE", "true").lower() == "true"
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
 app = FastAPI(
     title="iPhone IMEI Checker Service",
-    description="Сервис проверки IMEI iPhone",
-    version="1.0.0"
+    description="Сервис проверки IMEI iPhone с кешированием (7 дней) и test режимом",
+    version="2.0.0"
 )
 
-print(f"[IMEI Checker] Режим работы: {'TEST (заглушка)' if USE_TEST_MODE else 'PRODUCTION (реальный API)'}")
+logger = logging.getLogger(__name__)
+
+# Создаем таблицы при старте
+@app.on_event("startup")
+def on_startup():
+    create_db_and_tables()
+    mode = "TEST (mock data)" if Configs.USE_TEST_MODE else "PRODUCTION (real API)"
+    logger.info(f"🚀 IMEI Checker Service started in {mode}")
+    logger.info(f"📦 Cache TTL: {Configs.IMEI_CACHE_TTL_DAYS} days")
 
 # CORS
 app.add_middleware(
@@ -29,76 +43,142 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/health")
+
+@app.get("/api/health")
 async def health_check():
     """Health check для Docker"""
-    return {"status": "healthy", "service": "imei-checker"}
+    return {
+        "status": "healthy",
+        "service": "imei-checker",
+        "version": "2.0.0",
+        "test_mode": Configs.USE_TEST_MODE
+    }
 
-@app.get("/balance")
-async def check_balance():
-    """Проверка баланса API ключа"""
-    try:
-        balance = await get_balance()
-        return balance
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/check/{imei}")
-async def check_imei_endpoint(imei: str):
-    """Проверка IMEI номера"""
+@app.post("/api/check-warranty", response_model=IMEICheckResponse)
+async def check_warranty_endpoint(
+    request: IMEICheckRequest,
+    db: Session = Depends(get_session)
+):
+    """
+    Проверка IMEI для imei-check.html страницы
+    Возвращает полные данные с гарантией
+    
+    Args:
+        request: IMEI и параметры проверки
+    
+    Returns:
+        Полная информация о устройстве с гарантией
+    """
     try:
-        # Валидация IMEI (должен быть 15 цифр)
-        if not imei.isdigit() or len(imei) != 15:
-            raise HTTPException(status_code=400, detail="IMEI должен состоять из 15 цифр")
-        
-        # Выбор режима работы
-        if USE_TEST_MODE:
-            # ============ TEST MODE: Заглушка ============
-            print(f"[TEST MODE] Возвращаем заглушку для IMEI: {imei}")
-            response = {
-                "imei": imei,
-                "model": "iPhone 12 Pro Max",
-                "memory": "256GB",
-                "color": "Graphite",
-                "find_my_iphone": False,
-                "activation_lock": False,
-                "simlock": False,
-                "activated": True,
-                "serial_number": "DX3XK0YQG5K7",
-                "purchase_date": "15.03.2021",
-                "warranty_status": "Истекла"
-            }
-        else:
-            # ============ PRODUCTION MODE: Реальный API ============
-            print(f"[PRODUCTION MODE] Проверяем IMEI через API: {imei}")
-            result = await iphone_check(int(imei))
-            
-            if "error" in result:
-                raise HTTPException(status_code=404, detail=result["error"])
-            
-            # Преобразуем в формат для фронтенда
-            response = {
-                "imei": imei,
-                "model": result.get("model", "Неизвестно"),
-                "memory": result.get("memory", "N/A"),
-                "color": result.get("color", "N/A"),
-                "find_my_iphone": result.get("fmi", False),
-                "activation_lock": result.get("icloud", False),
-                "simlock": result.get("simlock", False),
-                "activated": result.get("activated", False),
-                "serial_number": result.get("sn", "—"),
-                "purchase_date": "—",
-                "warranty_status": "—"
-            }
-        
-        return response
-        
-    except HTTPException:
-        raise
+        service = IMEIService(db, test_mode=request.test_mode)
+        result = await service.check_warranty(request.imei, force_test=request.test_mode)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except NotImplementedError as e:
+        raise HTTPException(status_code=501, detail=str(e))
     except Exception as e:
-        print(f"Ошибка проверки IMEI: {e}")
-        raise HTTPException(status_code=500, detail=f"Внутренняя ошибка сервера: {str(e)}")
+        logger.error(f"❌ Warranty check failed: {str(e)}")
+        raise HTTPException(status_code=503, detail=f"IMEI check service unavailable: {str(e)}")
+
+
+@app.post("/api/check-basic", response_model=IMEICheckResponse)
+async def check_basic_endpoint(
+    request: IMEICheckRequest,
+    db: Session = Depends(get_session)
+):
+    """
+    Проверка IMEI для создания поста
+    Возвращает базовые данные устройства
+    
+    Args:
+        request: IMEI и параметры проверки
+    
+    Returns:
+        Базовая информация о устройстве (обязательно должна вернуться)
+    """
+    try:
+        service = IMEIService(db, test_mode=request.test_mode)
+        result = await service.check_basic(request.imei, force_test=request.test_mode)
+        
+        if not result:
+            raise HTTPException(
+                status_code=503,
+                detail="Unable to retrieve IMEI data. Please try again."
+            )
+        
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except NotImplementedError as e:
+        raise HTTPException(status_code=501, detail=str(e))
+    except Exception as e:
+        logger.error(f"❌ Basic check failed: {str(e)}")
+        raise HTTPException(status_code=503, detail=f"IMEI check service unavailable: {str(e)}")
+
+
+@app.get("/api/check/{imei}", response_model=IMEICheckResponse)
+async def check_imei_legacy(
+    imei: str,
+    test_mode: bool = Query(default=None, description="Force test mode"),
+    db: Session = Depends(get_session)
+):
+    """
+    Legacy endpoint для обратной совместимости
+    Используйте POST /api/check-basic или /api/check-warranty
+    """
+    try:
+        use_test = test_mode if test_mode is not None else Configs.USE_TEST_MODE
+        service = IMEIService(db, test_mode=use_test)
+        result = await service.check_basic(imei, force_test=use_test)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except NotImplementedError as e:
+        raise HTTPException(status_code=501, detail=str(e))
+    except Exception as e:
+        logger.error(f"❌ IMEI check failed: {str(e)}")
+        raise HTTPException(status_code=503, detail=f"IMEI check service unavailable: {str(e)}")
+
+
+@app.get("/api/stats")
+async def get_stats(db: Session = Depends(get_session)):
+    """Статистика проверок за последние 24 часа"""
+    from datetime import datetime, timedelta
+    from sqlmodel import select
+    from models import IMEICheckLog
+    
+    yesterday = datetime.utcnow() - timedelta(days=1)
+    
+    statement = select(IMEICheckLog).where(IMEICheckLog.created_at >= yesterday)
+    logs = db.exec(statement).all()
+    
+    if not logs:
+        return {
+            "total_checks": 0,
+            "success_rate": 0,
+            "avg_response_time_ms": 0,
+            "by_source": {}
+        }
+    
+    total = len(logs)
+    success_count = sum(1 for log in logs if log.success)
+    
+    return {
+        "total_checks": total,
+        "success_rate": round(success_count / total * 100, 2),
+        "avg_response_time_ms": round(sum(log.response_time_ms for log in logs) / total, 2),
+        "by_source": {
+            "mock": sum(1 for log in logs if log.source == "mock"),
+            "cache": sum(1 for log in logs if log.source == "cache"),
+            "imei_info": sum(1 for log in logs if log.source == "imei.info"),
+            "imei_org": sum(1 for log in logs if log.source == "imei.org")
+        },
+        "test_mode_checks": sum(1 for log in logs if log.test_mode)
+    }
+
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=5001)
+    uvicorn.run(app, host="0.0.0.0", port=5002)

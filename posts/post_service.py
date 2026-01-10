@@ -2,6 +2,8 @@ from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import HTTPException, status, Depends
 import json
+import httpx
+from configs import Configs
 
 from sqlmodel import Session, select, Field, SQLModel
 
@@ -14,7 +16,8 @@ import os
 # setting path
 sys.path.append('..')
 
-from iphone_cheker import iphone_check
+# IMEI Checker Service URL
+IMEI_CHECKER_SERVICE_URL = os.getenv("IMEI_CHECKER_SERVICE_URL", "http://imei-checker-service:5002")
 
 # Import User model from auth service
 # Добавляем путь к auth директории
@@ -52,46 +55,75 @@ async def add_post(db: Session, post_data: Iphone) -> Iphone:
     """
     Добавляет новый пост в базу данных.
     Фотографии уже загружены в Cloudflare и их URL передается в post_data.images_url
+    Использует новый IMEI Checker Service для проверки IMEI
     """
     
     try:
-        print("Starting iPhone data retrieval...")
-        # Retrieve iPhone data
-        iphone_data = await iphone_check(int(post_data.imei))
+        print(f"[POST SERVICE] Starting IMEI check for: {post_data.imei}")
         
-        # Parse JSON response and update post_data
-        print("iPhone data retrieved:", iphone_data)
-        if iphone_data:
-            # If iphone_data is a JSON string, parse it
-            if isinstance(iphone_data, str):
-                iphone_data = json.loads(iphone_data)
+        # Запрос к новому IMEI сервису
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.post(
+                f"{IMEI_CHECKER_SERVICE_URL}/api/check-basic",
+                json={
+                    "imei": str(post_data.imei),
+                    "check_type": "basic",
+                    "test_mode": Configs.USE_TEST_MODE  # Используем test режим из конфигурации
+                }
+            )
             
-            post_data.serial_number = iphone_data.get("sn")
-            post_data.model = iphone_data.get("model")
-            post_data.color = iphone_data.get("color")
+            if response.status_code != 200:
+                error_detail = response.json().get("detail", "IMEI check failed")
+                print(f"[POST SERVICE] ❌ IMEI check failed: {error_detail}")
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=f"IMEI check failed: {error_detail}"
+                )
             
-            # Конвертируем память из строки в число (GB)
-            memory_str = iphone_data.get("memory")
-            if memory_str:
-                try:
-                    # Извлекаем число из строки типа "128GB", "256 GB", "1TB"
-                    digits = ''.join(filter(str.isdigit, memory_str))
-                    if digits:
-                        memory_value = int(digits)
-                        # Если TB, конвертируем в GB
-                        if 'TB' in memory_str.upper() or 'ТБ' in memory_str.upper():
-                            memory_value *= 1024
-                        post_data.memory = memory_value
-                except (ValueError, AttributeError):
-                    post_data.memory = None
-            
-            post_data.icloud_pair = iphone_data.get("icloud")
-            post_data.simlock = iphone_data.get("simlock")
-            post_data.activated = iphone_data.get("activated")
-            post_data.fmi = iphone_data.get("fmi")
+            imei_data = response.json()
+            print(f"[POST SERVICE] ✅ IMEI check successful (source: {imei_data.get('source')})")
+        
+        # Заполняем данные поста из IMEI service
+        post_data.model = imei_data.get("model")
+        post_data.color = imei_data.get("color")
+        post_data.memory = imei_data.get("memory")  # Уже в числовом формате (GB)
+        post_data.serial_number = imei_data.get("serial_number")
+        
+        # Преобразуем строковые значения в boolean для полей БД
+        # icloud_status: "Clean" -> True, "Locked" -> False, None -> None
+        icloud_status = imei_data.get("icloud_status")
+        if icloud_status:
+            post_data.icloud_pair = icloud_status.lower() in ("clean", "unlocked", "off")
+        else:
+            post_data.icloud_pair = None
+        
+        # simlock: "Unlocked" -> True, "Locked" -> False, bool -> as is
+        simlock_value = imei_data.get("simlock")
+        if isinstance(simlock_value, bool):
+            post_data.simlock = simlock_value
+        elif isinstance(simlock_value, str):
+            post_data.simlock = simlock_value.lower() in ("unlocked", "unlocked")
+        else:
+            post_data.simlock = None
+        
+        # fmi (Find My iPhone): bool или None
+        fmi_value = imei_data.get("fmi") or imei_data.get("find_my_iphone")
+        if isinstance(fmi_value, bool):
+            post_data.fmi = fmi_value
+        else:
+            post_data.fmi = None
+        
+        # Сохраняем источник данных для прозрачности
+        post_data.imei_data_source = imei_data.get("source")
+        post_data.activated = True  # По умолчанию активировано
 
-        print("Post data after iPhone check:", post_data)   
-        print("Post data before database insertion:", post_data)
+        print(f"[POST SERVICE] Post data prepared: model={post_data.model}, memory={post_data.memory}, icloud_pair={post_data.icloud_pair}, simlock={post_data.simlock}")   
+        
+        db.add(post_data)
+        db.commit()
+        db.refresh(post_data)
+        
+        print(f"[POST SERVICE] ✅ Post created successfully (ID: {post_data.id})")
         
         db.add(post_data)
         db.commit()

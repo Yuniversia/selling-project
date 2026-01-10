@@ -86,6 +86,7 @@ services:
       - POST_CF_R2_BUCKET_NAME=${POST_CF_R2_BUCKET_NAME}
       - POST_CF_R2_ACCESS_KEY_ID=${POST_CF_R2_ACCESS_KEY_ID}
       - POST_CF_R2_SECRET_ACCESS_KEY=${POST_CF_R2_SECRET_ACCESS_KEY}
+      - USE_TEST_MODE=${USE_TEST_MODE:-false}
     ports:
       - "${POSTS_PORT:-3000}:${POSTS_PORT:-3000}"
     depends_on:
@@ -142,26 +143,35 @@ services:
       - ./chat/uploads:/app/uploads
       - chat-uploads:/app/uploads/chat-files
 
-  # IMEI Checker Service (Проверка IMEI iPhone)
+  # IMEI Checker Service v2.0 (Проверка IMEI iPhone с кешированием)
   imei-checker-service:
     build:
       context: ./iphone_cheker
       dockerfile: Dockerfile
     container_name: lais-imei-checker
     environment:
-      - PORT=${IMEI_PORT:-5001}
+      - PORT=${IMEI_PORT:-5002}
       - BACKEND_HOST=${BACKEND_HOST:-0.0.0.0}
-      - USE_TEST_MODE=${USE_TEST_MODE:-true}
-      - IMEI_API_KEY=${IMEI_API_KEY}
+      - USE_TEST_MODE=${USE_TEST_MODE:-false}
+      - IMEI_INFO_API_KEY=639d9e49-af3a-475d-98d1-c0b93defabf7
+      - IMEI_ORG_API_KEY=D54qtbpSQaO95nqm2Yl6WaJ3kmnA0uBgICMe2lqXCfjWa2CvQuHhO6qBYFfu
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-pass}@postgres:5432/${POSTGRES_DB:-lais_marketplace}
+      - IMEI_CACHE_TTL_DAYS=${IMEI_CACHE_TTL_DAYS:-7}
+      - API_TIMEOUT_SECONDS=30
+      - SECRET_KEY=${SECRET_KEY:-My secret key}
+      - TOKEN_ALGORITHM=${TOKEN_ALGORITHM:-HS256}
     ports:
-      - "${IMEI_PORT:-5001}:${IMEI_PORT:-5001}"
+      - "${IMEI_PORT:-5001}:5002"
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - lais-network
     restart: unless-stopped
     volumes:
       - ./iphone_cheker:/app
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:${IMEI_PORT:-5001}/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:5002/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3

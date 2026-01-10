@@ -31,4 +31,6 @@ class Configs:
     POST_CF_R2_HASH = os.getenv('POST_CF_R2_HASH', CF_ACCOUNT_HASH)
     POSTS_R2_ACCESS_KEY_ID = os.getenv('POST_CF_R2_ACCESS_KEY_ID')
     POSTS_R2_SECRET_ACCESS_KEY = os.getenv('POST_CF_R2_SECRET_ACCESS_KEY', CF_R2_SECRET_ACCESS_KEY)
-    POSTS_R2_BUCKET_NAME = os.getenv('POST_CF_R2_BUCKET_NAME', 'lais-post-service')
+    POSTS_R2_BUCKET_NAME = os.getenv('POST_CF_R2_BUCKET_NAME', 'lais-post-service')    
+    # IMEI Service Configuration
+    USE_TEST_MODE = os.getenv("USE_TEST_MODE", "false").lower() == "true"
