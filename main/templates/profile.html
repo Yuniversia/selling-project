@@ -546,13 +546,13 @@
                 <button class="filter-btn active" data-filter="all" onclick="filterReports('all')">{{ t.filter_all }}</button>
                 <button class="filter-btn" data-filter="pending" onclick="filterReports('pending')">{{ t.filter_pending }}</button>
                 <button class="filter-btn" data-filter="reviewed" onclick="filterReports('reviewed')">{{ t.filter_reviewed }}</button>
-                <button class="filter-btn" data-filter="resolved" onclick="filterReports('resolved')">Решенные</button>
-                <button class="filter-btn" data-filter="rejected" onclick="filterReports('rejected')">Отклоненные</button>
+                <button class="filter-btn" data-filter="resolved" onclick="filterReports('resolved')">{{ t.filter_resolved }}</button>
+                <button class="filter-btn" data-filter="rejected" onclick="filterReports('rejected')">{{ t.filter_rejected }}</button>
             </div>
 
             <!-- Список жалоб -->
             <div id="reportsList" style="flex: 1; overflow-y: auto; border: 1px solid var(--color-border); border-radius: 12px; padding: 20px;">
-                <div style="text-align: center; color: var(--color-text-light);">Загрузка...</div>
+                <div style="text-align: center; color: var(--color-text-light);">{{ t.reports_loading }}</div>
             </div>
         </div>
     </div>
@@ -561,7 +561,7 @@
     <div id="reportDetailModal" class="modal" style="display: none;">
         <div class="modal-content" style="max-width: 700px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2 style="margin: 0;">Жалоба #<span id="reportDetailId">0</span></h2>
+                <h2 style="margin: 0;">{{ t.report_number }} #<span id="reportDetailId">0</span></h2>
                 <button onclick="closeReportDetailModal()" style="background: none; border: none; font-size: 28px; cursor: pointer; color: #999;">×</button>
             </div>
 
@@ -570,14 +570,14 @@
             </div>
 
             <div style="display: flex; gap: 12px; margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--color-border);">
-                <button onclick="goToPost()" class="btn btn-outline" style="flex: 1;">Перейти к объявлению</button>
-                <button onclick="deactivatePostFromReport()" class="btn btn-outline" style="flex: 1; color: #ff3b30; border-color: #ff3b30;">Деактивировать пост</button>
+                <button onclick="goToPost()" class="btn btn-outline" style="flex: 1;">{{ t.go_to_listing }}</button>
+                <button onclick="deactivatePostFromReport()" class="btn btn-outline" style="flex: 1; color: #ff3b30; border-color: #ff3b30;">{{ t.deactivate_post }}</button>
             </div>
 
             <div style="display: flex; gap: 12px; margin-top: 12px;">
-                <button onclick="updateReportStatus('reviewed')" class="btn btn-outline" style="flex: 1;">Просмотрено</button>
-                <button onclick="updateReportStatus('resolved')" class="btn btn-primary" style="flex: 1; background: #34c759;">Решено</button>
-                <button onclick="updateReportStatus('rejected')" class="btn btn-outline" style="flex: 1; color: #999;">Отклонить</button>
+                <button onclick="updateReportStatus('reviewed')" class="btn btn-outline" style="flex: 1;">{{ t.reviewed_status }}</button>
+                <button onclick="updateReportStatus('resolved')" class="btn btn-primary" style="flex: 1; background: #34c759;">{{ t.resolved_status }}</button>
+                <button onclick="updateReportStatus('rejected')" class="btn btn-outline" style="flex: 1; color: #999;">{{ t.reject_status }}</button>
             </div>
         </div>
     </div>
@@ -620,7 +620,11 @@
             post_inactive: "{{ t.post_inactive }}",
             anonymous_reporter: "{{ t.anonymous_reporter }}",
             user_prefix: "{{ t.user_prefix }}",
-            moderator_prefix: "{{ t.moderator_prefix }}"
+            moderator_prefix: "{{ t.moderator_prefix }}",
+            reviewed_status: "{{ t.reviewed_status }}",
+            resolved_status: "{{ t.resolved_status }}",
+            report_on_listing: "{{ t.report_on_listing }}",
+            error_prefix: "{{ t.error_prefix }}"
         };
         
         // Функция инициализации профиля
@@ -643,7 +647,7 @@
                 renderUserData(user);
 
             } catch (err) {
-                console.error("Ошибка загрузки профиля:", err);
+                console.error("{{ t.loading_profile_error }}:", err);
                 // Можно показать уведомление об ошибке
             }
         }
@@ -651,7 +655,7 @@
         // Функция отрисовки данных
         function renderUserData(user) {
             // -- Блок Карточки --
-            document.getElementById('usernameDisplay').textContent = user.username || "Пользователь";
+            document.getElementById('usernameDisplay').textContent = user.username || "{{ t.default_user }}";
             
             // Генерация аватара
             const avatarUrl = user.avatar_url || `https://ui-avatars.com/api/?name=${user.username}&background=0D8ABC&color=fff&size=256`;
@@ -807,7 +811,7 @@
             phoneError.style.display = 'none';
             successMessage.style.display = 'none';
             
-            btn.innerText = "Сохранение...";
+            btn.innerText = "{{ t.saving }}";
             btn.disabled = true;
 
             try {
@@ -828,7 +832,7 @@
                 const result = await response.json();
 
                 if (response.ok) {
-                    btn.innerText = "Сохранено!";
+                    btn.innerText = "{{ t.saved }}";
                     btn.style.backgroundColor = "#34c759";
                     successMessage.style.display = 'block';
                     
@@ -1024,10 +1028,10 @@
             document.getElementById('reportDetailId').textContent = reportId;
             
             const statusText = {
-                'pending': 'На рассмотрении',
-                'reviewed': 'Просмотрено',
-                'resolved': 'Решено',
-                'rejected': 'Отклонено'
+                'pending': window.t.filter_pending,
+                'reviewed': window.t.reviewed_status,
+                'resolved': window.t.resolved_status,
+                'rejected': window.t.filter_rejected
             }[report.status];
             
             const date = new Date(report.created_at).toLocaleString('ru-RU', {
@@ -1105,7 +1109,7 @@
         async function deactivatePostFromReport() {
             if (!currentPostId) return;
             
-            if (!confirm('Вы уверены, что хотите деактивировать это объявление?')) return;
+            if (!confirm(window.t.js_confirm_deactivate)) return;
             
             try {
                 const response = await fetch(`${POSTS_API}/admin/posts/${currentPostId}/deactivate`, {
@@ -1114,16 +1118,16 @@
                 });
                 
                 if (response.ok) {
-                    alert('Объявление успешно деактивировано');
+                    alert(window.t.js_post_deactivated);
                     await loadReports();
                     closeReportDetailModal();
                 } else {
                     const error = await response.json();
-                    alert('Ошибка: ' + (error.detail || 'Не удалось деактивировать'));
+                    alert(window.t.error_prefix + ' ' + (error.detail || window.t.deactivate_error));
                 }
             } catch (error) {
                 console.error('Ошибка деактивации:', error);
-                alert('Ошибка подключения');
+                alert(window.t.js_connection_error);
             }
         }
 

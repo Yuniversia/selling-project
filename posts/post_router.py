@@ -406,7 +406,8 @@ def router_list(
     filters = []
     
     if model:
-        filters.append(Iphone.model == model)
+        # Регистронезависимое сравнение для модели
+        filters.append(Iphone.model.ilike(model))
     
     if batery_min is not None:
         filters.append(Iphone.batery >= batery_min)

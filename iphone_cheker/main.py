@@ -1,9 +1,11 @@
-from fastapi import FastAPI, HTTPException, Depends, Query
+from urllib import request
+from fastapi import FastAPI, HTTPException, Depends, Query, Body
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session
 import sys
 import os
 import logging
+from typing import Optional
 
 # Добавляем путь к модулю iphone_cheker
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -55,8 +57,8 @@ async def health_check():
     }
 
 
-@app.post("/api/check-warranty", response_model=IMEICheckResponse)
-async def check_warranty_endpoint(
+@app.post("/api/check-warranty")
+async def check_warranty(
     request: IMEICheckRequest,
     db: Session = Depends(get_session)
 ):
@@ -65,14 +67,18 @@ async def check_warranty_endpoint(
     Возвращает полные данные с гарантией
     
     Args:
-        request: IMEI и параметры проверки
+        request: IMEI и параметры проверки (включая preferred_source)
+        db: Сессия базы данных
     
     Returns:
         Полная информация о устройстве с гарантией
     """
     try:
         service = IMEIService(db, test_mode=request.test_mode)
-        result = await service.check_warranty(request.imei, force_test=request.test_mode)
+        result = await service.check_warranty(
+            request.imei, 
+            preferred_source=request.preferred_source
+        )
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -100,7 +106,11 @@ async def check_basic_endpoint(
     """
     try:
         service = IMEIService(db, test_mode=request.test_mode)
-        result = await service.check_basic(request.imei, force_test=request.test_mode)
+        result = await service.check_basic(
+            request.imei, 
+            force_test=request.test_mode,
+            preferred_source=request.preferred_source
+        )
         
         if not result:
             raise HTTPException(

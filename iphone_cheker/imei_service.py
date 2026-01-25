@@ -1,7 +1,7 @@
 """Основная логика IMEI Service с кешированием и fallback"""
 from sqlmodel import Session, select
 from datetime import datetime, timedelta
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 import time
 import logging
 
@@ -22,6 +22,7 @@ class IMEIService:
     def __init__(self, db: Session, test_mode: bool = None):
         self.db = db
         self.test_mode = test_mode if test_mode is not None else Configs.USE_TEST_MODE
+        self.logger = logging.getLogger("imei_service")
         
         # Инициализируем источники данных
         if self.test_mode:
@@ -54,96 +55,65 @@ class IMEIService:
             logger.info(f"✅ IMEI Service initialized in PRODUCTION MODE with {len(self.sources)} source(s)")
 
     
-    async def check_warranty(self, imei: str, force_test: bool = False) -> IMEICheckResponse:
+    async def check_warranty(
+        self, 
+        imei: str, 
+        preferred_source: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
         """
-        Проверка для imei-check.html страницы
-        Приоритет: cache → источник данных
-        
-        Args:
-            imei: 15-значный IMEI
-            force_test: принудительно использовать test режим
-        
-        Returns:
-            IMEICheckResponse с полными данными
+        Проверка warranty с кешированием и fallback
+        preferred_source: "imei.info" или "imei.org"
         """
-        start_time = time.time()
-        
-        # 1. Валидация IMEI
-        if not validate_imei(imei):
-            logger.error(f"❌ Invalid IMEI checksum: {imei}")
-            self._log_check(imei, "validation", "warranty", False, 0, "Invalid IMEI checksum")
-            raise ValueError("Invalid IMEI checksum (Luhn algorithm failed)")
-        
-        # 2. Проверка кеша
+        # 1. Проверяем кеш ПЕРЕД обращением к API
         cached = self._get_from_cache(imei)
         if cached and not self._is_expired(cached):
-            logger.info(f"✅ Cache HIT for IMEI: {imei} (source: {cached.source})")
-            response = self._cache_to_response(cached, cached=True)
-            self._log_check(imei, "cache", "warranty", True, (time.time() - start_time) * 1000)
-            return response
+            self.logger.info(f"✅ Cache HIT for IMEI: {imei} (source: {cached.source})")
+            return self._cache_to_response(cached, cached=True)
         
-        # 3. Получение данных от источника
-        use_test = force_test or self.test_mode
+        # 2. Определяем порядок источников
+        if preferred_source == "imei.info":
+            sources_order = ["imei.info", "imei.org"]
+        elif preferred_source == "imei.org":
+            sources_order = ["imei.org", "imei.info"]
+        else:
+            # По умолчанию - сначала дешевый
+            sources_order = ["imei.info", "imei.org"]
         
-        if use_test:
-            # Mock данные
+        # 3. Пробуем источники по порядку
+        for source_name in sources_order:
+            # Ищем источник по имени в списке
+            source = next((s for s in self.sources if s.get_source_name() == source_name), None)
+            if not source:
+                continue
+                
             try:
-                data = await self.mock_source.check_warranty(imei)
-                response_time = (time.time() - start_time) * 1000
+                self.logger.info(f"🔍 Trying {source_name} for warranty check: {imei}")
+                data = await source.check_warranty(imei)
                 
                 if data:
-                    logger.info(f"✅ Mock warranty check successful: {imei}")
+                    self.logger.info(f"✅ {source_name} warranty check successful: {imei}")
+                    # Сохраняем в кеш
                     self._save_to_cache(imei, data)
-                    self._log_check(imei, "mock", "warranty", True, response_time)
+                    # Добавляем source и возвращаем
+                    data["source"] = source_name
                     return self._dict_to_response(data, cached=False)
-                else:
-                    raise Exception("Mock source returned no data")
-                    
             except Exception as e:
-                logger.error(f"❌ Mock warranty check failed: {str(e)}")
-                response_time = (time.time() - start_time) * 1000
-                self._log_check(imei, "mock", "warranty", False, response_time, str(e))
-                raise Exception(f"IMEI check failed: {str(e)}")
-        else:
-            # Production режим с fallback логикой
-            if not self.sources:
-                raise Exception("No API sources configured. Add IMEI_INFO_API_KEY or IMEI_ORG_API_KEY")
-            
-            # Пытаемся все источники по очереди
-            for source in self.sources:
-                try:
-                    logger.info(f"🔍 Trying {source.get_source_name()} for warranty check: {imei}")
-                    data = await source.check_warranty(imei)
-                    response_time = (time.time() - start_time) * 1000
-                    
-                    if data:
-                        logger.info(f"✅ {source.get_source_name()} warranty check successful: {imei}")
-                        self._save_to_cache(imei, data)
-                        self._log_check(imei, source.get_source_name(), "warranty", True, response_time)
-                        return self._dict_to_response(data, cached=False)
-                    else:
-                        logger.warning(f"⚠️ {source.get_source_name()} returned no data, trying next source")
-                        
-                except Exception as e:
-                    logger.error(f"❌ {source.get_source_name()} warranty check failed: {str(e)}")
-                    response_time = (time.time() - start_time) * 1000
-                    self._log_check(imei, source.get_source_name(), "warranty", False, response_time, str(e))
-                    # Продолжаем со следующим источником
-                    continue
-            
-            # Если все источники не сработали
-            raise Exception(f"All API sources failed for IMEI: {imei}")
+                self.logger.error(f"❌ {source_name} failed: {e}")
+                continue
+        
+        return None
 
     
-    async def check_basic(self, imei: str, force_test: bool = False) -> IMEICheckResponse:
+    async def check_basic(self, imei: str, force_test: bool = False, preferred_source: Optional[str] = None) -> IMEICheckResponse:
         """
         Проверка для создания поста
-        Приоритет: cache → источник данных
+        Приоритет: cache → preferred_source → fallback источники
         ОБЯЗАТЕЛЬНО должен вернуть данные!
         
         Args:
             imei: 15-значный IMEI
             force_test: принудительно использовать test режим
+            preferred_source: предпочтительный источник ("imei.info" или "imei.org")
         
         Returns:
             IMEICheckResponse с базовыми данными
@@ -187,12 +157,27 @@ class IMEIService:
                 self._log_check(imei, "mock", "basic", False, response_time, str(e))
                 raise Exception(f"IMEI check failed: {str(e)}")
         else:
-            # Production режим с fallback логикой
+            # Production режим с fallback логикой и поддержкой preferred_source
             if not self.sources:
                 raise Exception("No API sources configured. Add IMEI_INFO_API_KEY or IMEI_ORG_API_KEY")
             
+            # Сортировка источников по preferred_source (аналогично check_warranty)
+            sources_to_try = self.sources[:]
+            if preferred_source:
+                # Ставим preferred источник на первое место
+                preferred_idx = None
+                for i, source in enumerate(sources_to_try):
+                    if source.get_source_name().lower() == preferred_source.lower():
+                        preferred_idx = i
+                        break
+                
+                if preferred_idx is not None:
+                    # Перемещаем preferred источник в начало
+                    sources_to_try.insert(0, sources_to_try.pop(preferred_idx))
+                    logger.info(f"🎯 Preferred source set: {preferred_source}")
+            
             # Пытаемся все источники по очереди
-            for source in self.sources:
+            for source in sources_to_try:
                 try:
                     logger.info(f"🔍 Trying {source.get_source_name()} for basic check: {imei}")
                     data = await source.check_basic(imei)
@@ -278,7 +263,7 @@ class IMEIService:
             activation_lock=cache.activation_lock,
             find_my_iphone=cache.fmi,  # Алиас
             sim_lock=cache.fmi if cache.simlock and "lock" in cache.simlock.lower() else False,
-            source=cache.source,
+            source=cache.source or "unknown",  # Источник из кеша
             checked_at=cache.checked_at,
             cached=cached
         )

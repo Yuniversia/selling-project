@@ -9,6 +9,7 @@ class IMEICheckRequest(BaseModel):
     imei: str = Field(..., min_length=15, max_length=15, pattern=r"^\d{15}$")
     check_type: Literal["warranty", "basic"] = "basic"
     test_mode: bool = False  # Включить тестовый режим (mock данные)
+    preferred_source: Optional[str] = None  # "imei.info" или "imei.org"
 
 
 class IMEICheckResponse(BaseModel):

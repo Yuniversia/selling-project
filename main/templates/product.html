@@ -2,7 +2,7 @@
 <html lang="{{ lang }}">
 <head>
     {% set page_title = post.model + " " + post.memory + "GB - LAIS Marketplace" if post else t.site_name %}
-    {% set page_description = "Купить " + post.model + " " + post.memory + "GB, состояние " + post.condition + ", батарея " + post.batery + "%. Цена: " + post.price|string + "€" if post else "Лучшие предложения iPhone на LAIS Marketplace" %}
+    {% set page_description = t.buy_prefix + " " + post.model + " " + post.memory + "GB, " + t.condition + " " + post.condition + ", " + t.battery + " " + post.batery + "%. " + t.price + ": " + post.price|string + "€" if post else t.best_iphone_offers %}
     {% set page_image = post.photos[0] if post and post.photos else "https://test.yuniversia.eu/static/images/og-default.jpg" %}
     {% include 'seo_meta.html' %}
     {% include 'product_structured_data.html' %}
@@ -344,7 +344,62 @@
                 from { opacity: 0; transform: translateY(10px); }
                 to { opacity: 1; transform: translateY(0); }
             }
+
+            /* Стили для кнопки детальной информации */
+            #showDetailedInfoBtn {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                border: none;
+                transition: all 0.3s ease;
+                font-weight: 500;
+            }
+
+            #showDetailedInfoBtn:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            }
+
+            #showDetailedInfoBtn:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+                transform: none;
+            }
+
+            /* Стили для блока детальной информации */
+            #detailedInfoBlock {
+                animation: slideDown 0.4s ease;
+            }
+
+            @keyframes slideDown {
+                from {
+                    opacity: 0;
+                    transform: translateY(-10px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+
+            #detailedInfoBlock .spec-row {
+                padding: 10px 0;
+                border-bottom: 1px solid #e0e0e0;
+            }
+
+            #detailedInfoBlock .spec-row:last-of-type {
+                border-bottom: none;
+            }
         </style>
+
+        <!-- Alert Modal -->
+        <div id="alertModal" class="modal">
+            <div class="modal-content" style="max-width: 400px; text-align: center;">
+                <div id="alertIcon" style="font-size: 48px; margin-bottom: 16px;"></div>
+                <h3 id="alertTitle" style="margin-bottom: 12px; font-size: 18px;"></h3>
+                <p id="alertMessage" style="color: var(--color-text-light); margin-bottom: 24px; line-height: 1.6;"></p>
+                <button id="alertOkBtn" class="btn btn-primary" style="width: 100%; padding: 12px;">OK</button>
+            </div>
+        </div>
 
         <!-- Report Modal -->
         <div id="reportModal" class="modal">
@@ -391,7 +446,7 @@
             
             <div class="gallery-container">
                 <div class="main-image" style="display: flex; align-items: center; justify-content: center; color: #999; cursor: pointer;">
-                    <img id="mainProductImage" src="" alt="Фото товара" style="width: 100%; height: 100%; object-fit: contain; display: none;">
+                    <img id="mainProductImage" src="" alt="{{ t.photo_alt }}" style="width: 100%; height: 100%; object-fit: contain; display: none;">
                     <svg id="placeholderImage" width="64" height="64" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
                 </div>
                 <div class="thumbs" id="thumbnailsContainer">
@@ -491,15 +546,15 @@
                         <span class="spec-label">IMEI</span>
                         <span class="spec-value" id="specIMEI">—</span>
                     </div>
-                    <div class="spec-row" id="fmiRow" >
+                    <div class="spec-row" id="fmiRow" style="display: none;">
                         <span class="spec-label">{{ t.fmi_status }}</span>
                         <span class="spec-value" id="specFMI">—</span>
                     </div>
-                    <div class="spec-row" id="icloudRow">
+                    <div class="spec-row" id="icloudRow" style="display: none;">
                         <span class="spec-label">{{ t.icloud_lock }}</span>
                         <span class="spec-value" id="specICloud">—</span>
                     </div>
-                    <div class="spec-row" id="simlockRow">
+                    <div class="spec-row" id="simlockRow" style="display: none;">
                         <span class="spec-label">{{ t.simlock }}</span>
                         <span class="spec-value" id="specSimlock">—</span>
                     </div>
@@ -507,6 +562,29 @@
                         <span class="spec-label">{{ t.activated }}</span>
                         <span class="spec-value" id="specActivated">—</span>
                     </div>
+                </div>
+
+                <!-- Кнопка для показа детальной информации -->
+                <button id="showDetailedInfoBtn" class="btn btn-secondary" style="width: 100%; margin-top: 12px; padding: 12px; font-size: 14px;">
+                    🔒 {{ t.show_detailed_info or 'Показать детальную информацию' }}
+                </button>
+
+                <!-- Скрытый блок с детальной информацией -->
+                <div id="detailedInfoBlock" style="display: none; margin-top: 16px; background: #f8f9fa; padding: 20px; border-radius: 12px; border: 1px solid var(--color-border);">
+                    <h4 style="margin-bottom: 12px; font-size: 15px; color: var(--color-text);">📊 {{ t.detailed_specs or 'Детальные характеристики' }}</h4>
+                    <div class="spec-row">
+                        <span class="spec-label">{{ t.fmi_status }}</span>
+                        <span class="spec-value" id="detailedFMI">—</span>
+                    </div>
+                    <div class="spec-row">
+                        <span class="spec-label">{{ t.icloud_lock }}</span>
+                        <span class="spec-value" id="detailedICloud">—</span>
+                    </div>
+                    <div class="spec-row">
+                        <span class="spec-label">{{ t.simlock }}</span>
+                        <span class="spec-value" id="detailedSimlock">—</span>
+                    </div>
+                    <p style="font-size: 12px; color: #666; margin-top: 12px; margin-bottom: 0;">✅ {{ t.info_unlocked or 'Информация разблокирована' }}</p>
                 </div>
 
                 <div style="background: #fff; padding: 20px; border-radius: 16px; border: 1px solid var(--color-border);">
@@ -666,22 +744,31 @@
                 }
             });
 
-            // Дополнительные спеки (если есть данные)
+            // Дополнительные спеки (если есть данные) - теперь заполняем скрытые элементы
             if (postData.fmi !== null && postData.fmi !== undefined) {
-                document.getElementById('specFMI').textContent = postData.fmi ? '{{ t.fmi_lost }}' : '{{ t.fmi_clean }}';
+                const fmiText = postData.fmi ? '{{ t.fmi_lost }}' : '{{ t.fmi_clean }}';
+                document.getElementById('specFMI').textContent = fmiText;
+                document.getElementById('detailedFMI').textContent = fmiText;
             }
 
             if (postData.icloud_pair !== null && postData.icloud_pair !== undefined) {
-                document.getElementById('specICloud').textContent = postData.icloud_pair ? '{{ t.icloud_locked }}' : '{{ t.icloud_unlocked }}';
+                const icloudText = postData.icloud_pair ? '{{ t.icloud_locked }}' : '{{ t.icloud_unlocked }}';
+                document.getElementById('specICloud').textContent = icloudText;
+                document.getElementById('detailedICloud').textContent = icloudText;
             }
 
             if (postData.simlock !== null && postData.simlock !== undefined) {
-                document.getElementById('specSimlock').textContent = postData.simlock ? '{{ t.simlock_yes }}' : '{{ t.simlock_no }}';
+                const simlockText = postData.simlock ? '{{ t.simlock_yes }}' : '{{ t.simlock_no }}';
+                document.getElementById('specSimlock').textContent = simlockText;
+                document.getElementById('detailedSimlock').textContent = simlockText;
             }
 
             if (postData.activated !== null && postData.activated !== undefined) {
                 document.getElementById('specActivated').textContent = postData.activated ? '{{ t.device_activated }}' : '{{ t.device_not_activated }}';
             }
+
+            // Инициализация кнопки показа детальной информации
+            initDetailedInfoButton();
 
             document.getElementById("BuyButon").innerHTML = `{{ t.buy_button }} ${postData.price || '0'} eur`;
             document.getElementById('specCondition').textContent = translateCondition(postData.condition);
@@ -912,6 +999,75 @@
 
         // Модальные окна для покупки и контакта
         let currentAuthorData = null;
+        let detailedInfoUnlocked = false; // Флаг оплаты доступа к детальной информации
+
+        // Функция инициализации кнопки показа детальной информации
+        function initDetailedInfoButton() {
+            const showDetailedInfoBtn = document.getElementById('showDetailedInfoBtn');
+            const detailedInfoBlock = document.getElementById('detailedInfoBlock');
+            
+            if (!showDetailedInfoBtn || !detailedInfoBlock) return;
+
+            showDetailedInfoBtn.addEventListener('click', async () => {
+                // Если информация уже разблокирована, просто показываем/скрываем
+                if (detailedInfoUnlocked) {
+                    if (detailedInfoBlock.style.display === 'none') {
+                        detailedInfoBlock.style.display = 'block';
+                        showDetailedInfoBtn.innerHTML = '🔓 {{ t.hide_detailed_info }}';
+                    } else {
+                        detailedInfoBlock.style.display = 'none';
+                        showDetailedInfoBtn.innerHTML = '🔓 {{ t.show_detailed_info }}';
+                    }
+                    return;
+                }
+
+                // Если ещё не оплачено - показываем модальное окно оплаты
+                const confirmed = confirm(
+                    '{{ t.detailed_info_payment_prompt }}'
+                );
+
+                if (!confirmed) return;
+
+                // Имитация процесса оплаты (здесь нужно интегрировать реальный платёжный шлюз)
+                showDetailedInfoBtn.disabled = true;
+                showDetailedInfoBtn.innerHTML = '⏳ {{ t.processing }}';
+
+                try {
+                    // TODO: Здесь должен быть реальный запрос к платёжному API
+                    // Пример: const paymentResult = await processPayment(2.00);
+                    
+                    // Симуляция задержки оплаты
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+
+                    // После успешной оплаты
+                    detailedInfoUnlocked = true;
+                    detailedInfoBlock.style.display = 'block';
+                    showDetailedInfoBtn.innerHTML = '🔓 {{ t.hide_detailed_info }}';
+                    showDetailedInfoBtn.disabled = false;
+
+                    // Можно сохранить статус оплаты в localStorage
+                    const productId = new URLSearchParams(window.location.search).get('id');
+                    if (productId) {
+                        localStorage.setItem(`detailed_info_unlocked_${productId}`, 'true');
+                    }
+
+                    showAlert('{{ t.payment_success }}', 'success');
+
+                } catch (error) {
+                    console.error('Ошибка оплаты:', error);
+                    showAlert('{{ t.payment_error }}', 'error');
+                    showDetailedInfoBtn.disabled = false;
+                    showDetailedInfoBtn.innerHTML = '🔒 {{ t.show_detailed_info }}';
+                }
+            });
+
+            // Проверяем, была ли уже оплата для этого продукта
+            const productId = new URLSearchParams(window.location.search).get('id');
+            if (productId && localStorage.getItem(`detailed_info_unlocked_${productId}`) === 'true') {
+                detailedInfoUnlocked = true;
+                showDetailedInfoBtn.innerHTML = '🔓 {{ t.show_detailed_info }}';
+            }
+        }
 
         async function openPurchaseModal() {
             // Получаем текущую цену из элемента на странице
@@ -1138,7 +1294,7 @@
         // Обработка оплаты (ЗАГЛУШКА)
         async function processPayment() {
             if (!currentOrderId) {
-                alert('Ошибка: заказ не найден');
+                showAlert('Заказ не найден', 'error');
                 return;
             }
 
@@ -1186,7 +1342,7 @@
         // Обработчик кнопки чата
         document.getElementById('openChatBtn').addEventListener('click', async () => {
             if (!postId) {
-                alert('{{ t.js_product_not_found }}');
+                showAlert('{{ t.js_product_not_found }}', 'error');
                 return;
             }
             
@@ -1202,11 +1358,11 @@
                 if (postData.author_id && window.chatManager) {
                     window.chatManager.openChat(postData.author_id, parseInt(postId));
                 } else {
-                    alert('{{ t.js_chat_open_failed }}');
+                    showAlert('{{ t.js_chat_open_failed }}', 'error');
                 }
             } catch (error) {
                 console.error('Ошибка при открытии чата:', error);
-                alert('{{ t.js_chat_error }}');
+                showAlert('{{ t.js_chat_error }}', 'error');
             }
         });
 
@@ -1236,7 +1392,7 @@
                 if (response.ok) {
                     const data = await response.json();
                     if (data.has_reported) {
-                        alert('Вы уже отправили жалобу на это объявление');
+                        showAlert('Вы уже отправили жалобу на это объявление', 'warning');
                         return;
                     }
                 }
@@ -1357,15 +1513,15 @@
                 });
                 
                 if (response.ok) {
-                    alert('✓ Объявление успешно деактивировано');
-                    location.reload();
+                    showAlert('Объявление успешно деактивировано', 'success');
+                    setTimeout(() => location.reload(), 1000);
                 } else {
                     const error = await response.json();
-                    alert('Ошибка: ' + (error.detail || 'Не удалось деактивировать'));
+                    showAlert('Ошибка: ' + (error.detail || 'Не удалось деактивировать'), 'error');
                 }
             } catch (error) {
                 console.error('Ошибка:', error);
-                alert('Ошибка подключения');
+                showAlert('Ошибка подключения', 'error');
             }
         });
 
@@ -1380,15 +1536,15 @@
                 });
                 
                 if (response.ok) {
-                    alert('✓ Объявление успешно активировано');
-                    location.reload();
+                    showAlert('Объявление успешно активировано', 'success');
+                    setTimeout(() => location.reload(), 1000);
                 } else {
                     const error = await response.json();
-                    alert('Ошибка: ' + (error.detail || 'Не удалось активировать'));
+                    showAlert('Ошибка: ' + (error.detail || 'Не удалось активировать'), 'error');
                 }
             } catch (error) {
                 console.error('Ошибка:', error);
-                alert('Ошибка подключения');
+                showAlert('Ошибка подключения', 'error');
             }
         });
         
@@ -1399,6 +1555,51 @@
         }
         
         {% endif %}
+
+        // === УНИВЕРСАЛЬНОЕ МОДАЛЬНОЕ ОКНО ДЛЯ СООБЩЕНИЙ ===
+        function showAlert(message, type = 'info', title = '') {
+            const modal = document.getElementById('alertModal');
+            const icon = document.getElementById('alertIcon');
+            const titleEl = document.getElementById('alertTitle');
+            const messageEl = document.getElementById('alertMessage');
+            const okBtn = document.getElementById('alertOkBtn');
+            
+            // Устанавливаем иконку и заголовок в зависимости от типа
+            const types = {
+                'success': { icon: '✅', title: title || '{{ t.success }}', color: '#34c759' },
+                'error': { icon: '❌', title: title || '{{ t.error }}', color: '#ff3b30' },
+                'warning': { icon: '⚠️', title: title || '{{ t.warning }}', color: '#ff9500' },
+                'info': { icon: 'ℹ️', title: title || '{{ t.info }}', color: '#007AFF' }
+            };
+            
+            const config = types[type] || types['info'];
+            icon.textContent = config.icon;
+            titleEl.textContent = config.title;
+            titleEl.style.color = config.color;
+            messageEl.textContent = message;
+            
+            // Показываем модальное окно
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+            
+            // Обработчик закрытия
+            const closeModal = () => {
+                modal.style.display = 'none';
+                document.body.style.overflow = '';
+                okBtn.removeEventListener('click', closeModal);
+            };
+            
+            okBtn.addEventListener('click', closeModal);
+            
+            // Закрытие по Escape
+            const escHandler = (e) => {
+                if (e.key === 'Escape') {
+                    closeModal();
+                    document.removeEventListener('keydown', escHandler);
+                }
+            };
+            document.addEventListener('keydown', escHandler);
+        }
 
         // Загружаем данные при загрузке страницы
         window.addEventListener('load', loadPostData);

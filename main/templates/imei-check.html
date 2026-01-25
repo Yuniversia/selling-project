@@ -601,7 +601,8 @@
                     },
                     body: JSON.stringify({
                         imei: imei,
-                        check_type: 'warranty'
+                        check_type: 'warranty',
+                        preferred_source: 'imei.info'  // ← ДОБАВИТЬ ЭТО
                     })
                 });
                 
@@ -611,6 +612,11 @@
                 }
                 
                 const data = await response.json();
+                
+                // Проверяем, что данные получены
+                if (!data || data === null) {
+                    throw new Error('No data received from IMEI service');
+                }
                 
                 // Скрываем загрузку
                 loadingSection.style.display = 'none';
@@ -632,11 +638,17 @@
         }
 
         function displayResults(data) {
+            // Защита от null/undefined
+            if (!data) {
+                console.error('displayResults: data is null or undefined');
+                return;
+            }
+            
             const resultSection = document.getElementById('resultSection');
             const resultIcon = document.getElementById('resultIcon');
             const resultTitle = document.getElementById('resultTitle');
             
-            // Определяем статус устройства
+            // Определяем статус устройства (с проверкой на null)
             const isSafe = !data.find_my_iphone && data.activation_lock === false;
             
             if (isSafe) {
@@ -710,8 +722,18 @@
             try {
                 console.log('[Similar Products] Ищем похожие товары:', { model, memory });
                 
-                // Извлекаем число из строки памяти (например "256GB" -> 256)
-                const memoryValue = memory ? parseInt(memory.replace(/[^0-9]/g, '')) : null;
+                // Извлекаем число - memory может быть числом или строкой
+                let memoryValue = null;
+                if (memory) {
+                    // Если это число - используем как есть
+                    if (typeof memory === 'number') {
+                        memoryValue = memory;
+                    } 
+                    // Если строка - извлекаем цифры
+                    else if (typeof memory === 'string') {
+                        memoryValue = parseInt(memory.replace(/[^0-9]/g, ''));
+                    }
+                }
                 
                 // Определяем количество товаров в зависимости от устройства
                 const isMobile = window.innerWidth <= 768;

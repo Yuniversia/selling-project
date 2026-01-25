@@ -68,7 +68,8 @@ async def add_post(db: Session, post_data: Iphone) -> Iphone:
                 json={
                     "imei": str(post_data.imei),
                     "check_type": "basic",
-                    "test_mode": Configs.USE_TEST_MODE  # Используем test режим из конфигурации
+                    "test_mode": Configs.USE_TEST_MODE,  # Используем test режим из конфигурации
+                    "preferred_source": "imei.info"  # post-ad использует imei.info (дешевле $0.04)
                 }
             )
             

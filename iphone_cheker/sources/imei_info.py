@@ -61,7 +61,13 @@ class IMEIInfoSource(IMEISource):
                         return None
                     
                     # Парсим результат
-                    result = data.get("result", {})
+                    result = data.get("result")
+                    
+                    # Если result = null, значит данные еще не готовы
+                    if result is None:
+                        self.logger.warning(f"IMEI.info: Result is null (processing), countdown: {data.get('processing_countdown')}s")
+                        return None
+                    
                     return self._normalize_warranty_response(result)
                 
                 elif response.status_code == 401:
@@ -187,7 +193,7 @@ class IMEIInfoSource(IMEISource):
     
     def _parse_model_string(self, model_str: Optional[str]) -> Dict[str, Optional[str]]:
         """
-        Парсинг строки модели формата: IPHONE 17 PRO SILVER 256GB-GEH
+        Парсинг строки модели формата: IPHONE 17 PRO SILVER 256GB-GEH или IPHONE 16 BLK 128GB-GEH
         Возвращает: {model: "iPhone 17 Pro", color: "Silver", memory: "256"}
         """
         if not model_str:
@@ -198,6 +204,9 @@ class IMEIInfoSource(IMEISource):
         # Приводим к верхнему регистру для унификации
         model_upper = model_str.upper().strip()
         
+        # Удаляем постфикс типа "-GEH"
+        model_upper = re.sub(r'-[A-Z]{3}$', '', model_upper)
+        
         # Извлекаем память (256GB, 512GB, 1TB и т.д.)
         memory = None
         memory_match = re.search(r'(\d+)\s*(GB|TB)', model_upper)
@@ -206,22 +215,53 @@ class IMEIInfoSource(IMEISource):
             # Удаляем память и все после неё из строки
             model_upper = model_upper[:memory_match.start()].strip()
         
-        # Список известных цветов Apple (расширяемый)
-        colors = [
+        # Словарь сокращений цветов (приоритет)
+        color_abbreviations = {
+            "BLK": "Black",
+            "WHT": "White",
+            "WHTE": "White",
+            "RED": "Red",
+            "BLU": "Blue",
+            "GRN": "Green",
+            "GLD": "Gold",
+            "SLV": "Silver",
+            "SLVR": "Silver",
+            "GRY": "Gray",
+            "PPL": "Purple",
+            "PNK": "Pink",
+            "ORG": "Orange",
+            "YLW": "Yellow"
+        }
+        
+        # Список известных полных цветов Apple
+        full_colors = [
             'SILVER', 'GOLD', 'SPACE GRAY', 'ROSE GOLD', 'SPACE BLACK',
             'BLUE', 'RED', 'YELLOW', 'GREEN', 'PURPLE', 'PINK', 'WHITE',
             'BLACK', 'MIDNIGHT', 'STARLIGHT', 'PRODUCT RED', 'CORAL',
             'NATURAL', 'TITANIUM', 'DESERT', 'SIERRA BLUE', 'GRAPHITE',
-            'ALPINE GREEN', 'DEEP PURPLE'
+            'ALPINE GREEN', 'DEEP PURPLE', 'NATURAL TITANIUM', 'BLUE TITANIUM',
+            'WHITE TITANIUM', 'BLACK TITANIUM', 'DESERT TITANIUM'
         ]
         
-        # Ищем цвет с конца строки
+        # Ищем цвет
         color = None
-        for c in colors:
-            if model_upper.endswith(' ' + c):
-                color = c.title()  # Silver, Gold и т.д.
-                model_upper = model_upper[:-len(c)].strip()
+        
+        # 1. Сначала проверяем сокращения (BLK, WHT и т.д.)
+        words = model_upper.split()
+        for i, word in enumerate(words):
+            if word in color_abbreviations:
+                color = color_abbreviations[word]
+                words.pop(i)
+                model_upper = ' '.join(words)
                 break
+        
+        # 2. Если не нашли сокращение, ищем полные названия цветов
+        if not color:
+            for c in sorted(full_colors, key=len, reverse=True):  # Длинные сначала
+                if c in model_upper:
+                    color = c.title()  # Silver, Gold и т.д.
+                    model_upper = model_upper.replace(c, '').strip()
+                    break
         
         # Оставшаяся часть - это модель
         # Преобразуем "IPHONE 17 PRO" -> "iPhone 17 Pro"
