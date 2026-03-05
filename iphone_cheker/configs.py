@@ -11,6 +11,7 @@ class Configs:
     api_key: str = os.getenv('IMEI_API_KEY')
     IMEI_INFO_API_KEY = os.getenv("IMEI_INFO_API_KEY", "")
     IMEI_ORG_API_KEY = os.getenv("IMEI_ORG_API_KEY", os.getenv('IMEI_API_KEY', ""))
+    IMEICHECK_NET_API_KEY = os.getenv("IMEICHECK_NET_API_KEY", "FxtmaTmZi0xwulFPgcC0ocJid1Q44ARF0eiThn71880335fc")
     
     # База данных
     DATABASE_URL = os.getenv(

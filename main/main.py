@@ -49,7 +49,7 @@ async def check_imei(imei: str):
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             # Запрос к сервису проверки IMEI
-            response = await client.get(f"{imei_service_url}/check/{imei}")
+            response = await client.get(f"{imei_service_url}/check-basic/{imei}")
             
             if response.status_code == 200:
                 return response.json()

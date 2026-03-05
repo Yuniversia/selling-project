@@ -9,6 +9,7 @@ from models import IMEICheckResponse, IMEICache, IMEICheckLog
 from sources import MockIMEISource
 from sources.imei_info import IMEIInfoSource
 from sources.imei_org import IMEIorgSource
+from sources.imeicheck_net import IMEIcheckSource
 from utils import validate_imei
 from configs import Configs
 
@@ -48,6 +49,13 @@ class IMEIService:
                     logger.info("✅ IMEI.org source initialized")
                 except Exception as e:
                     logger.error(f"❌ Failed to initialize IMEI.org: {e}")
+
+            if Configs.IMEICHECK_NET_API_KEY:
+                try:
+                    self.sources.append(IMEIcheckSource(Configs.IMEICHECK_NET_API_KEY))
+                    logger.info("✅ IMEIcheck.net source initialized")
+                except Exception as e:
+                    logger.error(f"❌ Failed to initialize IMEIcheck.net: {e}")
             
             if not self.sources:
                 logger.warning("⚠️ No production sources configured! Add API keys.")
@@ -163,6 +171,7 @@ class IMEIService:
             
             # Сортировка источников по preferred_source (аналогично check_warranty)
             sources_to_try = self.sources[:]
+            print(f"\n\n Source to try {sources_to_try} \n\n")
             if preferred_source:
                 # Ставим preferred источник на первое место
                 preferred_idx = None
@@ -177,6 +186,7 @@ class IMEIService:
                     logger.info(f"🎯 Preferred source set: {preferred_source}")
             
             # Пытаемся все источники по очереди
+            
             for source in sources_to_try:
                 try:
                     logger.info(f"🔍 Trying {source.get_source_name()} for basic check: {imei}")

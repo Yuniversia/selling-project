@@ -245,11 +245,6 @@ class IMEIorgSource(IMEISource):
         if "GB" in capacity_str.upper() or "TB" in capacity_str.upper():
             return capacity_str.upper()
         
-        # Если только число (предполагаем GB)
-        import re
-        match = re.search(r'(\d+)', capacity_str)
-        if match:
-            return f"{match.group(1)}GB"
         
         return None
 

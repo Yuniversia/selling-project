@@ -7,6 +7,7 @@ from jose import jwt
 import secrets
 import string
 from datetime import datetime
+import httpx
 
 from database import get_session
 from models import (
@@ -16,6 +17,25 @@ from models import (
 from configs import Configs
 
 order_router = APIRouter(prefix="/api/v1/orders", tags=["Orders"])
+
+
+async def send_notification_async(endpoint: str, data: dict):
+    """Асинхронная отправка уведомления через notification service"""
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.post(
+                f"{Configs.NOTIFICATION_SERVICE_URL}/api/v1/notifications/{endpoint}",
+                json=data
+            )
+            if response.status_code == 200:
+                print(f"✅ Notification sent: {endpoint}")
+                return response.json()
+            else:
+                print(f"⚠️ Notification failed: {response.status_code} - {response.text}")
+                return None
+    except Exception as e:
+        print(f"❌ Error sending notification: {e}")
+        return None
 
 
 def get_current_user(access_token: str) -> dict:
@@ -164,6 +184,34 @@ async def create_order(
         print(f"  post_id: {order.post_id}")
         print(f"  price: {order.price}")
         print(f"  status: {order.status}")
+        
+        # Отправляем уведомления продавцу и покупателю
+        try:
+            # Получаем информацию о продавце
+            seller = db.get(User, post.author_id)
+            
+            notification_data = {
+                "order_id": order.id,
+                "seller_name": seller.name or seller.username if seller else "Продавец",
+                "seller_email": seller.email if seller else None,
+                "seller_phone": seller.phone if seller else None,
+                "buyer_name": f"{order.buyer_first_name} {order.buyer_last_name}",
+                "buyer_email": order.buyer_email,
+                "buyer_phone": order.buyer_phone,
+                "product_name": post.model or "iPhone",
+                "product_model": f"{post.memory}GB {post.color}" if post.memory and post.color else None,
+                "order_price": order.price,
+                "delivery_method": order.delivery_method,
+                "tracking_url": f"{Configs.FRONTEND_URL}/orders/{order.id}"
+            }
+            
+            # Асинхронно отправляем уведомления (не ждем результата)
+            import asyncio
+            asyncio.create_task(send_notification_async("order-created", notification_data))
+            
+        except Exception as e:
+            print(f"[CREATE ORDER] ⚠️ Failed to send notifications: {e}")
+            # Продолжаем выполнение даже если уведомления не отправились
             
     except HTTPException:
         raise
@@ -243,8 +291,30 @@ async def process_payment(
     db.commit()
     db.refresh(order)
     
-    # TODO: Отправить email-уведомление покупателю и продавцу
-    # send_order_confirmation_email(order)
+    # Отправляем уведомление об оплате
+    try:
+        seller = db.get(User, order.seller_id)
+        post = db.get(Iphone, order.post_id)
+        
+        notification_data = {
+            "order_id": order.id,
+            "seller_name": seller.name or seller.username if seller else "Продавец",
+            "seller_email": seller.email if seller else None,
+            "seller_phone": seller.phone if seller else None,
+            "buyer_name": f"{order.buyer_first_name} {order.buyer_last_name}",
+            "buyer_email": order.buyer_email,
+            "buyer_phone": order.buyer_phone,
+            "product_name": post.model or "iPhone" if post else "iPhone",
+            "product_model": f"{post.memory}GB {post.color}" if post and post.memory and post.color else None,
+            "order_price": order.price,
+            "delivery_method": order.delivery_method,
+            "tracking_url": f"{Configs.FRONTEND_URL}/orders/{order.id}"
+        }
+        
+        import asyncio
+        asyncio.create_task(send_notification_async("order-created", notification_data))
+    except Exception as e:
+        print(f"[PAY] ⚠️ Failed to send payment notification: {e}")
     
     return {
         "success": True,
@@ -291,7 +361,30 @@ async def mark_as_shipped(
     
     print(f"[SHIP] Order #{order.id} marked as shipped by seller {user['user_id']}")
     
-    # TODO: Уведомить покупателя по email
+    # Уведомляем покупателя об отправке
+    try:
+        seller = db.get(User, order.seller_id)
+        post = db.get(Iphone, order.post_id)
+        
+        notification_data = {
+            "order_id": order.id,
+            "seller_name": seller.name or seller.username if seller else "Продавец",
+            "seller_email": seller.email if seller else None,
+            "seller_phone": seller.phone if seller else None,
+            "buyer_name": f"{order.buyer_first_name} {order.buyer_last_name}",
+            "buyer_email": order.buyer_email,
+            "product_name": post.model or "iPhone" if post else "iPhone",
+            "product_model": f"{post.memory}GB {post.color}" if post and post.memory and post.color else None,
+            "order_price": order.price,
+            "delivery_method": order.delivery_method,
+            "tracking_url": f"{Configs.FRONTEND_URL}/orders/{order.id}",
+            "review_url": f"{Configs.FRONTEND_URL}/orders/{order.id}/review"
+        }
+        
+        import asyncio
+        asyncio.create_task(send_notification_async("order-delivered", notification_data))
+    except Exception as e:
+        print(f"[SHIP] ⚠️ Failed to send shipping notification: {e}")
     
     return {
         "success": True,

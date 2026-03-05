@@ -87,12 +87,16 @@ services:
       - POST_CF_R2_ACCESS_KEY_ID=${POST_CF_R2_ACCESS_KEY_ID}
       - POST_CF_R2_SECRET_ACCESS_KEY=${POST_CF_R2_SECRET_ACCESS_KEY}
       - USE_TEST_MODE=${USE_TEST_MODE:-false}
+      - NOTIFICATION_SERVICE_URL=http://notifications-service:6000
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:8080}
     ports:
       - "${POSTS_PORT:-3000}:${POSTS_PORT:-3000}"
     depends_on:
       postgres:
         condition: service_healthy
       auth-service:
+        condition: service_started
+      notifications-service:
         condition: service_started
     networks:
       - lais-network
@@ -176,6 +180,44 @@ services:
       timeout: 10s
       retries: 3
 
+  # Notification Service (Отправка SMS и Email через SendPulse)
+  notifications-service:
+    build:
+      context: ./notifications
+      dockerfile: Dockerfile
+    container_name: lais-notifications
+    environment:
+      - USE_POSTGRES=true
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-pass}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB:-lais_marketplace}
+      - PORT=6000
+      - BACKEND_HOST=${BACKEND_HOST:-0.0.0.0}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:8080}
+      - SENDPULSE_API_ID=${SENDPULSE_API_ID}
+      - SENDPULSE_API_SECRET=${SENDPULSE_API_SECRET}
+      - SECRET_KEY=${SECRET_KEY:-My secret key}
+      - TOKEN_ALGORITHM=${TOKEN_ALGORITHM:-HS256}
+    ports:
+      - "6000:6000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+    networks:
+      - lais-network
+    restart: unless-stopped
+    volumes:
+      - ./notifications:/app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6000/api/v1/notifications/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   # Nginx Reverse Proxy (внутренний, для Docker сети)
   nginx:
     image: nginx:alpine
@@ -192,6 +234,7 @@ services:
       - posts-service
       - chat-service
       - imei-checker-service
+      - notifications-service
     networks:
       - lais-network
     restart: unless-stopped

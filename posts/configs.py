@@ -32,5 +32,12 @@ class Configs:
     POSTS_R2_ACCESS_KEY_ID = os.getenv('POST_CF_R2_ACCESS_KEY_ID')
     POSTS_R2_SECRET_ACCESS_KEY = os.getenv('POST_CF_R2_SECRET_ACCESS_KEY', CF_R2_SECRET_ACCESS_KEY)
     POSTS_R2_BUCKET_NAME = os.getenv('POST_CF_R2_BUCKET_NAME', 'lais-post-service')    
+    
     # IMEI Service Configuration
     USE_TEST_MODE = os.getenv("USE_TEST_MODE", "false").lower() == "true"
+    
+    # Frontend URL
+    FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:8080')
+    
+    # Notification Service URL
+    NOTIFICATION_SERVICE_URL = os.getenv('NOTIFICATION_SERVICE_URL', 'http://notifications-service:6000')

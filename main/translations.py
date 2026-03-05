@@ -744,7 +744,7 @@ TRANSLATIONS = {
         "best_iphone_offers": "Labākie iPhone piedāvājumi LAIS Tirgū",
         
         # Hero секция
-        "hero_title": "Esi drošs par to, ko ņem",
+        "hero_title": "Esi drošs par to, ko perc",
         "hero_text": "Katrs sludinājums tiek moderēts, un pārdevēji tiek pārbaudīti. Nauda ir aizsargāta līdz preces saņemšanai. Mēs esam izveidojuši drošu telpu darījumiem ar tehniku Latvijā.",
         "fraud_protection": "Aizsardzība pret krāpniekiem",
         "return_guarantee": "Atgriešanas garantija",
