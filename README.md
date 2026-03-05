@@ -36,6 +36,9 @@ docker-compose up -d
 - **Frontend**: http://localhost:8080
 - **Auth API**: http://localhost:8000/auth/docs
 - **Posts API**: http://localhost:3000/docs
+- **Chat API**: http://localhost:4000/docs
+- **Notifications API**: http://localhost:6000/notifications/docs
+- **Delivery API**: http://localhost:7000/delivery/docs
 
 ## 📁 Структура проекта
 
@@ -54,8 +57,31 @@ ss.lv/
 │   ├── main.py
 │   ├── post_router.py
 │   ├── bought_router.py
+│   ├── order_router.py
 │   ├── models.py
 │   └── database.py
+│
+├── chat/              # Сервис чата (WebSocket)
+│   ├── Dockerfile
+│   ├── main.py
+│   ├── chat_router.py
+│   ├── websocket_manager.py
+│   └── models.py
+│
+├── notifications/     # Сервис уведомлений (SMS, Email)
+│   ├── Dockerfile
+│   ├── main.py
+│   ├── notification_router.py
+│   ├── notification_service.py
+│   └── models.py
+│
+├── delivery/          # Сервис доставки (Omniva, DPD)
+│   ├── Dockerfile
+│   ├── main.py
+│   ├── delivery_router.py
+│   ├── delivery_service.py
+│   ├── models.py
+│   └── README.md
 │
 ├── main/              # Frontend (HTML шаблоны)
 │   ├── Dockerfile

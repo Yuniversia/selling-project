@@ -244,7 +244,7 @@ class IMEIcheckSource(IMEISource):
                 purchase_date = None
 
         simlock_status = "UNLOCKED"
-        if data.get("simLock") is True:
+        if data.get("simLock") == "true":
             simlock_status = "LOCKED"
         
         return {
@@ -305,6 +305,7 @@ class IMEIcheckSource(IMEISource):
             'SILVER': 'Silver',
             'GOLD': 'Gold',
             'BLACK': 'Black',
+            'BLK': 'Black',
             'WHITE': 'White',
             'BLUE': 'Blue',
             'RED': 'Red',

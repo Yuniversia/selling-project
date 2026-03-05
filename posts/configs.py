@@ -41,3 +41,6 @@ class Configs:
     
     # Notification Service URL
     NOTIFICATION_SERVICE_URL = os.getenv('NOTIFICATION_SERVICE_URL', 'http://notifications-service:6000')
+    
+    # Delivery Service URL
+    DELIVERY_SERVICE_URL = os.getenv('DELIVERY_SERVICE_URL', 'http://delivery-service:7000')

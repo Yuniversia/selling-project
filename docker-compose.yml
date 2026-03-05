@@ -88,6 +88,7 @@ services:
       - POST_CF_R2_SECRET_ACCESS_KEY=${POST_CF_R2_SECRET_ACCESS_KEY}
       - USE_TEST_MODE=${USE_TEST_MODE:-false}
       - NOTIFICATION_SERVICE_URL=http://notifications-service:6000
+      - DELIVERY_SERVICE_URL=http://delivery-service:7000
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:8080}
     ports:
       - "${POSTS_PORT:-3000}:${POSTS_PORT:-3000}"
@@ -218,6 +219,50 @@ services:
       timeout: 10s
       retries: 3
 
+  # Delivery Service (Управление доставками Omniva и DPD)
+  delivery-service:
+    build:
+      context: ./delivery
+      dockerfile: Dockerfile
+    container_name: lais-delivery
+    environment:
+      - USE_POSTGRES=true
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-pass}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB:-lais_marketplace}
+      - PORT=7000
+      - BACKEND_HOST=${BACKEND_HOST:-0.0.0.0}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:8080}
+      - NOTIFICATION_SERVICE_URL=http://notifications-service:6000
+      - POSTS_SERVICE_URL=http://posts-service:3000
+      - SECRET_KEY=${SECRET_KEY:-My secret key}
+      - TOKEN_ALGORITHM=${TOKEN_ALGORITHM:-HS256}
+      - USE_SIMULATION_MODE=${USE_SIMULATION_MODE:-true}
+      - TRANSIT_TIME_HOURS=${TRANSIT_TIME_HOURS:-24}
+      - PICKUP_WAIT_DAYS=${PICKUP_WAIT_DAYS:-7}
+      - OMNIVA_API_KEY=${OMNIVA_API_KEY}
+      - DPD_API_KEY=${DPD_API_KEY}
+      - DPD_API_SECRET=${DPD_API_SECRET}
+    ports:
+      - "7000:7000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      notifications-service:
+        condition: service_started
+    networks:
+      - lais-network
+    restart: unless-stopped
+    volumes:
+      - ./delivery:/app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7000/api/v1/delivery/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   # Nginx Reverse Proxy (внутренний, для Docker сети)
   nginx:
     image: nginx:alpine
@@ -235,6 +280,7 @@ services:
       - chat-service
       - imei-checker-service
       - notifications-service
+      - delivery-service
     networks:
       - lais-network
     restart: unless-stopped

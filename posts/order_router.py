@@ -23,9 +23,14 @@ async def send_notification_async(endpoint: str, data: dict):
     """Асинхронная отправка уведомления через notification service"""
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
+            # Используем универсальный endpoint /send
             response = await client.post(
-                f"{Configs.NOTIFICATION_SERVICE_URL}/api/v1/notifications/{endpoint}",
-                json=data
+                f"{Configs.NOTIFICATION_SERVICE_URL}/api/v1/notifications/send",
+                json={
+                    "notification_type": endpoint.replace("-", "_"),  # order-created -> order_created
+                    "channel": "both",
+                    "order_data": data
+                }
             )
             if response.status_code == 200:
                 print(f"✅ Notification sent: {endpoint}")
@@ -205,9 +210,8 @@ async def create_order(
                 "tracking_url": f"{Configs.FRONTEND_URL}/orders/{order.id}"
             }
             
-            # Асинхронно отправляем уведомления (не ждем результата)
-            import asyncio
-            asyncio.create_task(send_notification_async("order-created", notification_data))
+            # Асинхронно отправляем уведомления
+            await send_notification_async("order-created", notification_data)
             
         except Exception as e:
             print(f"[CREATE ORDER] ⚠️ Failed to send notifications: {e}")
@@ -291,6 +295,51 @@ async def process_payment(
     db.commit()
     db.refresh(order)
     
+    # Создаем доставку через delivery service (если не pickup)
+    if order.delivery_method in [DeliveryMethod.DPD.value, DeliveryMethod.OMNIVA.value]:
+        print(f"[PAY] 🚚 Creating delivery for order {order.id}, method: {order.delivery_method}")
+        try:
+            # Получаем информацию о продавце для отправки
+            seller = db.get(User, order.seller_id)
+            
+            delivery_data = {
+                "order_id": order.id,
+                "provider": order.delivery_method,
+                "recipient_name": f"{order.buyer_first_name} {order.buyer_last_name}",
+                "recipient_phone": order.buyer_phone,
+                "recipient_email": order.buyer_email,
+                "sender_name": seller.name or seller.username if seller else "Продавец",
+                "sender_phone": seller.phone if seller and seller.phone else "+37120000000",
+                "delivery_address": order.delivery_address,
+                "delivery_city": order.delivery_city,
+                "delivery_zip": order.delivery_zip,
+                "delivery_country": order.delivery_country or "Latvia"
+            }
+            
+            print(f"[PAY] 📦 Sending request to: {Configs.DELIVERY_SERVICE_URL}/api/v1/delivery/create")
+            
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(
+                    f"{Configs.DELIVERY_SERVICE_URL}/api/v1/delivery/create",
+                    json=delivery_data
+                )
+                
+                if response.status_code == 201:
+                    delivery_info = response.json()
+                    order.tracking_number = delivery_info.get("tracking_number")
+                    db.commit()
+                    print(f"✅ Delivery created for order {order.id}: {order.tracking_number}")
+                else:
+                    print(f"⚠️ Failed to create delivery: {response.status_code} - {response.text}")
+                    
+        except Exception as e:
+            print(f"❌ Error creating delivery: {e}")
+            import traceback
+            traceback.print_exc()
+            # Продолжаем выполнение даже если доставка не создалась
+    else:
+        print(f"[PAY] ⏭️ Skipping delivery creation (method: {order.delivery_method})")
+    
     # Отправляем уведомление об оплате
     try:
         seller = db.get(User, order.seller_id)
@@ -311,8 +360,8 @@ async def process_payment(
             "tracking_url": f"{Configs.FRONTEND_URL}/orders/{order.id}"
         }
         
-        import asyncio
-        asyncio.create_task(send_notification_async("order-created", notification_data))
+        # Отправляем асинхронно
+        await send_notification_async("order-paid", notification_data)
     except Exception as e:
         print(f"[PAY] ⚠️ Failed to send payment notification: {e}")
     
@@ -361,6 +410,46 @@ async def mark_as_shipped(
     
     print(f"[SHIP] Order #{order.id} marked as shipped by seller {user['user_id']}")
     
+    # Обновляем статус доставки в delivery service (если не pickup)
+    if order.delivery_method in [DeliveryMethod.DPD.value, DeliveryMethod.OMNIVA.value]:
+        print(f"[SHIP] 🚚 Updating delivery status for order {order.id}")
+        try:
+            # Получаем доставку по order_id
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                print(f"[SHIP] 📦 Getting delivery: {Configs.DELIVERY_SERVICE_URL}/api/v1/delivery/order/{order.id}")
+                
+                # Получаем delivery_id
+                delivery_response = await client.get(
+                    f"{Configs.DELIVERY_SERVICE_URL}/api/v1/delivery/order/{order.id}"
+                )
+                
+                if delivery_response.status_code == 200:
+                    delivery = delivery_response.json()
+                    delivery_id = delivery.get("id")
+                    
+                    print(f"[SHIP] 📦 Updating delivery {delivery_id} status to in_transit")
+                    
+                    # Обновляем статус на "in_transit"
+                    update_response = await client.patch(
+                        f"{Configs.DELIVERY_SERVICE_URL}/api/v1/delivery/{delivery_id}/status",
+                        json={"status": "in_transit", "notes": "Посылка отправлена продавцом"}
+                    )
+                    
+                    if update_response.status_code == 200:
+                        print(f"✅ Delivery status updated to in_transit for order {order.id}")
+                    else:
+                        print(f"⚠️ Failed to update delivery status: {update_response.status_code} - {update_response.text}")
+                else:
+                    print(f"⚠️ Delivery not found for order {order.id}: {delivery_response.status_code}")
+                    
+        except Exception as e:
+            print(f"❌ Error updating delivery status: {e}")
+            import traceback
+            traceback.print_exc()
+            # Продолжаем выполнение
+    else:
+        print(f"[SHIP] ⏭️ Skipping delivery update (method: {order.delivery_method})")
+    
     # Уведомляем покупателя об отправке
     try:
         seller = db.get(User, order.seller_id)
@@ -381,8 +470,8 @@ async def mark_as_shipped(
             "review_url": f"{Configs.FRONTEND_URL}/orders/{order.id}/review"
         }
         
-        import asyncio
-        asyncio.create_task(send_notification_async("order-delivered", notification_data))
+        # Отправляем асинхронно
+        await send_notification_async("order-shipped", notification_data)
     except Exception as e:
         print(f"[SHIP] ⚠️ Failed to send shipping notification: {e}")
     
