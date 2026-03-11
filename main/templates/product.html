@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="{{ lang }}">
 <head>
-    {% set page_title = post.model + " " + post.memory + "GB - LAIS Marketplace" if post else t.site_name %}
+    {% set page_title = post.model + " " + post.memory + "GB - Viedix Marketplace" if post else t.site_name %}
     {% set page_description = t.buy_prefix + " " + post.model + " " + post.memory + "GB, " + t.condition + " " + post.condition + ", " + t.battery + " " + post.batery + "%. " + t.price + ": " + post.price|string + "€" if post else t.best_iphone_offers %}
     {% set page_image = post.photos[0] if post and post.photos else "https://test.yuniversia.eu/static/images/og-default.jpg" %}
     {% include 'seo_meta.html' %}
@@ -155,7 +155,7 @@
 
     <header class="header-fixed">
         <div class="nav-container">
-            <a href="/" class="logo">lais</a>
+            <a href="/" class="logo">Viedix</a>
             <div class="header-controls">
                 {% include 'language_switcher.html' %}
                 <a href="/" class="btn btn-outline">{{ t.back }}</a>
@@ -860,7 +860,7 @@
                         const dateParts = authorData.joined_date.split('.');
                         const year = dateParts[2];
                         document.getElementById('authorDate').textContent = 
-                            `На Lais с ${year}`;
+                            `На Viedix с ${year}`;
                     }
 
                     // Устанавливаем аватарку если есть
