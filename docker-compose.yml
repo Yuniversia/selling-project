@@ -181,7 +181,7 @@ services:
       timeout: 10s
       retries: 3
 
-  # Notification Service (Отправка SMS и Email через SendPulse)
+  # Notification Service (Отправка SMS через SendBerry)
   notifications-service:
     build:
       context: ./notifications
@@ -197,8 +197,10 @@ services:
       - PORT=6000
       - BACKEND_HOST=${BACKEND_HOST:-0.0.0.0}
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:8080}
-      - SENDPULSE_API_ID=${SENDPULSE_API_ID}
-      - SENDPULSE_API_SECRET=${SENDPULSE_API_SECRET}
+      - SENDBERRY_API_KEY=${SENDBERRY_API_KEY}
+      - SENDBERRY_API_NAME=${SENDBERRY_API_NAME}
+      - SENDBERRY_API_PASSWORD=${SENDBERRY_API_PASSWORD}
+      - SENDBERRY_SENDER_ID=${SENDBERRY_SENDER_ID:-SMS Inform}
       - SECRET_KEY=${SECRET_KEY:-My secret key}
       - TOKEN_ALGORITHM=${TOKEN_ALGORITHM:-HS256}
     ports:

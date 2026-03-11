@@ -23,18 +23,16 @@ async def send_notification_async(endpoint: str, data: dict):
     """Асинхронная отправка уведомления через notification service"""
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
-            # Используем универсальный endpoint /send
+            # Используем прямой endpoint для отправки SMS
             response = await client.post(
-                f"{Configs.NOTIFICATION_SERVICE_URL}/api/v1/notifications/send",
-                json={
-                    "notification_type": endpoint.replace("-", "_"),  # order-created -> order_created
-                    "channel": "both",
-                    "order_data": data
-                }
+                f"{Configs.NOTIFICATION_SERVICE_URL}/api/v1/notifications/{endpoint}",
+                json=data
             )
             if response.status_code == 200:
+                result = response.json()
                 print(f"✅ Notification sent: {endpoint}")
-                return response.json()
+                print(f"   Result: {result}")
+                return result
             else:
                 print(f"⚠️ Notification failed: {response.status_code} - {response.text}")
                 return None
@@ -218,6 +216,7 @@ async def create_order(
             seller = db.get(User, post.author_id)
             
             notification_data = {
+                "post_id": order.post_id,
                 "order_id": order.id,
                 "seller_name": seller.name or seller.username if seller else "Продавец",
                 "seller_email": seller.email if seller else None,
@@ -274,7 +273,7 @@ async def process_payment(
     1. Меняем статус на PAID
     2. Генерируем код для пакомата
     3. Деактивируем объявление
-    4. Отправляем email с кодом (пока имитация)
+    4. Отправляем sms с кодом (пока имитация)
     """
     # Пытаемся получить текущего пользователя (может быть None для анонимных)
     user_id = None
@@ -325,6 +324,7 @@ async def process_payment(
             seller = db.get(User, order.seller_id)
             
             delivery_data = {
+                "post_id": order.post_id,
                 "order_id": order.id,
                 "provider": order.delivery_method,
                 "recipient_name": f"{order.buyer_first_name} {order.buyer_last_name}",
@@ -362,30 +362,7 @@ async def process_payment(
     else:
         print(f"[PAY] ⏭️ Skipping delivery creation (method: {order.delivery_method})")
     
-    # Отправляем уведомление об оплате
-    try:
-        seller = db.get(User, order.seller_id)
-        post = db.get(Iphone, order.post_id)
-        
-        notification_data = {
-            "order_id": order.id,
-            "seller_name": seller.name or seller.username if seller else "Продавец",
-            "seller_email": seller.email if seller else None,
-            "seller_phone": seller.phone if seller else None,
-            "buyer_name": f"{order.buyer_first_name} {order.buyer_last_name}",
-            "buyer_email": order.buyer_email,
-            "buyer_phone": order.buyer_phone,
-            "product_name": post.model or "iPhone" if post else "iPhone",
-            "product_model": f"{post.memory}GB {post.color}" if post and post.memory and post.color else None,
-            "order_price": order.price,
-            "delivery_method": order.delivery_method,
-            "tracking_url": f"{Configs.FRONTEND_URL}/orders/{order.id}"
-        }
-        
-        # Отправляем асинхронно
-        await send_notification_async("order-paid", notification_data)
-    except Exception as e:
-        print(f"[PAY] ⚠️ Failed to send payment notification: {e}")
+    # Уведомление об оплате не отправляем - покупатель уже получил SMS при создании заказа
     
     return {
         "success": True,
@@ -478,12 +455,14 @@ async def mark_as_shipped(
         post = db.get(Iphone, order.post_id)
         
         notification_data = {
+            "post_id": order.post_id,
             "order_id": order.id,
             "seller_name": seller.name or seller.username if seller else "Продавец",
             "seller_email": seller.email if seller else None,
             "seller_phone": seller.phone if seller else None,
             "buyer_name": f"{order.buyer_first_name} {order.buyer_last_name}",
             "buyer_email": order.buyer_email,
+            "buyer_phone": order.buyer_phone,
             "product_name": post.model or "iPhone" if post else "iPhone",
             "product_model": f"{post.memory}GB {post.color}" if post and post.memory and post.color else None,
             "order_price": order.price,
@@ -824,9 +803,36 @@ async def delivery_received_webhook(
     
     db.add(order)
     db.commit()
+    db.refresh(order)
     
     print(f"[DELIVERY-RECEIVED] ✅ Order #{order_id} status updated to DELIVERED")
     print(f"[DELIVERY-RECEIVED] Buyer has 48 hours for return/review")
+    
+    # Отправляем SMS с запросом на отзыв
+    try:
+        seller = db.get(User, order.seller_id)
+        post = db.get(Iphone, order.post_id)
+        
+        notification_data = {
+            "post_id": order.post_id,
+            "order_id": order.id,
+            "seller_name": seller.name or seller.username if seller else "Продавец",
+            "seller_email": seller.email if seller else None,
+            "seller_phone": seller.phone if seller else None,
+            "buyer_name": f"{order.buyer_first_name} {order.buyer_last_name}",
+            "buyer_email": order.buyer_email,
+            "buyer_phone": order.buyer_phone,
+            "product_name": post.model or "iPhone" if post else "iPhone",
+            "product_model": f"{post.memory}GB {post.color}" if post and post.memory and post.color else None,
+            "order_price": order.price,
+            "delivery_method": order.delivery_method,
+            "review_url": f"{Configs.FRONTEND_URL}/orders/{order.id}/review"
+        }
+        
+        # Отправляем асинхронно SMS с благодарностью и ссылкой на отзыв
+        await send_notification_async("order-delivered", notification_data)
+    except Exception as e:
+        print(f"[DELIVERY-RECEIVED] ⚠️ Failed to send review request SMS: {e}")
     
     return {
         "success": True,

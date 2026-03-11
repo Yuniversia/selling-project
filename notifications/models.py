@@ -13,12 +13,8 @@ from enum import Enum
 
 class NotificationType(str, Enum):
     """Типы уведомлений"""
-    ORDER_CREATED = "order_created"  # Заказ создан
-    ORDER_PAID = "order_paid"  # Заказ оплачен
-    ORDER_SHIPPED = "order_shipped"  # Заказ отправлен
-    ORDER_DELIVERED = "order_delivered"  # Заказ доставлен
-    ORDER_COMPLETED = "order_completed"  # Заказ завершен
-    ORDER_REVIEW_REQUEST = "order_review_request"  # Запрос на отзыв
+    ORDER_PAID = "order_paid"  # Заказ оплачен (продавцу и покупателю)
+    ORDER_REVIEW_REQUEST = "order_review_request"  # Запрос на отзыв после получения
 
 
 class NotificationChannel(str, Enum):
@@ -101,6 +97,7 @@ class NotificationTemplate(SQLModel, table=True):
 
 class OrderNotificationData(BaseModel):
     """Данные для уведомления о заказе"""
+    post_id: int
     order_id: int
     
     # Данные продавца

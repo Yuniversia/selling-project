@@ -24,9 +24,8 @@ async def send_notification(
     Универсальный эндпоинт для отправки уведомлений
     
     Поддерживаемые типы:
-    - ORDER_CREATED: Уведомление о создании заказа (продавцу и покупателю)
-    - ORDER_DELIVERED: Уведомление о доставке
-    - ORDER_REVIEW_REQUEST: Запрос на отзыв
+    - ORDER_PAID: SMS уведомление после оплаты (продавцу и покупателю)
+    - ORDER_REVIEW_REQUEST: SMS запрос на отзыв
     """
     service = NotificationService(db)
     
@@ -35,15 +34,9 @@ async def send_notification(
     
     try:
         # Обрабатываем разные типы уведомлений
-        if request.notification_type == NotificationType.ORDER_CREATED:
-            # Отправляем продавцу
-            if request.channel in [NotificationChannel.BOTH, NotificationChannel.SMS, NotificationChannel.EMAIL]:
-                success, ids, errs = service.send_order_notification_to_seller(request.order_data)
-                notification_ids.extend(ids)
-                errors.extend(errs)
-            
-            # Отправляем покупателю
-            success, ids, errs = service.send_order_confirmation_to_buyer(request.order_data)
+        if request.notification_type == NotificationType.ORDER_PAID:
+            # Отправляем продавцу и покупателю SMS
+            success, ids, errs = service.send_order_paid_notification(request.order_data)
             notification_ids.extend(ids)
             errors.extend(errs)
         
@@ -88,21 +81,21 @@ async def send_notification(
         )
 
 
-@notification_router.post("/order-created")
-async def notify_order_created(
+@notification_router.post("/order-paid")
+async def notify_order_paid(
     order_data: OrderNotificationData,
     db: Session = Depends(get_session)
 ):
     """
-    Уведомление о создании заказа
+    Уведомление об оплате заказа
     
     Отправляет:
-    - Продавцу: SMS + Email о новом заказе
-    - Покупателю: Email с подтверждением и ссылкой для отслеживания
+    - Продавцу: SMS о покупке товара
+    - Покупателю: SMS об успешной оплате + номер отслеживания
     """
     request = SendNotificationRequest(
-        notification_type=NotificationType.ORDER_CREATED,
-        channel=NotificationChannel.BOTH,
+        notification_type=NotificationType.ORDER_PAID,
+        channel=NotificationChannel.SMS,
         order_data=order_data
     )
     return await send_notification(request, db)
@@ -116,11 +109,11 @@ async def notify_order_delivered(
     """
     Уведомление о доставке заказа
     
-    Отправляет покупателю ссылку для оценки продавца
+    Отправляет покупателю SMS с благодарностью и ссылкой для отзыва
     """
     request = SendNotificationRequest(
         notification_type=NotificationType.ORDER_REVIEW_REQUEST,
-        channel=NotificationChannel.EMAIL,
+        channel=NotificationChannel.SMS,
         order_data=order_data
     )
     return await send_notification(request, db)

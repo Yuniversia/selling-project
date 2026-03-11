@@ -1,12 +1,12 @@
-# notification_service.py - Сервис для работы с SendPulse API
+# notification_service.py - Сервис для работы с SendBerry API
 
-import base64
 import requests
 import time
 import logging
 from typing import Optional, Tuple
 from datetime import datetime
 from sqlmodel import Session
+from urllib.parse import urlencode
 
 from configs import configs
 from models import NotificationLog, NotificationTemplate, NotificationStatus, OrderNotificationData
@@ -17,58 +17,28 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-class SendPulseService:
-    """Сервис для отправки SMS и Email через SendPulse API"""
+class SendBerryService:
+    """Сервис для отправки SMS через SendBerry API"""
     
-    API_BASE_URL = "https://api.sendpulse.com"
-    TOKEN_URL = f"{API_BASE_URL}/oauth/access_token"
-    SMS_URL = f"{API_BASE_URL}/sms/send"
-    EMAIL_URL = f"{API_BASE_URL}/smtp/emails"
+    API_URL = "https://api.sendberry.com/SMS/SEND"
     
     def __init__(self):
-        self.api_id = configs.sendpulse_api_id
-        self.api_secret = configs.sendpulse_api_secret
-        self._access_token = None
-        self._token_expires_at = 0
+        self.api_key = configs.sendberry_api_key
+        self.api_name = configs.sendberry_api_name
+        self.api_password = configs.sendberry_api_password
+        self.sender_id = configs.sendberry_sender_id
         
-        if not self.api_id or not self.api_secret:
-            logger.warning("⚠️ SendPulse API credentials not configured!")
+        if not self.api_key or not self.api_name or not self.api_password:
+            logger.warning("⚠️ SendBerry API credentials not configured!")
     
-    def _get_access_token(self) -> str:
-        """Получение OAuth токена от SendPulse"""
-        # Проверяем, не истек ли токен
-        if self._access_token and time.time() < self._token_expires_at:
-            return self._access_token
-        
-        logger.info("🔑 Requesting new SendPulse access token...")
-        
-        try:
-            response = requests.post(
-                self.TOKEN_URL,
-                json={
-                    "grant_type": "client_credentials",
-                    "client_id": self.api_id,
-                    "client_secret": self.api_secret
-                },
-                headers={"Content-Type": "application/json"}
-            )
-            response.raise_for_status()
-            
-            data = response.json()
-            self._access_token = data.get("access_token")
-            expires_in = data.get("expires_in", 3600)
-            self._token_expires_at = time.time() + expires_in - 60  # Обновляем за минуту до истечения
-            
-            logger.info("✅ SendPulse access token received")
-            return self._access_token
-            
-        except Exception as e:
-            logger.error(f"❌ Failed to get SendPulse token: {e}")
-            raise
-    
-    def send_sms(self, phone: str, message: str) -> Tuple[bool, Optional[str], Optional[str]]:
+    def send_sms(self, phone: str, message: str, sms_id: Optional[str] = None) -> Tuple[bool, Optional[str], Optional[str]]:
         """
-        Отправка SMS через SendPulse
+        Отправка SMS через SendBerry API
+        
+        Args:
+            phone: Номер телефона в международном формате E.164
+            message: Текст сообщения (UTF-8)
+            sms_id: Опциональный custom message ID
         
         Returns:
             Tuple[success, external_id, error_message]
@@ -76,103 +46,75 @@ class SendPulseService:
         if not phone or not message:
             return False, None, "Phone or message is empty"
         
+        # Форматируем телефон (E.164 формат)
+        formatted_phone = phone.strip().replace(" ", "").replace("-", "")
+        if not formatted_phone.startswith("+"):
+            formatted_phone = f"+{formatted_phone}"
+        
+        logger.info(f"📱 Sending SMS to {formatted_phone} via SendBerry")
+        
         try:
-            token = self._get_access_token()
+            # Подготавливаем параметры запроса
+            params = {
+                "key": self.api_key,
+                "name": self.api_name,
+                "password": self.api_password,
+                "from": self.sender_id,
+                "to[]": formatted_phone,
+                "content": message,
+                "response": "JSON"  # Получаем ответ в JSON формате
+            }
             
-            # Форматируем телефон (SendPulse требует формат: +код без пробелов)
-            formatted_phone = phone.strip().replace(" ", "").replace("-", "")
-            if not formatted_phone.startswith("+"):
-                formatted_phone = f"+{formatted_phone}"
+            # Добавляем опциональный SMS_ID если указан
+            if sms_id:
+                params["SMS_ID"] = sms_id
             
-            logger.info(f"📱 Sending SMS to {formatted_phone}")
-            
+            # Отправляем POST запрос
             response = requests.post(
-                self.SMS_URL,
-                json={
-                    "phones": [formatted_phone],
-                    "body": message,
-                    "sender": "LaisMarket"  # Можно настроить отправителя
-                },
-                headers={
-                    "Authorization": f"Bearer {token}",
-                    "Content-Type": "application/json"
-                }
+                self.API_URL,
+                data=params,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                timeout=30
             )
             
+            # Логируем сырой ответ для отладки
+            logger.info(f"SendBerry response status: {response.status_code}")
+            logger.info(f"SendBerry response body: {response.text}")
+            
+            # Парсим ответ
             if response.status_code == 200:
-                data = response.json()
-                logger.info(f"✅ SMS sent successfully: {data}")
-                
-                # SendPulse возвращает массив результатов для каждого телефона
-                if data.get("result"):
-                    return True, str(data.get("id", "")), None
-                else:
-                    error = data.get("error", "Unknown error")
-                    return False, None, error
+                try:
+                    data = response.json()
+                    
+                    if data.get("status") == "ok":
+                        external_id = data.get("ID", "")
+                        cost = data.get("cost", 0)
+                        count = data.get("count", 1)
+                        
+                        logger.info(f"✅ SMS sent successfully! ID: {external_id}, Cost: {cost}, Parts: {count}")
+                        return True, external_id, None
+                    else:
+                        # Статус error
+                        error_msg = data.get("message", "Unknown error from SendBerry")
+                        logger.error(f"❌ SendBerry returned error status: {error_msg}")
+                        return False, None, error_msg
+                        
+                except Exception as e:
+                    logger.error(f"❌ Failed to parse SendBerry JSON response: {e}")
+                    return False, None, f"Invalid response format: {response.text}"
             else:
                 error = f"HTTP {response.status_code}: {response.text}"
                 logger.error(f"❌ SMS send failed: {error}")
                 return False, None, error
                 
+        except requests.exceptions.Timeout:
+            logger.error("❌ SendBerry API request timeout")
+            return False, None, "Request timeout"
+        except requests.exceptions.RequestException as e:
+            logger.error(f"❌ SendBerry API request failed: {e}")
+            return False, None, str(e)
         except Exception as e:
             logger.error(f"❌ SMS send exception: {e}")
-            return False, None, str(e)
-    
-    def send_email(self, 
-                   email: str, 
-                   subject: str, 
-                   html_body: str,
-                   from_name: str = "Lais Marketplace",
-                   from_email: str = "noreply@yuniversia.eu") -> Tuple[bool, Optional[str], Optional[str]]:
-        """
-        Отправка Email через SendPulse SMTP
-        
-        Returns:
-            Tuple[success, external_id, error_message]
-        """
-        if not email or not subject or not html_body:
-            return False, None, "Email, subject or body is empty"
-        
-        try:
-            token = self._get_access_token()
-            
-            logger.info(f"📧 Sending email to {email}")
-            
-            response = requests.post(
-                self.EMAIL_URL,
-                json={
-                    "email": {
-                        "html": html_body,
-                        "text": html_body,  # Текстовая версия
-                        "subject": subject,
-                        "from": {
-                            "name": from_name,
-                            "email": from_email
-                        },
-                        "to": [
-                            {
-                                "email": email
-                            }
-                        ]
-                    }
-                },
-                headers={
-                    "Authorization": f"Bearer {token}",
-                    "Content-Type": "application/json"
-                }
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                logger.info(f"✅ Email sent successfully: {data}")
-                return True, str(data.get("id", "")), None
-            else:
-                error = f"HTTP {response.status_code}: {response.text}"
-                logger.error(f"❌ Email send failed: {error}")
-                return False, None, error
-                
-        except Exception as e:
-            logger.error(f"❌ Email send exception: {e}")
             return False, None, str(e)
 
 
@@ -181,7 +123,7 @@ class NotificationService:
     
     def __init__(self, db: Session):
         self.db = db
-        self.sendpulse = SendPulseService()
+        self.sendberry = SendBerryService()
     
     def _get_template(self, notification_type: str) -> Optional[NotificationTemplate]:
         """Получение шаблона уведомления"""
@@ -201,31 +143,29 @@ class NotificationService:
             result = result.replace(placeholder, str(value))
         return result
     
-    def send_order_notification_to_seller(self, order_data: OrderNotificationData) -> Tuple[bool, list[int], list[str]]:
-        """Отправка уведомления продавцу о новом заказе (SMS + Email)"""
+    def send_order_paid_notification(self, order_data: OrderNotificationData) -> Tuple[bool, list[int], list[str]]:
+        """Отправка SMS уведомлений после оплаты заказа (продавцу и покупателю)"""
         notification_ids = []
         errors = []
         
-        # Получаем шаблон
-        template = self._get_template("order_created_seller")
-        
-        # Подготавливаем данные для шаблона
-        template_data = {
-            "seller_name": order_data.seller_name,
-            "buyer_name": order_data.buyer_name,
-            "product_name": order_data.product_name,
-            "product_model": order_data.product_model or "",
-            "order_price": f"{order_data.order_price:.2f}",
-            "order_id": order_data.order_id,
-            "frontend_url": configs.frontend_url
-        }
-        
-        # Отправка SMS
+        # Отправляем продавцу
         if order_data.seller_phone:
+            template = self._get_template("order_paid_seller")
+            
+            template_data = {
+                "seller_name": order_data.seller_name,
+                "buyer_name": order_data.buyer_name,
+                "product_name": order_data.product_name,
+                "product_model": order_data.product_model or "",
+                "order_price": f"{order_data.order_price:.2f}",
+                "order_id": order_data.order_id,
+                "frontend_url": configs.frontend_url
+            }
+            
             if template and template.sms_text:
                 sms_message = self._render_template(template.sms_text, template_data)
             else:
-                sms_message = f"Новый заказ #{order_data.order_id}! {order_data.buyer_name} купил {order_data.product_name}. Сумма: €{order_data.order_price:.2f}"
+                sms_message = f"Товар '{order_data.product_name}' куплен! Заказ #{order_data.order_id} оплачен (€{order_data.order_price:.2f}). Подготовьте к отгрузке."
             
             success, external_id, error = self._send_with_retry(
                 "sms", order_data.seller_phone, None, sms_message, order_data.order_id
@@ -234,102 +174,52 @@ class NotificationService:
             if success and external_id:
                 notification_ids.append(external_id)
             elif error:
-                errors.append(f"SMS: {error}")
+                errors.append(f"SMS to seller: {error}")
+        else:
+            errors.append("Seller phone number not provided")
         
-        # Отправка Email
-        if order_data.seller_email:
-            if template and template.email_subject and template.email_body:
-                email_subject = self._render_template(template.email_subject, template_data)
-                email_body = self._render_template(template.email_body, template_data)
+        # Отправляем покупателю
+        if order_data.buyer_phone:
+            template = self._get_template("order_paid_buyer")
+            
+            tracking_url = order_data.tracking_url or f"{configs.frontend_url}api/v1/delivery/order/{order_data.order_id}"
+            tracking_number = order_data.tracking_url.split('/')[-1] if order_data.tracking_url else "будет предоставлен"
+            
+            template_data = {
+                "buyer_name": order_data.buyer_name,
+                "product_name": order_data.product_name,
+                "product_model": order_data.product_model or "",
+                "order_price": f"{order_data.order_price:.2f}",
+                "order_id": order_data.order_id,
+                "tracking_url": tracking_url,
+                "tracking_number": tracking_number,
+                "delivery_method": order_data.delivery_method
+            }
+            
+            if template and template.sms_text:
+                sms_message = self._render_template(template.sms_text, template_data)
             else:
-                email_subject = f"Новый заказ #{order_data.order_id}"
-                email_body = f"""
-                <html>
-                <body>
-                    <h2>Новый заказ!</h2>
-                    <p>Здравствуйте, {order_data.seller_name}!</p>
-                    <p>У вас новый заказ:</p>
-                    <ul>
-                        <li><strong>Товар:</strong> {order_data.product_name} {order_data.product_model or ""}</li>
-                        <li><strong>Покупатель:</strong> {order_data.buyer_name}</li>
-                        <li><strong>Сумма:</strong> €{order_data.order_price:.2f}</li>
-                        <li><strong>Доставка:</strong> {order_data.delivery_method}</li>
-                    </ul>
-                    <p><a href="{configs.frontend_url}/orders/{order_data.order_id}">Посмотреть заказ</a></p>
-                </body>
-                </html>
-                """
+                sms_message = f"Оплата успешна! Заказ #{order_data.order_id} {order_data.product_name} за €{order_data.order_price:.2f}. Товар будет отправлен. Отслеживание: {tracking_url}"
             
             success, external_id, error = self._send_with_retry(
-                "email", None, order_data.seller_email, email_body, 
-                order_data.order_id, email_subject
+                "sms", order_data.buyer_phone, None, sms_message, order_data.order_id
             )
             
             if success and external_id:
                 notification_ids.append(external_id)
             elif error:
-                errors.append(f"Email: {error}")
-        
-        return len(errors) == 0, notification_ids, errors
-    
-    def send_order_confirmation_to_buyer(self, order_data: OrderNotificationData) -> Tuple[bool, list[int], list[str]]:
-        """Отправка подтверждения заказа покупателю (Email)"""
-        notification_ids = []
-        errors = []
-        
-        template = self._get_template("order_created_buyer")
-        
-        tracking_url = order_data.tracking_url or f"{configs.frontend_url}/orders/{order_data.order_id}"
-        
-        template_data = {
-            "buyer_name": order_data.buyer_name,
-            "product_name": order_data.product_name,
-            "product_model": order_data.product_model or "",
-            "order_price": f"{order_data.order_price:.2f}",
-            "order_id": order_data.order_id,
-            "tracking_url": tracking_url,
-            "delivery_method": order_data.delivery_method
-        }
-        
-        if template and template.email_subject and template.email_body:
-            email_subject = self._render_template(template.email_subject, template_data)
-            email_body = self._render_template(template.email_body, template_data)
-        else:
-            email_subject = f"Подтверждение заказа #{order_data.order_id}"
-            email_body = f"""
-            <html>
-            <body>
-                <h2>Заказ подтвержден!</h2>
-                <p>Здравствуйте, {order_data.buyer_name}!</p>
-                <p>Ваш заказ успешно создан:</p>
-                <ul>
-                    <li><strong>Номер заказа:</strong> #{order_data.order_id}</li>
-                    <li><strong>Товар:</strong> {order_data.product_name} {order_data.product_model or ""}</li>
-                    <li><strong>Сумма:</strong> €{order_data.order_price:.2f}</li>
-                    <li><strong>Доставка:</strong> {order_data.delivery_method}</li>
-                </ul>
-                <p><a href="{tracking_url}">Отследить заказ</a></p>
-                <p>Спасибо за покупку!</p>
-            </body>
-            </html>
-            """
-        
-        success, external_id, error = self._send_with_retry(
-            "email", None, order_data.buyer_email, email_body,
-            order_data.order_id, email_subject
-        )
-        
-        if success and external_id:
-            notification_ids.append(external_id)
-        elif error:
-            errors.append(f"Email: {error}")
+                errors.append(f"SMS to buyer: {error}")
         
         return len(errors) == 0, notification_ids, errors
     
     def send_review_request(self, order_data: OrderNotificationData) -> Tuple[bool, list[int], list[str]]:
-        """Отправка запроса на отзыв после получения заказа"""
+        """Отправка SMS запроса на отзыв после получения заказа"""
         notification_ids = []
         errors = []
+        
+        if not order_data.buyer_phone:
+            # Если нет телефона покупателя, просто возвращаем успех (не критично)
+            return True, [], []
         
         template = self._get_template("order_review_request")
         
@@ -343,33 +233,20 @@ class NotificationService:
             "review_url": review_url
         }
         
-        if template and template.email_subject and template.email_body:
-            email_subject = self._render_template(template.email_subject, template_data)
-            email_body = self._render_template(template.email_body, template_data)
+        # SMS сообщение покупателю после получения
+        if template and template.sms_text:
+            sms_message = self._render_template(template.sms_text, template_data)
         else:
-            email_subject = "Оцените продавца"
-            email_body = f"""
-            <html>
-            <body>
-                <h2>Оцените ваш опыт покупки</h2>
-                <p>Здравствуйте, {order_data.buyer_name}!</p>
-                <p>Вы получили заказ #{order_data.order_id} ({order_data.product_name}).</p>
-                <p>Пожалуйста, оцените продавца {order_data.seller_name} и оставьте отзыв:</p>
-                <p><a href="{review_url}" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Оставить отзыв</a></p>
-                <p>Ваш отзыв поможет другим покупателям!</p>
-            </body>
-            </html>
-            """
+            sms_message = f"Спасибо за использование нашего сервиса! Заказ #{order_data.order_id} получен. Пожалуйста, оставьте отзыв о товаре '{order_data.product_name}': {review_url}"
         
         success, external_id, error = self._send_with_retry(
-            "email", None, order_data.buyer_email, email_body,
-            order_data.order_id, email_subject
+            "sms", order_data.buyer_phone, None, sms_message, order_data.order_id
         )
         
         if success and external_id:
             notification_ids.append(external_id)
         elif error:
-            errors.append(f"Email: {error}")
+            errors.append(f"SMS: {error}")
         
         return len(errors) == 0, notification_ids, errors
     
@@ -402,9 +279,7 @@ class NotificationService:
         for attempt in range(max_retries):
             try:
                 if channel == "sms":
-                    success, external_id, error = self.sendpulse.send_sms(phone, message)
-                elif channel == "email":
-                    success, external_id, error = self.sendpulse.send_email(email, subject, message)
+                    success, external_id, error = self.sendberry.send_sms(phone, message)
                 else:
                     success, external_id, error = False, None, f"Unknown channel: {channel}"
                 

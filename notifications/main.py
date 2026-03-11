@@ -23,7 +23,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Notification Service API",
-    description="Сервис уведомлений через SendPulse (SMS и Email)",
+    description="Сервис уведомлений через SendBerry SMS API",
     version="1.0.0",
     docs_url="/notifications/docs",
     lifespan=lifespan

@@ -1,11 +1,10 @@
 # Notification Service
 
-Микросервис для отправки SMS и Email уведомлений через SendPulse API.
+Микросервис для отправки SMS уведомлений через SendBerry API.
 
 ## Основные возможности
 
-- ✉️ Отправка Email уведомлений через SendPulse SMTP
-- 📱 Отправка SMS уведомлений через SendPulse SMS API
+- 📱 Отправка SMS уведомлений через SendBerry SMS API
 - 🔄 Автоматический retry при ошибках (до 3 попыток)
 - 📊 История всех отправленных уведомлений
 - 🎨 Поддержка шаблонов уведомлений
@@ -15,12 +14,12 @@
 
 ### POST /api/v1/notifications/order-created
 Отправка уведомлений при создании заказа:
-- Продавцу: SMS + Email о новом заказе
-- Покупателю: Email с подтверждением и ссылкой для отслеживания
+- Продавцу: SMS о новом заказе
+- Покупателю: Email с подтверждением (или SMS, если настроено)
 
 ### POST /api/v1/notifications/order-delivered
 Отправка уведомления после доставки заказа:
-- Покупателю: Email со ссылкой для оценки продавца
+- Покупателю: Уведомление о доставке
 
 ### GET /api/v1/notifications/history
 Получение истории отправленных уведомлений с фильтрами:
@@ -48,14 +47,35 @@ PORT=6000
 BACKEND_HOST=0.0.0.0
 FRONTEND_URL=https://test.yuniversia.eu
 
-# SendPulse API
-SENDPULSE_API_ID=your_api_id
-SENDPULSE_API_SECRET=your_api_secret
+# SendBerry API
+SENDBERRY_API_KEY=your_api_key
+SENDBERRY_API_NAME=your_access_name
+SENDBERRY_API_PASSWORD=your_access_password
+SENDBERRY_SENDER_ID=SMS Inform  # Default for test mode, or your verified sender ID
 
 # JWT (optional, для защиты API)
 SECRET_KEY=My secret key
 TOKEN_ALGORITHM=HS256
 ```
+
+## Режим работы SendBerry
+
+### Test/Limited Mode
+В тестовом режиме или при использовании free credits:
+- Необходимо верифицировать sender ID "from" или использовать дефолтный "SMS Inform"
+- SMS можно отправлять только на ваш собственный верифицированный номер
+- Необходимо верифицировать номера получателей в настройках SendBerry Portal
+
+### Production Mode
+После активации полного доступа:
+- Можно использовать собственный Sender ID (alphanumeric или номер телефона)
+- Отправка SMS на любые номера без ограничений
+- Webhook для отслеживания статуса доставки (опционально)
+
+### Важно
+- Номера телефонов должны быть в международном формате E.164: `+37120000000`
+- Текст сообщений поддерживает UTF-8 (включая кириллицу)
+- Email уведомления в текущей версии не поддерживаются (только SMS)
 
 ## Типы уведомлений
 
@@ -97,7 +117,7 @@ TOKEN_ALGORITHM=HS256
 - `status` - Статус доставки (pending/sent/failed/retry)
 - `retry_count` - Количество попыток
 - `error_message` - Сообщение об ошибке
-- `external_id` - ID из SendPulse API
+- `external_id` - ID из SendBerry API (campaign ID)
 
 ### notification_template
 Шаблоны уведомлений:

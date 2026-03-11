@@ -23,9 +23,11 @@ class Configs:
     # Frontend URL
     frontend_url: str = os.getenv("FRONTEND_URL", "http://localhost:8080")
     
-    # SendPulse API
-    sendpulse_api_id: str = os.getenv("SENDPULSE_API_ID", "")
-    sendpulse_api_secret: str = os.getenv("SENDPULSE_API_SECRET", "")
+    # SendBerry API
+    sendberry_api_key: str = os.getenv("SENDBERRY_API_KEY", "")
+    sendberry_api_name: str = os.getenv("SENDBERRY_API_NAME", "")
+    sendberry_api_password: str = os.getenv("SENDBERRY_API_PASSWORD", "")
+    sendberry_sender_id: str = os.getenv("SENDBERRY_SENDER_ID", "SMS Inform")  # Default sender ID for test mode
     
     # JWT для валидации (если нужно защитить API)
     secret_key: str = os.getenv("SECRET_KEY", "My secret key")

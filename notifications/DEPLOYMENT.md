@@ -2,7 +2,7 @@
 
 ## 📋 Обзор
 
-Создан новый микросервис **notifications** для отправки SMS и Email уведомлений через SendPulse API.
+Создан новый микросервис **notifications** для отправки SMS уведомлений через SendBerry API.
 
 ## ✅ Что реализовано
 
@@ -11,7 +11,7 @@
 - ✅ `notifications/models.py` - Модели БД и Pydantic схемы
 - ✅ `notifications/database.py` - Подключение к PostgreSQL
 - ✅ `notifications/configs.py` - Конфигурация через переменные окружения
-- ✅ `notifications/notification_service.py` - Бизнес-логика и SendPulse интеграция
+- ✅ `notifications/notification_service.py` - Бизнес-логика и SendBerry интеграция
 - ✅ `notifications/notification_router.py` - API эндпоинты
 - ✅ `notifications/Dockerfile` - Docker образ
 - ✅ `notifications/requirements.txt` - Python зависимости
@@ -31,7 +31,7 @@
 
 ### 4. Интеграция с системой заказов
 - ✅ `posts/order_router.py` - Вызовы notification service:
-  - При создании заказа (`/create`) - уведомления продавцу (SMS+Email) и покупателю (Email)
+  - При создании заказа (`/create`) - уведомления продавцу (SMS) и покупателю
   - При оплате (`/pay`) - подтверждение оплаты
   - При отправке (`/ship`) - уведомление об отправке
   - После доставки - запрос на отзыв
@@ -44,13 +44,13 @@
 - ✅ posts-service теперь зависит от notifications-service
 
 ### 6. Функционал
-- ✅ SendPulse API интеграция (SMS + Email)
-- ✅ OAuth токены с автообновлением
+- ✅ SendBerry API интеграция (SMS)
 - ✅ Retry механизм (до 3 попыток с exponential backoff)
 - ✅ Подробное логирование всех операций
 - ✅ Шаблоны с переменными `{order_id}`, `{buyer_name}`, и т.д.
 - ✅ История всех отправленных уведомлений в БД
 - ✅ Асинхронная отправка (не блокирует создание заказа)
+- ✅ Поддержка тестового режима SendBerry
 
 ### 7. Тесты
 - ✅ `tests/test_notification_service.py` - Unit тесты:
@@ -82,9 +82,11 @@ docker exec -i lais-postgres psql -U postgres -d lais_marketplace < notification
 Убедитесь, что в `.env` есть:
 
 ```env
-# SendPulse API
-SENDPULSE_API_ID=f9c9ceb91e80d79748cd2fbbcf05798a
-SENDPULSE_API_SECRET=0a3d1307576dd7e17f8538ddc0ab5760
+# SendBerry API
+SENDBERRY_API_KEY=your_api_key
+SENDBERRY_API_NAME=your_access_name
+SENDBERRY_API_PASSWORD=your_access_password
+SENDBERRY_SENDER_ID=SMS Inform  # Default for test mode
 
 # Frontend URL
 FRONTEND_URL=https://test.yuniversia.eu/
