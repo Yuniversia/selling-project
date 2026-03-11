@@ -241,6 +241,141 @@
             gap: 10px;
             justify-content: flex-end;
         }
+
+        /* Delivery Status Timeline */
+        .delivery-timeline {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        .delivery-timeline-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .delivery-timeline-header h4 {
+            margin: 0;
+            font-size: 16px;
+            color: #333;
+        }
+
+        .delivery-provider-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .provider-omniva {
+            background: #ff6b35;
+            color: white;
+        }
+
+        .provider-dpd {
+            background: #dc143c;
+            color: white;
+        }
+
+        .timeline-progress {
+            position: relative;
+            height: 4px;
+            background: #e0e0e0;
+            border-radius: 2px;
+            margin: 20px 0;
+        }
+
+        .timeline-progress-bar {
+            position: absolute;
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #8BC34A);
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+
+        .timeline-steps {
+            display: flex;
+            justify-content: space-between;
+            position: relative;
+        }
+
+        .timeline-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+        }
+
+        .timeline-step-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #e0e0e0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            margin-bottom: 8px;
+            position: relative;
+            z-index: 1;
+            transition: all 0.3s;
+        }
+
+        .timeline-step.active .timeline-step-icon {
+            background: #4CAF50;
+            color: white;
+            box-shadow: 0 0 0 4px rgba(76, 175, 80, 0.2);
+        }
+
+        .timeline-step.completed .timeline-step-icon {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .timeline-step-label {
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+            max-width: 80px;
+        }
+
+        .timeline-step.active .timeline-step-label {
+            color: #4CAF50;
+            font-weight: 600;
+        }
+
+        .tracking-info {
+            display: flex;
+            justify-content: space-between;
+            padding: 15px;
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+
+        .tracking-info-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tracking-info-label {
+            font-size: 11px;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .tracking-info-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+        }
     </style>
 </head>
 <body>
@@ -327,11 +462,6 @@
                         <div>
                             <strong>👤 {{ t.order_info_hidden }}</strong>
                         </div>
-                        ${order.pickup_code ? `
-                        <div style="margin-top: 10px;">
-                            <strong>{{ t.pickup_code }}:</strong> <code style="background: #f0f0f0; padding: 4px 8px; border-radius: 4px; font-size: 16px; font-weight: bold;">${order.pickup_code}</code>
-                        </div>
-                        ` : ''}
                         ${order.review_rating ? `
                         <div style="margin-top: 10px;">
                             <strong>{{ t.review }}:</strong> ${'⭐'.repeat(order.review_rating)} (${order.review_rating}/5)
@@ -353,13 +483,33 @@
                             <span class="detail-label">{{ t.delivery_method }}</span>
                             <span class="detail-value">${getDeliveryText(order.delivery_method)}</span>
                         </div>
-                        ${order.tracking_number ? `
-                        <div class="detail-item">
-                            <span class="detail-label">{{ t.tracking_number }}</span>
-                            <span class="detail-value">${order.tracking_number}</span>
-                        </div>
-                        ` : ''}
                     </div>
+
+                    ${order.tracking_number && order.delivery_status ? `
+                    <div class="delivery-timeline">
+                        <div class="delivery-timeline-header">
+                            <h4>📦 Статус доставки</h4>
+                            ${order.delivery_provider ? `
+                            <span class="delivery-provider-badge provider-${order.delivery_provider.toLowerCase()}">${order.delivery_provider}</span>
+                            ` : ''}
+                        </div>
+                        
+                        <div class="tracking-info">
+                            <div class="tracking-info-item">
+                                <span class="tracking-info-label">Трек-номер</span>
+                                <span class="tracking-info-value">${order.tracking_number}</span>
+                            </div>
+                            ${order.estimated_delivery ? `
+                            <div class="tracking-info-item">
+                                <span class="tracking-info-label">Ожидаемая доставка</span>
+                                <span class="tracking-info-value">${formatShortDate(order.estimated_delivery)}</span>
+                            </div>
+                            ` : ''}
+                        </div>
+
+                        ${renderDeliveryTimeline(order.delivery_status)}
+                    </div>
+                    ` : ''}
 
                     <div class="order-actions">
                         <a href="/product?id=${order.post_id}" class="btn btn-outline">{{ t.view_product }}</a>
@@ -452,6 +602,47 @@
                 hour: '2-digit',
                 minute: '2-digit'
             });
+        }
+
+        function formatShortDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('ru-RU', {
+                month: 'short',
+                day: 'numeric'
+            });
+        }
+
+        function renderDeliveryTimeline(status) {
+            const steps = [
+                { id: 'created', icon: '📝', label: 'Создан' },
+                { id: 'in_transit', icon: '🚚', label: 'В пути' },
+                { id: 'at_pickup_point', icon: '📮', label: 'В пакомате' },
+                { id: 'picked_up', icon: '✅', label: 'Получен' }
+            ];
+
+            const statusOrder = ['created', 'in_transit', 'at_pickup_point', 'picked_up'];
+            const currentIndex = statusOrder.indexOf(status);
+            const progress = ((currentIndex + 1) / statusOrder.length) * 100;
+
+            return `
+                <div class="timeline-progress">
+                    <div class="timeline-progress-bar" style="width: ${progress}%"></div>
+                </div>
+                <div class="timeline-steps">
+                    ${steps.map((step, index) => {
+                        const isCompleted = index < currentIndex;
+                        const isActive = index === currentIndex;
+                        const stepClass = isCompleted ? 'completed' : (isActive ? 'active' : '');
+                        
+                        return `
+                        <div class="timeline-step ${stepClass}">
+                            <div class="timeline-step-icon">${step.icon}</div>
+                            <div class="timeline-step-label">${step.label}</div>
+                        </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
         }
 
         function getStatusText(status) {

@@ -66,6 +66,27 @@ async def auto_simulate_deliveries():
                                 )
                             )
                 
+                # Автоматический переход "at_pickup_point" -> "picked_up" (симуляция получения)
+                deliveries = db.exec(
+                    select(Delivery).where(
+                        Delivery.status == DeliveryStatus.AT_PICKUP_POINT.value
+                    )
+                ).all()
+                
+                for delivery in deliveries:
+                    if delivery.arrived_at_pickup_point_at:
+                        age = datetime.utcnow() - delivery.arrived_at_pickup_point_at
+                        # Симулируем получение через 5 секунд после прибытия в пакомат
+                        if age.total_seconds() >= 5:
+                            print(f"🤖 Auto-simulating: {delivery.tracking_number} -> picked_up")
+                            service.update_delivery_status(
+                                delivery.id,
+                                DeliveryStatusUpdate(
+                                    status=DeliveryStatus.PICKED_UP,
+                                    notes="Автоматическая симуляция: товар получен покупателем"
+                                )
+                            )
+                
         except Exception as e:
             print(f"❌ Auto-simulation error: {e}")
 

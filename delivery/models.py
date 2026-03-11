@@ -130,7 +130,26 @@ class DeliveryCreate(BaseModel):
 
 
 class DeliveryResponse(BaseModel):
-    """Ответ с данными доставки"""
+    """Ответ с данными доставки - ТОЛЬКО ПУБЛИЧНАЯ ИНФОРМАЦИЯ"""
+    id: int
+    order_id: int
+    provider: str
+    tracking_number: str
+    status: str
+    
+    # Пункт выдачи (без адреса)
+    pickup_point_name: Optional[str]
+    
+    # Временные метки
+    created_at: datetime
+    shipped_at: Optional[datetime]
+    arrived_at_pickup_point_at: Optional[datetime]
+    picked_up_at: Optional[datetime]
+    estimated_delivery_date: Optional[datetime]
+
+
+class DeliveryFullResponse(BaseModel):
+    """Полный ответ с данными доставки - ДЛЯ ВНУТРЕННЕГО ИСПОЛЬЗОВАНИЯ"""
     id: int
     order_id: int
     provider: str
@@ -165,12 +184,12 @@ class DeliveryStatusUpdate(BaseModel):
 
 
 class DeliveryTrackingResponse(BaseModel):
-    """Ответ с информацией об отслеживании доставки"""
+    """Ответ с информацией об отслеживании доставки - ПУБЛИЧНЫЙ"""
     tracking_number: str
     status: str
     provider: str
     
-    recipient_name: str
+    # Только город и пункт выдачи, БЕЗ имен и телефонов
     delivery_city: Optional[str]
     pickup_point_name: Optional[str]
     

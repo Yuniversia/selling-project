@@ -60,7 +60,6 @@ async def track_delivery(
         tracking_number=delivery.tracking_number,
         status=delivery.status,
         provider=delivery.provider,
-        recipient_name=delivery.recipient_name,
         delivery_city=delivery.delivery_city,
         pickup_point_name=delivery.pickup_point_name,
         created_at=delivery.created_at,

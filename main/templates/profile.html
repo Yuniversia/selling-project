@@ -631,19 +631,42 @@
         async function initProfile() {
             try {
                 // 1. Запрашиваем данные текущего пользователя
-                const response = await fetch(`${AUTH_API}/me`, {
+                const auth_response = await fetch(`${AUTH_API}/me`, {
                     method: 'GET',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include' // Важно для HttpOnly cookies
                 });
 
-                if (!response.ok) {
-                    // Если не авторизован (401), редирект на главную
-                    window.location.href = '/';
-                    return;
+                if (!auth_response.ok) {
+                    // If user is not authenticated, try to refresh the token
+                    if (auth_response.status === 401) {
+                        const refreshResponse = await fetch(`${AUTH_API}/refresh`, {
+                            method: 'GET',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            credentials: 'include' 
+                        });
+
+                        // If refresh is successful, retry fetching user data
+                        if (refreshResponse.ok) {
+                            const auth_response = await fetch(`${AUTH_API}/me`, {
+                                method: 'GET',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                credentials: 'include' 
+                            });
+
+                            if (!auth_response.ok) {
+                                window.location.href = '/';
+                                return;
+                            }
+                        }
+                    }
                 }
 
-                const user = await response.json();
+                const user = await auth_response.json();
                 renderUserData(user);
 
             } catch (err) {

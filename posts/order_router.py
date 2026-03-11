@@ -43,6 +43,28 @@ async def send_notification_async(endpoint: str, data: dict):
         return None
 
 
+async def get_delivery_info(order_id: int) -> Optional[dict]:
+    """Получение информации о доставке из delivery-service"""
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(
+                f"{Configs.DELIVERY_SERVICE_URL}/api/v1/delivery/order/{order_id}"
+            )
+            if response.status_code == 200:
+                delivery = response.json()
+                print(f"🚚 Delivery info fetched for order {order_id}: {delivery.get('tracking_number')}")
+                return delivery
+            elif response.status_code == 404:
+                print(f"📦 No delivery found for order {order_id} (probably pickup)")
+                return None
+            else:
+                print(f"⚠️ Delivery service error: {response.status_code}")
+                return None
+    except Exception as e:
+        print(f"❌ Error fetching delivery info: {e}")
+        return None
+
+
 def get_current_user(access_token: str) -> dict:
     """Извлечение пользователя из JWT токена"""
     if not access_token:
@@ -510,8 +532,9 @@ async def confirm_receipt(
     if order.buyer_id != user["user_id"]:
         raise HTTPException(status_code=403, detail="Только покупатель может подтвердить получение")
     
-    if order.status != OrderStatus.SHIPPED.value:
-        raise HTTPException(status_code=400, detail="Товар ещё не отправлен")
+    # Покупатель может оставить отзыв если заказ DELIVERED или SHIPPED
+    if order.status not in [OrderStatus.DELIVERED.value, OrderStatus.SHIPPED.value]:
+        raise HTTPException(status_code=400, detail="Товар ещё не доставлен")
     
     if order.confirmed_by_buyer or order.rejected_by_buyer:
         raise HTTPException(status_code=400, detail="Вы уже оставили отзыв на этот заказ")
@@ -631,7 +654,12 @@ async def get_my_orders(
     # Форматируем ответ БЕЗ личных данных (покупатель видит свои заказы)
     safe_orders = []
     for order in orders:
-        safe_orders.append(OrderResponse(
+        # Получаем информацию о доставке из delivery-service
+        delivery_info = None
+        if order.delivery_method in ['omniva', 'dpd']:
+            delivery_info = await get_delivery_info(order.id)
+        
+        order_response = OrderResponse(
             id=order.id,
             post_id=order.post_id,
             status=order.status,
@@ -646,7 +674,17 @@ async def get_my_orders(
             completed_at=order.completed_at,
             review_rating=order.review_rating,
             review_text=order.review_text
-        ))
+        )
+        
+        # Добавляем информацию о доставке если есть
+        if delivery_info:
+            order_response.tracking_number = delivery_info.get('tracking_number')
+            order_response.pickup_code = delivery_info.get('pickup_code')
+            order_response.delivery_status = delivery_info.get('status')
+            order_response.delivery_provider = delivery_info.get('provider')
+            order_response.estimated_delivery = delivery_info.get('estimated_delivery')
+        
+        safe_orders.append(order_response)
     
     return {"orders": safe_orders}
 
@@ -683,7 +721,12 @@ async def get_my_sales(
     # Форматируем ответ: продавец видит ТОЛЬКО ИМЯ покупателя (БЕЗ email/phone/адреса)
     safe_sales = []
     for order in orders:
-        safe_sales.append(OrderResponse(
+        # Получаем информацию о доставке из delivery-service
+        delivery_info = None
+        if order.delivery_method in ['omniva', 'dpd']:
+            delivery_info = await get_delivery_info(order.id)
+        
+        order_response = OrderResponse(
             id=order.id,
             post_id=order.post_id,
             status=order.status,
@@ -697,7 +740,17 @@ async def get_my_sales(
             completed_at=order.completed_at,
             review_rating=order.review_rating,
             review_text=order.review_text
-        ))
+        )
+        
+        # Добавляем информацию о доставке если есть
+        if delivery_info:
+            order_response.tracking_number = delivery_info.get('tracking_number')
+            order_response.pickup_code = delivery_info.get('pickup_code')
+            order_response.delivery_status = delivery_info.get('status')
+            order_response.delivery_provider = delivery_info.get('provider')
+            order_response.estimated_delivery = delivery_info.get('estimated_delivery')
+        
+        safe_sales.append(order_response)
     
     return {"sales": safe_sales}
 
@@ -727,4 +780,58 @@ async def get_order_details(
     return {
         "order": order,
         "post": post
+    }
+
+
+@order_router.post("/delivery-received")
+async def delivery_received_webhook(
+    request: dict,
+    db: Session = Depends(get_session)
+):
+    """
+    Webhook от delivery-service: уведомление о том, что доставка получена покупателем
+    
+    Автоматически обновляет статус заказа на DELIVERED
+    У покупателя есть 48 часов (2 дня) на возврат или оставление отзыва
+    """
+    order_id = request.get("order_id")
+    tracking_number = request.get("tracking_number")
+    picked_up_at = request.get("picked_up_at")
+    
+    if not order_id:
+        raise HTTPException(status_code=400, detail="order_id is required")
+    
+    print(f"[DELIVERY-RECEIVED] Webhook received for order #{order_id}")
+    print(f"[DELIVERY-RECEIVED] Tracking: {tracking_number}, Picked up at: {picked_up_at}")
+    
+    # Находим заказ
+    order = db.get(Order, order_id)
+    if not order:
+        print(f"[DELIVERY-RECEIVED] ❌ Order #{order_id} not found")
+        raise HTTPException(status_code=404, detail="Заказ не найден")
+    
+    # Проверяем текущий статус
+    if order.status not in [OrderStatus.SHIPPED.value, OrderStatus.PROCESSING.value]:
+        print(f"[DELIVERY-RECEIVED] ⚠️ Order #{order_id} has wrong status: {order.status}")
+        return {
+            "success": False,
+            "message": f"Заказ имеет статус {order.status}, ожидался shipped или processing"
+        }
+    
+    # Обновляем статус на DELIVERED
+    order.status = OrderStatus.DELIVERED.value
+    order.delivered_at = datetime.utcnow()
+    
+    db.add(order)
+    db.commit()
+    
+    print(f"[DELIVERY-RECEIVED] ✅ Order #{order_id} status updated to DELIVERED")
+    print(f"[DELIVERY-RECEIVED] Buyer has 48 hours for return/review")
+    
+    return {
+        "success": True,
+        "message": "Заказ отмечен как доставленный",
+        "order_id": order.id,
+        "status": order.status,
+        "delivered_at": order.delivered_at
     }

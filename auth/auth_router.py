@@ -384,7 +384,7 @@ async def read_users_me(request: Request, db: Session = Depends(get_session)):
 @auth_router.put("/me")
 async def update_user_profile(
     request: Request,
-    user_update: dict,
+    # user_update: dict,
     db: Session = Depends(get_session)
 ):
     """

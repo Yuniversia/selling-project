@@ -295,6 +295,13 @@ class OrderResponse(BaseModel):
     # Отзыв (если есть)
     review_rating: Optional[int] = None
     review_text: Optional[str] = None
+    
+    # Информация о доставке (из delivery-service)
+    tracking_number: Optional[str] = None
+    pickup_code: Optional[str] = None
+    delivery_status: Optional[str] = None
+    delivery_provider: Optional[str] = None
+    estimated_delivery: Optional[datetime] = None
 
 
 class OrderConfirmation(BaseModel):

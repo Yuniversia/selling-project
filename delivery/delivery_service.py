@@ -130,6 +130,12 @@ class DeliveryService:
             
             # Отправляем уведомление о получении + ссылку на отзыв
             self._send_picked_up_notification(delivery)
+            
+            # Уведомляем posts-service что доставка получена
+            self._notify_posts_service_delivery_received(delivery)
+            
+            # Уведомляем posts-service что доставка получена
+            self._notify_posts_service_delivery_received(delivery)
         
         self.db.add(delivery)
         self.db.commit()
@@ -245,6 +251,29 @@ class DeliveryService:
             
         except Exception as e:
             logger.error(f"❌ Failed to send picked up notification: {e}")
+    
+    def _notify_posts_service_delivery_received(self, delivery: Delivery):
+        """Уведомление posts-service о том, что доставка получена покупателем"""
+        try:
+            logger.info(f"📞 Notifying posts-service: delivery {delivery.tracking_number} picked up for order {delivery.order_id}")
+            
+            with httpx.Client(timeout=5.0) as client:
+                response = client.post(
+                    f"{configs.POSTS_SERVICE_URL}/api/v1/orders/delivery-received",
+                    json={
+                        "order_id": delivery.order_id,
+                        "tracking_number": delivery.tracking_number,
+                        "picked_up_at": delivery.picked_up_at.isoformat() if delivery.picked_up_at else None
+                    }
+                )
+                
+                if response.status_code == 200:
+                    logger.info(f"✅ Posts-service notified about delivery receipt for order {delivery.order_id}")
+                else:
+                    logger.warning(f"⚠️ Posts-service notification failed: {response.status_code} - {response.text}")
+                    
+        except Exception as e:
+            logger.error(f"❌ Failed to notify posts-service: {e}")
     
     def _send_notification_async(
         self,
