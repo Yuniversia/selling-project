@@ -11,7 +11,7 @@ import httpx
 
 from database import get_session
 from models import (
-    Order, OrderCreate, OrderResponse, OrderConfirmation,
+    Order, OrderCreate, OrderResponse,
     Iphone, DeliveryMethod, OrderStatus, User
 )
 from configs import Configs
@@ -231,12 +231,12 @@ async def create_order(
                 "tracking_url": f"{Configs.FRONTEND_URL}/orders/{order.id}"
             }
             
-            # Асинхронно отправляем уведомления
-            await send_notification_async("order-created", notification_data)
+            # Примечание: уведомления отправляются после оплаты в /pay endpoint
+            # await send_notification_async("order-paid", notification_data)
             
         except Exception as e:
-            print(f"[CREATE ORDER] ⚠️ Failed to send notifications: {e}")
-            # Продолжаем выполнение даже если уведомления не отправились
+            print(f"[CREATE ORDER] ⚠️ Failed to prepare notification data: {e}")
+            # Продолжаем выполнение даже если подготовка данных не удалась
             
     except HTTPException:
         raise
@@ -362,7 +362,31 @@ async def process_payment(
     else:
         print(f"[PAY] ⏭️ Skipping delivery creation (method: {order.delivery_method})")
     
-    # Уведомление об оплате не отправляем - покупатель уже получил SMS при создании заказа
+    # Отправляем уведомление об оплате (продавцу и покупателю)
+    try:
+        seller = db.get(User, order.seller_id)
+        post = db.get(Iphone, order.post_id)
+        
+        notification_data = {
+            "post_id": order.post_id,
+            "order_id": order.id,
+            "seller_name": seller.name or seller.username if seller else "Продавец",
+            "seller_email": seller.email if seller else None,
+            "seller_phone": seller.phone if seller else None,
+            "buyer_name": f"{order.buyer_first_name} {order.buyer_last_name}",
+            "buyer_email": order.buyer_email,
+            "buyer_phone": order.buyer_phone,
+            "product_name": post.model or "iPhone" if post else "iPhone",
+            "product_model": f"{post.memory}GB {post.color}" if post and post.memory and post.color else None,
+            "order_price": order.price,
+            "delivery_method": order.delivery_method,
+            "tracking_url": f"{Configs.FRONTEND_URL}api/v1/delivery/order/{order.id}"
+        }
+        
+        # Отправляем асинхронно
+        await send_notification_async("order-paid", notification_data)
+    except Exception as e:
+        print(f"[PAY] ⚠️ Failed to send payment notification: {e}")
     
     return {
         "success": True,
@@ -449,33 +473,6 @@ async def mark_as_shipped(
     else:
         print(f"[SHIP] ⏭️ Skipping delivery update (method: {order.delivery_method})")
     
-    # Уведомляем покупателя об отправке
-    try:
-        seller = db.get(User, order.seller_id)
-        post = db.get(Iphone, order.post_id)
-        
-        notification_data = {
-            "post_id": order.post_id,
-            "order_id": order.id,
-            "seller_name": seller.name or seller.username if seller else "Продавец",
-            "seller_email": seller.email if seller else None,
-            "seller_phone": seller.phone if seller else None,
-            "buyer_name": f"{order.buyer_first_name} {order.buyer_last_name}",
-            "buyer_email": order.buyer_email,
-            "buyer_phone": order.buyer_phone,
-            "product_name": post.model or "iPhone" if post else "iPhone",
-            "product_model": f"{post.memory}GB {post.color}" if post and post.memory and post.color else None,
-            "order_price": order.price,
-            "delivery_method": order.delivery_method,
-            "tracking_url": f"{Configs.FRONTEND_URL}/orders/{order.id}",
-            "review_url": f"{Configs.FRONTEND_URL}/orders/{order.id}/review"
-        }
-        
-        # Отправляем асинхронно
-        await send_notification_async("order-shipped", notification_data)
-    except Exception as e:
-        print(f"[SHIP] ⚠️ Failed to send shipping notification: {e}")
-    
     return {
         "success": True,
         "message": "Товар отмечен как отправленный. Покупатель получит уведомление.",
@@ -484,93 +481,64 @@ async def mark_as_shipped(
     }
 
 
-@order_router.post("/confirm", response_model=dict)
-async def confirm_receipt(
-    confirmation: OrderConfirmation,
+@order_router.post("/review", response_model=dict)
+async def leave_review(
+    review_data: dict,
     access_token: str = Cookie(None),
     db: Session = Depends(get_session)
 ):
     """
-    Покупатель подтверждает или отклоняет получение товара + оставляет отзыв
+    Покупатель оставляет отзыв на уже доставленный/завершенный заказ
     
-    После отправки товара продавцом, покупатель может:
-    - Подтвердить получение (accepted=True) + оценка 0-5 + текст отзыва
-    - Отклонить (accepted=False) + оценка 0-5 + причина
-    
-    При подтверждении: +1 к sells_count продавцу, обновляется рейтинг
+    Заказ должен быть в статусе COMPLETED или DELIVERED
+    Не меняет статус заказа - только сохраняет отзыв
     """
     if not access_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
     user = get_current_user(access_token)
     
-    order = db.get(Order, confirmation.order_id)
+    order_id = review_data.get("order_id")
+    rating = review_data.get("rating")
+    review_text = review_data.get("review_text")
+    
+    if not order_id or rating is None:
+        raise HTTPException(status_code=400, detail="order_id и rating обязательны")
+    
+    if not (0 <= rating <= 5):
+        raise HTTPException(status_code=400, detail="Оценка должна быть от 0 до 5")
+    
+    order = db.get(Order, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Заказ не найден")
     
     # Проверяем, что это покупатель
     if order.buyer_id != user["user_id"]:
-        raise HTTPException(status_code=403, detail="Только покупатель может подтвердить получение")
+        raise HTTPException(status_code=403, detail="Только покупатель может оставить отзыв")
     
-    # Покупатель может оставить отзыв если заказ DELIVERED или SHIPPED
-    if order.status not in [OrderStatus.DELIVERED.value, OrderStatus.SHIPPED.value]:
+    # Покупатель может оставить отзыв если заказ DELIVERED или COMPLETED
+    if order.status not in [OrderStatus.DELIVERED.value, OrderStatus.COMPLETED.value]:
         raise HTTPException(status_code=400, detail="Товар ещё не доставлен")
     
-    if order.confirmed_by_buyer or order.rejected_by_buyer:
+    if order.review_rating is not None:
         raise HTTPException(status_code=400, detail="Вы уже оставили отзыв на этот заказ")
     
     # Сохраняем отзыв
-    order.review_rating = confirmation.rating
-    order.review_text = confirmation.review_text
-    order.completed_at = datetime.utcnow()
+    order.review_rating = rating
+    order.review_text = review_text
     
-    if confirmation.accepted:
-        # Покупатель подтверждает получение
-        order.confirmed_by_buyer = True
-        order.status = OrderStatus.COMPLETED.value
-        
-        print(f"[CONFIRM] ✅ Order #{order.id} confirmed by buyer {user['user_id']}")
-        print(f"[CONFIRM] Post ID: {order.post_id}, Buyer ID: {user['user_id']}")
-        
-        # Скрываем чаты связанные с этим заказом через HTTP-запрос к chat-service
-        try:
-            import httpx
-            
-            buyer_id_for_chat = str(user["user_id"])
-            chat_api_url = "http://chat-service:4000/api/chat/chats/hide-for-order"
-            
-            print(f"[CONFIRM] Calling chat-service API: {chat_api_url}")
-            print(f"[CONFIRM] Params: post_id={order.post_id}, buyer_id={buyer_id_for_chat}")
-            
-            with httpx.Client(timeout=5.0) as client:
-                response = client.post(
-                    chat_api_url,
-                    params={
-                        "post_id": order.post_id,
-                        "buyer_id": buyer_id_for_chat
-                    }
-                )
-                
-                if response.status_code == 200:
-                    result = response.json()
-                    print(f"[CONFIRM] ✅ Hidden {result.get('hidden_count', 0)} chat(s)")
-                else:
-                    print(f"[CONFIRM] ⚠️ Chat service returned status {response.status_code}: {response.text}")
-        except Exception as e:
-            import traceback
-            print(f"[CONFIRM] ❌ Error hiding chats: {e}")
-            print(traceback.format_exc())
-            # Не прерываем выполнение если не удалось скрыть чаты
-        
-        # Обновляем статистику продавца
+    db.add(order)
+    db.commit()
+    
+    print(f"[REVIEW] ✅ Order #{order.id} review saved by buyer {user['user_id']}")
+    print(f"  Rating: {rating}/5, Review: {review_text[:50] if review_text else 'None'}")
+    
+    # Обновляем рейтинг продавца
+    try:
         seller_statement = select(User).where(User.id == order.seller_id)
         seller = db.exec(seller_statement).first()
         
         if seller:
-            # +1 к продажам
-            seller.sells_count += 1
-            
             # Обновляем рейтинг (среднее арифметическое)
-            # Находим все завершённые заказы продавца с отзывами
             completed_orders = db.exec(
                 select(Order).where(
                     Order.seller_id == order.seller_id,
@@ -581,27 +549,18 @@ async def confirm_receipt(
             if completed_orders:
                 total_rating = sum(o.review_rating for o in completed_orders if o.review_rating is not None)
                 seller.rating = round(total_rating / len(completed_orders), 2)
+                db.add(seller)
+                db.commit()
             
-            print(f"[CONFIRM] Seller {seller.id} stats updated: sells={seller.sells_count}, rating={seller.rating}")
-        
-        message = "Спасибо за подтверждение! Продавец получил +1 к продажам."
-    else:
-        # Покупатель отклоняет
-        order.rejected_by_buyer = True
-        order.status = OrderStatus.CANCELLED.value
-        message = "Заказ отклонён. Администрация рассмотрит вашу жалобу."
-    
-    db.commit()
-    
-    print(f"[CONFIRM] Order #{order.id} {'confirmed' if confirmation.accepted else 'rejected'} by buyer {user['user_id']}")
-    print(f"  Rating: {confirmation.rating}/5, Review: {confirmation.review_text[:50] if confirmation.review_text else 'None'}")
+            print(f"[REVIEW] Seller {seller.id} rating updated: {seller.rating}")
+    except Exception as e:
+        print(f"[REVIEW] ⚠️ Failed to update seller rating: {e}")
     
     return {
         "success": True,
-        "message": message,
+        "message": "Спасибо за ваш отзыв!",
         "order_id": order.id,
-        "completed_at": order.completed_at,
-        "accepted": confirmation.accepted
+        "rating": rating
     }
 
 
@@ -770,8 +729,11 @@ async def delivery_received_webhook(
     """
     Webhook от delivery-service: уведомление о том, что доставка получена покупателем
     
-    Автоматически обновляет статус заказа на DELIVERED
-    У покупателя есть 48 часов (2 дня) на возврат или оставление отзыва
+    Автоматически:
+    1. Обновляет статус заказа на COMPLETED (не DELIVERED, сразу завершаем)
+    2. Обновляет статистику продавца (sells_count, rating)
+    3. Скрывает чаты связанные с заказом
+    4. Отправляет уведомление покупателю с ссылкой на отзыв
     """
     order_id = request.get("order_id")
     tracking_number = request.get("tracking_number")
@@ -797,18 +759,72 @@ async def delivery_received_webhook(
             "message": f"Заказ имеет статус {order.status}, ожидался shipped или processing"
         }
     
-    # Обновляем статус на DELIVERED
-    order.status = OrderStatus.DELIVERED.value
+    # Обновляем статус на COMPLETED (автоматическое подтверждение получения)
+    order.status = OrderStatus.COMPLETED.value
     order.delivered_at = datetime.utcnow()
+    order.completed_at = datetime.utcnow()
+    order.confirmed_by_buyer = True  # Автоматическое подтверждение
     
     db.add(order)
     db.commit()
     db.refresh(order)
     
-    print(f"[DELIVERY-RECEIVED] ✅ Order #{order_id} status updated to DELIVERED")
-    print(f"[DELIVERY-RECEIVED] Buyer has 48 hours for return/review")
+    print(f"[DELIVERY-RECEIVED] ✅ Order #{order_id} status updated to COMPLETED (auto-confirmed)")
     
-    # Отправляем SMS с запросом на отзыв
+    # Обновляем статистику продавца (автоматически, как при подтверждении)
+    try:
+        seller_statement = select(User).where(User.id == order.seller_id)
+        seller = db.exec(seller_statement).first()
+        
+        if seller:
+            # +1 к продажам
+            seller.sells_count += 1
+            
+            # Обновляем рейтинг (среднее арифметическое всех завершенных заказов с отзывами)
+            completed_orders = db.exec(
+                select(Order).where(
+                    Order.seller_id == order.seller_id,
+                    Order.review_rating.isnot(None)
+                )
+            ).all()
+            
+            if completed_orders:
+                total_rating = sum(o.review_rating for o in completed_orders if o.review_rating is not None)
+                seller.rating = round(total_rating / len(completed_orders), 2)
+            
+            db.add(seller)
+            db.commit()
+            
+            print(f"[DELIVERY-RECEIVED] Seller {seller.id} stats updated: sells={seller.sells_count}, rating={seller.rating}")
+    except Exception as e:
+        print(f"[DELIVERY-RECEIVED] ⚠️ Failed to update seller stats: {e}")
+    
+    # Скрываем чаты связанные с этим заказом
+    if order.buyer_id:
+        try:
+            buyer_id_for_chat = str(order.buyer_id)
+            chat_api_url = "http://chat-service:4000/api/chat/chats/hide-for-order"
+            
+            print(f"[DELIVERY-RECEIVED] Hiding chats for post_id={order.post_id}, buyer_id={buyer_id_for_chat}")
+            
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.post(
+                    chat_api_url,
+                    params={
+                        "post_id": order.post_id,
+                        "buyer_id": buyer_id_for_chat
+                    }
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    print(f"[DELIVERY-RECEIVED] ✅ Hidden {result.get('hidden_count', 0)} chat(s)")
+                else:
+                    print(f"[DELIVERY-RECEIVED] ⚠️ Chat service returned status {response.status_code}")
+        except Exception as e:
+            print(f"[DELIVERY-RECEIVED] ❌ Error hiding chats: {e}")
+    
+    # Отправляем SMS с благодарностью и ссылкой на отзыв
     try:
         seller = db.get(User, order.seller_id)
         post = db.get(Iphone, order.post_id)
@@ -836,8 +852,9 @@ async def delivery_received_webhook(
     
     return {
         "success": True,
-        "message": "Заказ отмечен как доставленный",
+        "message": "Заказ автоматически завершён (получен покупателем)",
         "order_id": order.id,
         "status": order.status,
-        "delivered_at": order.delivered_at
+        "delivered_at": order.delivered_at,
+        "completed_at": order.completed_at
     }

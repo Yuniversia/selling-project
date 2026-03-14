@@ -404,78 +404,7 @@
         </div>
     </div>
 
-    <!-- Модальное окно подтверждения получения + отзыв -->
-    <div id="confirmModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Подтверждение получения товара</h2>
-            </div>
-            <div class="modal-body">
-                <form id="confirmForm">
-                    <div class="form-group">
-                        <label>Вы получили товар?</label>
-                        <div style="display: flex; gap: 10px; margin-top: 10px;">
-                            <button type="button" class="btn btn-primary" onclick="setAcceptStatus(true)" style="flex: 1;">
-                                ✅ Да, получил
-                            </button>
-                            <button type="button" class="btn" onclick="setAcceptStatus(false)" style="flex: 1; background: #f8d7da; color: #721c24;">
-                                ❌ Нет, не получил
-                            </button>
-                        </div>
-                        <input type="hidden" id="acceptedInput" name="accepted" required>
-                    </div>
-                    
-                    <div class="form-group" style="margin-top: 20px;">
-                        <label for="rating">Оценка продавца (0-5 звёзд)</label>
-                        <div style="display: flex; gap: 10px; font-size: 32px; justify-content: center; margin: 10px 0;">
-                            <span class="star" data-rating="1" onclick="setRating(1)">☆</span>
-                            <span class="star" data-rating="2" onclick="setRating(2)">☆</span>
-                            <span class="star" data-rating="3" onclick="setRating(3)">☆</span>
-                            <span class="star" data-rating="4" onclick="setRating(4)">☆</span>
-                            <span class="star" data-rating="5" onclick="setRating(5)">☆</span>
-                        </div>
-                        <input type="hidden" id="ratingInput" name="rating" value="0" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="reviewText">Отзыв (необязательно)</label>
-                        <textarea 
-                            id="reviewText" 
-                            name="reviewText"
-                            rows="4"
-                            maxlength="500"
-                            placeholder="Напишите отзыв о продавце и товаре..."
-                            style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; resize: vertical;"
-                        ></textarea>
-                    </div>
-                    
-                    <div id="confirmError" style="color: red; margin-bottom: 10px; display: none;"></div>
-                </form>
-            </div>
-            <div class="modal-actions">
-                <button type="button" class="btn btn-outline" onclick="closeConfirmModal()">{{ t.cancel }}</button>
-                <button type="submit" form="confirmForm" class="btn btn-primary">{{ t.submit_review_btn }}</button>
-            </div>
-        </div>
-    </div>
-    
-    <style>
-        .star {
-            cursor: pointer;
-            transition: color 0.2s;
-            user-select: none;
-        }
-        .star:hover {
-            color: #ffc107;
-        }
-        .star.active {
-            color: #ffc107;
-        }
-    </style>
-
     <script>
-        let currentConfirmingOrderId = null;
-
         // Загрузка заказов
         async function loadOrders() {
             try {
@@ -562,11 +491,6 @@
 
                     <div class="order-actions">
                         <a href="/product?id=${order.post_id}" class="btn btn-outline">{{ t.view_product }}</a>
-                        ${order.status === 'shipped' && !order.confirmed_by_buyer && !order.rejected_by_buyer ? `
-                        <button class="btn btn-primary" onclick="openConfirmModal(${order.id})">
-                            {{ t.confirm_receipt_review }}
-                        </button>
-                        ` : ''}
                         ${order.status === 'completed' && order.review_rating ? `
                         <div style="background: #d4edda; color: #155724; padding: 12px 16px; border-radius: 8px; border-left: 4px solid #28a745;">
                             <strong>Ваш отзыв:</strong> ${'⭐'.repeat(order.review_rating)} (${order.review_rating}/5)
@@ -582,129 +506,6 @@
                 </div>
             `).join('');
         }
-
-        let currentAccepted = null;
-        let currentRating = 0;
-
-        // Установить статус принятия
-        function setAcceptStatus(accepted) {
-            currentAccepted = accepted;
-            document.getElementById('acceptedInput').value = accepted;
-            
-            // Визуально выделить выбранную кнопку
-            document.querySelectorAll('[onclick^="setAcceptStatus"]').forEach(btn => {
-                btn.style.opacity = '0.5';
-            });
-            event.target.style.opacity = '1';
-        }
-
-        // Установить рейтинг
-        function setRating(rating) {
-            currentRating = rating;
-            document.getElementById('ratingInput').value = rating;
-            
-            // Обновить звёзды
-            document.querySelectorAll('.star').forEach((star, index) => {
-                if (index < rating) {
-                    star.textContent = '★';
-                    star.classList.add('active');
-                } else {
-                    star.textContent = '☆';
-                    star.classList.remove('active');
-                }
-            });
-        }
-
-        // Открыть модальное окно подтверждения
-        function openConfirmModal(orderId) {
-            currentConfirmingOrderId = orderId;
-            currentAccepted = null;
-            currentRating = 0;
-            
-            document.getElementById('confirmModal').classList.add('active');
-            document.body.style.overflow = 'hidden';
-            document.getElementById('acceptedInput').value = '';
-            document.getElementById('ratingInput').value = '0';
-            document.getElementById('reviewText').value = '';
-            document.getElementById('confirmError').style.display = 'none';
-            
-            // Сбросить визуальное состояние
-            document.querySelectorAll('[onclick^="setAcceptStatus"]').forEach(btn => {
-                btn.style.opacity = '0.5';
-            });
-            document.querySelectorAll('.star').forEach(star => {
-                star.textContent = '☆';
-                star.classList.remove('active');
-            });
-        }
-
-        // Закрыть модальное окно
-        function closeConfirmModal() {
-            document.getElementById('confirmModal').classList.remove('active');
-            document.body.style.overflow = '';
-            currentConfirmingOrderId = null;
-        }
-
-        // Подтверждение получения + отзыв
-        document.getElementById('confirmForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            const errorDiv = document.getElementById('confirmError');
-            const submitBtn = e.submitter;
-
-            // Валидация
-            if (currentAccepted === null) {
-                errorDiv.textContent = 'Пожалуйста, укажите получили ли вы товар';
-                errorDiv.style.display = 'block';
-                return;
-            }
-
-            if (currentRating === 0) {
-                errorDiv.textContent = 'Пожалуйста, поставьте оценку продавцу (от 0 до 5 звёзд)';
-                errorDiv.style.display = 'block';
-                return;
-            }
-
-            const reviewText = document.getElementById('reviewText').value;
-
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Отправка...';
-            errorDiv.style.display = 'none';
-
-            try {
-                const response = await fetch(`${POSTS_API}/orders/confirm`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    credentials: 'include',
-                    body: JSON.stringify({
-                        order_id: currentConfirmingOrderId,
-                        accepted: currentAccepted,
-                        rating: currentRating,
-                        review_text: reviewText || null
-                    })
-                });
-
-                if (response.ok) {
-                    const result = await response.json();
-                    closeConfirmModal();
-                    alert(result.message);
-                    loadOrders(); // Перезагрузка списка
-                } else {
-                    const error = await response.json();
-                    errorDiv.textContent = error.detail || 'Ошибка при отправке';
-                    errorDiv.style.display = 'block';
-                }
-            } catch (error) {
-                console.error('Ошибка:', error);
-                errorDiv.textContent = 'Ошибка подключения к серверу';
-                errorDiv.style.display = 'block';
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.textContent = '{{ t.submit_review }}';
-            }
-        });
 
         // Утилиты
         function formatDate(dateString) {
@@ -790,13 +591,6 @@
                 </div>
             `;
         }
-
-        // Закрытие модального окна по клику вне его
-        document.getElementById('confirmModal').addEventListener('click', (e) => {
-            if (e.target.id === 'confirmModal') {
-                closeConfirmModal();
-            }
-        });
 
         // Загрузка при открытии страницы
         loadOrders();

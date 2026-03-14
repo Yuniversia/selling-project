@@ -286,34 +286,62 @@ class DeliveryService:
     ):
         """Асинхронная отправка уведомления в notification service"""
         try:
-            # Формируем данные для notification service
-            notification_data = {
-                "notification_type": "order_delivered",  # Используем существующий тип
-                "channel": "sms",  # Отправляем только SMS
-                "order_data": {
+            # Получаем информацию о заказе из posts-service
+            order_data = None
+            try:
+                with httpx.Client(timeout=5.0) as client:
+                    response = client.get(
+                        f"{configs.POSTS_SERVICE_URL}/api/v1/orders/details?order_id={order_id}"
+                    )
+                    if response.status_code == 200:
+                        order_info = response.json()
+                        order = order_info.get("order", {})
+                        post = order_info.get("post", {})
+                        
+                        order_data = {
+                            "post_id": order.get("post_id", 0),
+                            "order_id": order_id,
+                            "seller_name": "Продавец",  # Будет заполнено notification-service
+                            "seller_email": None,
+                            "seller_phone": None,
+                            "buyer_name": recipient_name,
+                            "buyer_email": recipient_email,
+                            "buyer_phone": recipient_phone,
+                            "product_name": post.get("model", "iPhone"),
+                            "product_model": f"{post.get('memory', '')}GB {post.get('color', '')}".strip() if post.get('memory') else None,
+                            "order_price": order.get("price", 0.0),
+                            "delivery_method": order.get("delivery_method", "delivery"),
+                            "review_url": f"{configs.FRONTEND_URL}/orders/{order_id}/review"
+                        }
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to fetch order details: {e}, using minimal data")
+            
+            # Если не удалось получить данные заказа, используем минимальные данные
+            if not order_data:
+                order_data = {
+                    "post_id": 0,
                     "order_id": order_id,
                     "seller_name": "Продавец",
                     "buyer_name": recipient_name,
                     "buyer_email": recipient_email,
                     "buyer_phone": recipient_phone,
                     "product_name": "iPhone",
-                    "order_price": 0,
+                    "order_price": 0.0,
                     "delivery_method": "delivery",
-                    "tracking_url": f"{configs.FRONTEND_URL}/orders/{order_id}"
+                    "review_url": f"{configs.FRONTEND_URL}/orders/{order_id}/review"
                 }
-            }
             
-            # Отправляем запрос
+            # Отправляем запрос на специальный endpoint order-delivered
             with httpx.Client(timeout=5.0) as client:
                 response = client.post(
-                    f"{configs.NOTIFICATION_SERVICE_URL}/api/v1/notifications/send",
-                    json=notification_data
+                    f"{configs.NOTIFICATION_SERVICE_URL}/api/v1/notifications/order-delivered",
+                    json=order_data
                 )
                 
                 if response.status_code == 200:
                     logger.info(f"✅ Notification sent to notification service")
                 else:
-                    logger.warning(f"⚠️ Notification failed: {response.status_code}")
+                    logger.warning(f"⚠️ Notification failed: {response.status_code} - {response.text}")
                     
         except Exception as e:
             logger.error(f"❌ Failed to send notification: {e}")

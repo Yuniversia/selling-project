@@ -304,14 +304,6 @@ class OrderResponse(BaseModel):
     estimated_delivery: Optional[datetime] = None
 
 
-class OrderConfirmation(BaseModel):
-    """Подтверждение получения товара + отзыв"""
-    order_id: int = PydanticField(..., description="ID заказа")
-    accepted: bool = PydanticField(..., description="Принять (True) или отклонить (False)")
-    rating: int = PydanticField(..., ge=0, le=5, description="Оценка от 0 до 5 звёзд")
-    review_text: Optional[str] = PydanticField(None, max_length=500, description="Текст отзыва")
-
-
 # =============================================================================
 # МОДЕЛЬ USER (для обновления статистики продавца)
 # =============================================================================
