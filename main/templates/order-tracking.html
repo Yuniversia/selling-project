@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ t.my_orders if t and t.my_orders else 'Order' }} - Viedix</title>
+    <link rel="stylesheet" href="/templates/static/styles2.css?v=42">
+    <style>
+        .order-page { max-width: 980px; margin: 24px auto 48px; padding: 16px; }
+        .card { background: #fff; border-radius: 12px; padding: 18px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+        .row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+        .label { color: #666; font-size: 12px; }
+        .value { font-size: 14px; font-weight: 600; }
+        .status-pill { display: inline-block; padding: 6px 10px; border-radius: 20px; background: #e8f1ff; color: #114a9f; font-size: 13px; }
+        .timeline-item { padding: 10px 0; border-bottom: 1px solid #f1f1f1; }
+        .timeline-item:last-child { border-bottom: 0; }
+        .muted { color: #777; font-size: 13px; }
+        .error { color: #b31d28; font-weight: 600; }
+        .ok { color: #1f7a36; font-weight: 600; }
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; margin-bottom: 6px; font-size: 14px; font-weight: 600; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; border: 1px solid #d8d8d8; border-radius: 8px; padding: 10px; font-size: 14px; }
+        .actions { display: flex; gap: 10px; }
+        @media (max-width: 700px) { .row { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+<header class="header-fixed">
+    <div class="nav-container">
+        <a href="/" class="logo">Viedix</a>
+        <div style="flex:1"></div>
+        <div class="header-controls">
+            <a href="/my-orders" class="btn btn-text">{{ t.my_orders if t and t.my_orders else 'My orders' }}</a>
+        </div>
+    </div>
+</header>
+
+<main class="order-page">
+    <div class="card">
+        <h1 style="margin:0 0 8px;">Страница заказа</h1>
+        <div id="orderError" class="error" style="display:none;"></div>
+        <div id="orderLoading" class="muted">Загружаем информацию о заказе...</div>
+    </div>
+
+    <div class="card" id="orderInfo" style="display:none;">
+        <h2 style="margin-top:0;">Статус доставки</h2>
+        <div style="margin-bottom:10px;"><span class="status-pill" id="statusText">—</span></div>
+        <div class="row">
+            <div><div class="label">Tracking number</div><div class="value" id="tracking">—</div></div>
+            <div><div class="label">Номер заказа</div><div class="value" id="orderId">—</div></div>
+            <div><div class="label">Товар</div><div class="value" id="productName">—</div></div>
+            <div><div class="label">Способ доставки</div><div class="value" id="deliveryMethod">—</div></div>
+            <div><div class="label">Цена</div><div class="value" id="price">—</div></div>
+            <div><div class="label">Пункт/город</div><div class="value" id="location">—</div></div>
+        </div>
+        <div class="actions" style="margin-top:16px;">
+            <a href="#" id="viewProductBtn" class="btn btn-outline" style="display:none;">Посмотреть объявление</a>
+        </div>
+    </div>
+
+    <div class="card" id="timelineCard" style="display:none;">
+        <h2 style="margin-top:0;">История статусов</h2>
+        <div id="timeline"></div>
+    </div>
+
+    <div class="card" id="reviewCard" style="display:none;">
+        <h2 style="margin-top:0;">Оставить отзыв</h2>
+        <form id="reviewForm">
+            <div class="form-group">
+                <label for="rating">Оценка (1-5)</label>
+                <select id="rating" required>
+                    <option value="">Выберите</option>
+                    <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="reviewText">Комментарий</label>
+                <textarea id="reviewText" rows="4" maxlength="1000" placeholder="Опишите впечатления"></textarea>
+            </div>
+            <div class="actions">
+                <button type="submit" class="btn btn-primary">Сохранить отзыв</button>
+            </div>
+            <div id="reviewMsg" class="muted" style="margin-top:10px;"></div>
+        </form>
+    </div>
+
+    <div class="card" id="issueCard" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+            <h2 style="margin-top:0; margin-bottom:0;">Жалоба / Возврат</h2>
+            <button type="button" id="toggleIssueBtn" class="btn btn-outline">Открыть форму</button>
+        </div>
+        <form id="issueForm" style="display:none; margin-top:16px;">
+            <div class="row">
+                <div class="form-group">
+                    <label for="issueType">Тип заявки</label>
+                    <select id="issueType" required>
+                        <option value="complaint">Жалоба</option>
+                        <option value="return">Возврат</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="issueReason">Причина</label>
+                    <input id="issueReason" type="text" minlength="3" maxlength="255" required placeholder="Короткая причина"/>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="issueDescription">Описание</label>
+                <textarea id="issueDescription" rows="4" minlength="10" maxlength="2000" required placeholder="Подробно опишите проблему"></textarea>
+            </div>
+            <div class="actions">
+                <button type="submit" class="btn btn-primary">Создать заявку</button>
+            </div>
+            <div id="issueMsg" class="muted" style="margin-top:10px;"></div>
+        </form>
+        <div id="issuesList" style="margin-top:16px;"></div>
+    </div>
+</main>
+
+<script>
+(() => {
+    const tracking = new URLSearchParams(window.location.search).get('tracking') || "{{ tracking_number }}";
+
+    const el = {
+        loading: document.getElementById('orderLoading'),
+        error: document.getElementById('orderError'),
+        info: document.getElementById('orderInfo'),
+        timelineCard: document.getElementById('timelineCard'),
+        reviewCard: document.getElementById('reviewCard'),
+        issueCard: document.getElementById('issueCard'),
+        statusText: document.getElementById('statusText'),
+        tracking: document.getElementById('tracking'),
+        orderId: document.getElementById('orderId'),
+        productName: document.getElementById('productName'),
+        deliveryMethod: document.getElementById('deliveryMethod'),
+        price: document.getElementById('price'),
+        location: document.getElementById('location'),
+        viewProductBtn: document.getElementById('viewProductBtn'),
+        timeline: document.getElementById('timeline'),
+        reviewForm: document.getElementById('reviewForm'),
+        reviewMsg: document.getElementById('reviewMsg'),
+        issueForm: document.getElementById('issueForm'),
+        issueMsg: document.getElementById('issueMsg'),
+        issuesList: document.getElementById('issuesList'),
+        toggleIssueBtn: document.getElementById('toggleIssueBtn')
+    };
+
+    const STATUS_LABELS = {
+        pending_payment: 'Ожидает оплаты',
+        paid: 'Оплачен',
+        processing: 'В обработке',
+        shipped: 'Отправлен',
+        in_transit: 'В пути',
+        delivered: 'Доставлен',
+        at_pickup_point: 'Готов к выдаче',
+        picked_up: 'Получен',
+        completed: 'Завершён',
+        cancelled: 'Отменён',
+        refunded: 'Возврат'
+    };
+
+    function formatDate(value) {
+        if (!value) return '—';
+        const d = new Date(value);
+        return isNaN(d.getTime()) ? value : d.toLocaleString();
+    }
+
+    function showError(msg) {
+        el.loading.style.display = 'none';
+        el.error.style.display = 'block';
+        el.error.textContent = msg;
+    }
+
+    function renderIssues(issues) {
+        if (!issues || !issues.length) {
+            el.issuesList.innerHTML = '<div class="muted">Пока нет заявок.</div>';
+            return;
+        }
+        el.issuesList.innerHTML = issues.map(issue => `
+            <div class="card" style="box-shadow:none;border:1px solid #efefef;padding:12px;margin-bottom:8px;">
+                <div><strong>${issue.issue_type === 'return' ? 'Возврат' : 'Жалоба'}</strong> — ${issue.status}</div>
+                <div class="muted">${issue.reason}</div>
+                <div>${issue.description}</div>
+                <div class="muted">${formatDate(issue.created_at)}</div>
+            </div>
+        `).join('');
+    }
+
+    function fillFormReview(review) {
+        if (!review) return;
+        const rating = document.getElementById('rating');
+        const reviewText = document.getElementById('reviewText');
+        if (review.rating) rating.value = String(review.rating);
+        if (review.review_text) reviewText.value = review.review_text;
+    }
+
+    async function loadOrder() {
+        try {
+            const response = await fetch(`/api/v1/posts/orders/tracking/${encodeURIComponent(tracking)}`);
+            if (!response.ok) {
+                if (response.status === 404) {
+                    showError('Заказ по этому tracking number не найден.');
+                    return;
+                }
+                throw new Error(`HTTP ${response.status}`);
+            }
+            const data = await response.json();
+
+            const order = data.order || {};
+            const delivery = data.delivery || {};
+            const location = delivery.pickup_point_name || delivery.delivery_city || '—';
+
+            el.loading.style.display = 'none';
+            el.info.style.display = 'block';
+            el.timelineCard.style.display = 'block';
+            // Review and issue forms only available once order has been picked up
+            const effectiveStatusForForms = delivery.status || order.status;
+            const canInteract = effectiveStatusForForms === 'picked_up';
+            el.reviewCard.style.display = canInteract ? 'block' : 'none';
+            el.issueCard.style.display = canInteract ? 'block' : 'none';
+
+            const effectiveStatus = delivery.status || order.status || 'unknown';
+            el.statusText.textContent = STATUS_LABELS[effectiveStatus] || effectiveStatus;
+            el.tracking.textContent = order.tracking_number || tracking;
+            el.orderId.textContent = order.order_id || '—';
+            el.productName.textContent = order.product_name || 'iPhone';
+            el.deliveryMethod.textContent = order.delivery_method || '—';
+            el.price.textContent = typeof order.price === 'number' ? `€${order.price.toFixed(2)}` : '—';
+            el.location.textContent = location;
+
+            if (order.post_id) {
+                el.viewProductBtn.href = `/product?id=${encodeURIComponent(order.post_id)}`;
+                el.viewProductBtn.style.display = 'inline-flex';
+            }
+
+            const history = (delivery.status_history || []).slice().reverse();
+            if (history.length) {
+                el.timeline.innerHTML = history.map(item => `
+                    <div class="timeline-item">
+                        <div><strong>${item.status}</strong></div>
+                        <div class="muted">${item.notes || ''}</div>
+                        <div class="muted">${formatDate(item.created_at)}</div>
+                    </div>
+                `).join('');
+            } else {
+                el.timeline.innerHTML = '<div class="muted">История статусов пока недоступна.</div>';
+            }
+
+            fillFormReview(data.review);
+            renderIssues(data.issues || []);
+        } catch (err) {
+            console.error(err);
+            showError('Не удалось загрузить данные заказа. Попробуйте обновить страницу позже.');
+        }
+    }
+
+    el.reviewForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        el.reviewMsg.className = 'muted';
+        el.reviewMsg.textContent = 'Сохраняем...';
+
+        const payload = {
+            rating: Number(document.getElementById('rating').value),
+            review_text: document.getElementById('reviewText').value || null
+        };
+
+        try {
+            const response = await fetch(`/api/v1/posts/orders/tracking/${encodeURIComponent(tracking)}/review`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.detail || 'Ошибка сохранения');
+            el.reviewMsg.className = 'ok';
+            el.reviewMsg.textContent = 'Отзыв сохранён.';
+            await loadOrder();
+        } catch (err) {
+            el.reviewMsg.className = 'error';
+            el.reviewMsg.textContent = String(err.message || err);
+        }
+    });
+
+    el.issueForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        el.issueMsg.className = 'muted';
+        el.issueMsg.textContent = 'Создаём заявку...';
+
+        const payload = {
+            issue_type: document.getElementById('issueType').value,
+            reason: document.getElementById('issueReason').value,
+            description: document.getElementById('issueDescription').value
+        };
+
+        try {
+            const response = await fetch(`/api/v1/posts/orders/tracking/${encodeURIComponent(tracking)}/issue`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.detail || 'Ошибка создания заявки');
+            el.issueMsg.className = 'ok';
+            el.issueMsg.textContent = 'Заявка создана.';
+            document.getElementById('issueReason').value = '';
+            document.getElementById('issueDescription').value = '';
+            await loadOrder();
+        } catch (err) {
+            el.issueMsg.className = 'error';
+            el.issueMsg.textContent = String(err.message || err);
+        }
+    });
+
+    el.toggleIssueBtn.addEventListener('click', () => {
+        const isHidden = el.issueForm.style.display === 'none';
+        el.issueForm.style.display = isHidden ? 'block' : 'none';
+        el.toggleIssueBtn.textContent = isHidden ? 'Скрыть форму' : 'Открыть форму';
+    });
+
+    loadOrder();
+})();
+</script>
+</body>
+</html>

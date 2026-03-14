@@ -200,6 +200,22 @@ class DeliveryTrackingResponse(BaseModel):
     status_history: list = []
 
 
+class OrderTrackingPageResponse(BaseModel):
+    """Ответ для страницы заказа по tracking_number"""
+    tracking_number: str
+    order_id: int
+    status: str
+    provider: str
+    stage: str
+    can_mark_received: bool
+    can_leave_review: bool
+    delivery_city: Optional[str]
+    pickup_point_name: Optional[str]
+    estimated_delivery_date: Optional[datetime]
+    picked_up_at: Optional[datetime]
+    status_history: list = []
+
+
 class PickupPointLocation(BaseModel):
     """Информация о пункте выдачи (для будущего использования)"""
     id: str

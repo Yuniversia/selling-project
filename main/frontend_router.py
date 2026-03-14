@@ -1,6 +1,6 @@
 # frontend_router.py
 
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, Request, Response, Query
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import FileResponse
 import os
@@ -174,6 +174,16 @@ def my_sales_page(request: Request):
     return templates.TemplateResponse(
         "my-sales.html", 
         get_template_context(request, "Мои продажи")
+    )
+
+@frontend_router.get("/orders", name="order_tracking")
+def order_tracking_page(request: Request, tracking: str = Query(default="")):
+    """Отдает публичную страницу заказа по tracking number (query param)."""
+    context = get_template_context(request, "Статус заказа")
+    context["tracking_number"] = tracking
+    return templates.TemplateResponse(
+        "order-tracking.html",
+        context
     )
 
 @frontend_router.get("/push-test", name="push_test")

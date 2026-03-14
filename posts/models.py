@@ -325,3 +325,55 @@ class User(SQLModel, table=True):
     sells_count: int = Field(default=0)  # Количество успешных продаж
     rating: float = Field(default=5.0, ge=0, le=5)  # Рейтинг продавца
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class OrderIssueType(str, Enum):
+    COMPLAINT = "complaint"
+    RETURN = "return"
+
+
+class OrderIssueStatus(str, Enum):
+    OPEN = "open"
+    IN_REVIEW = "in_review"
+    RESOLVED = "resolved"
+    REJECTED = "rejected"
+
+
+class OrderReview(SQLModel, table=True):
+    """Отдельный отзыв по заказу (о товаре и продавце)"""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    order_id: int = Field(index=True)
+    tracking_number: str = Field(index=True, max_length=100)
+
+    product_rating: int = Field(ge=1, le=5)
+    seller_rating: int = Field(ge=1, le=5)
+    review_text: Optional[str] = Field(default=None, max_length=1000)
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class OrderIssue(SQLModel, table=True):
+    """Жалоба / запрос на возврат по заказу"""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    order_id: int = Field(index=True)
+    tracking_number: str = Field(index=True, max_length=100)
+    issue_type: str = Field(max_length=20, index=True)
+    reason: str = Field(max_length=255)
+    description: str = Field(max_length=2000)
+    status: str = Field(default=OrderIssueStatus.OPEN.value, max_length=20, index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class OrderPageReviewCreate(BaseModel):
+    """Создание/обновление единого отзыва с публичной страницы заказа"""
+    rating: int = PydanticField(..., ge=1, le=5)
+    review_text: Optional[str] = PydanticField(None, max_length=1000)
+
+
+class OrderIssueCreate(BaseModel):
+    """Создание жалобы/возврата с публичной страницы заказа"""
+    issue_type: OrderIssueType
+    reason: str = PydanticField(..., min_length=3, max_length=255)
+    description: str = PydanticField(..., min_length=10, max_length=2000)

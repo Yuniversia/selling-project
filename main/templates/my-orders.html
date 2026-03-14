@@ -438,6 +438,7 @@
                 return;
             }
 
+            orders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
             container.innerHTML = orders.map(order => `
                 <div class="order-card">
                     <div class="order-header">
@@ -445,7 +446,7 @@
                             <h3>{{ t.order_hash }} #${order.id}</h3>
                             <p class="order-date">${formatDate(order.created_at)}</p>
                         </div>
-                        <span class="order-status status-${order.status}">${getStatusText(order.status)}</span>
+                        <span class="order-status status-${order.delivery_status || order.status}">${getStatusText(order.delivery_status || order.status)}</span>
                     </div>
 
                     <div class="order-details">
@@ -491,12 +492,11 @@
 
                     <div class="order-actions">
                         <a href="/product?id=${order.post_id}" class="btn btn-outline">{{ t.view_product }}</a>
-                        ${order.status === 'completed' && order.review_rating ? `
-                        <div style="background: #d4edda; color: #155724; padding: 12px 16px; border-radius: 8px; border-left: 4px solid #28a745;">
-                            <strong>Ваш отзыв:</strong> ${'⭐'.repeat(order.review_rating)} (${order.review_rating}/5)
-                            ${order.review_text ? `<br><em>"${order.review_text}"</em>` : ''}
-                        </div>
-                        ` : ''}
+                        ${order.tracking_number ? `
+                        <a href="/orders?tracking=${encodeURIComponent(order.tracking_number)}" class="btn btn-primary">Открыть страницу заказа</a>
+                        ` : `
+                        <a href="/orders?tracking=ORD${order.id}" class="btn btn-primary">Открыть страницу заказа</a>
+                        `}
                         ${order.status === 'cancelled' ? `
                         <div style="background: #f8d7da; color: #721c24; padding: 12px 16px; border-radius: 8px; border-left: 4px solid #dc3545;">
                             <strong>✗ Отклонено</strong>

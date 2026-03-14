@@ -223,7 +223,7 @@ class NotificationService:
         
         template = self._get_template("order_review_request")
         
-        review_url = order_data.review_url or f"{configs.frontend_url}/orders/{order_data.order_id}/review"
+        review_url = order_data.review_url or f"{configs.frontend_url}orders/{order_data.order_id}/review"
         
         template_data = {
             "buyer_name": order_data.buyer_name,

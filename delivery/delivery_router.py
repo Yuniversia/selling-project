@@ -8,6 +8,7 @@ from database import get_session
 from models import (
     Delivery, DeliveryCreate, DeliveryResponse, 
     DeliveryStatusUpdate, DeliveryTrackingResponse,
+    OrderTrackingPageResponse,
     DeliveryStatusHistory
 )
 from delivery_service import DeliveryService
@@ -71,6 +72,60 @@ async def track_delivery(
                 "created_at": h.created_at.isoformat()
             }
             for h in history
+        ]
+    )
+
+
+@delivery_router.get("/order-page/{tracking_number}", response_model=OrderTrackingPageResponse)
+async def order_tracking_page(
+    tracking_number: str,
+    db: Session = Depends(get_session)
+):
+    """
+    Данные для страницы заказа domain/orders/{tracking_number}
+
+    Публичный endpoint для фронтенда: возвращает текущую стадию доставки,
+    историю статусов и флаги доступных действий.
+    """
+    service = DeliveryService(db)
+    delivery = service.get_delivery_by_tracking(tracking_number)
+
+    if not delivery:
+        raise HTTPException(status_code=404, detail="Доставка не найдена")
+
+    history = service.get_delivery_history(delivery.id)
+
+    stage_map = {
+        "created": "created",
+        "in_transit": "in_transit",
+        "at_pickup_point": "ready_for_pickup",
+        "picked_up": "received",
+        "cancelled": "cancelled",
+        "returned": "returned"
+    }
+
+    current_stage = stage_map.get(delivery.status, delivery.status)
+    is_received = delivery.status == "picked_up"
+
+    return OrderTrackingPageResponse(
+        tracking_number=delivery.tracking_number,
+        order_id=delivery.order_id,
+        status=delivery.status,
+        provider=delivery.provider,
+        stage=current_stage,
+        can_mark_received=delivery.status == "at_pickup_point",
+        can_leave_review=True,
+        delivery_city=delivery.delivery_city,
+        pickup_point_name=delivery.pickup_point_name,
+        estimated_delivery_date=delivery.estimated_delivery_date,
+        picked_up_at=delivery.picked_up_at if is_received else None,
+        status_history=[
+            {
+                "status": item.status,
+                "notes": item.notes,
+                "created_at": item.created_at.isoformat()
+            }
+            for item in history
         ]
     )
 

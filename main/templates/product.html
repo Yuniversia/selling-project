@@ -304,7 +304,7 @@
                                 {{ t.order_info|safe }}
                             </p>
                         </div>
-                        <button type="button" class="btn btn-primary" onclick="window.location.href='/my-orders';">{{ t.go_to_orders }}</button>
+                        <button type="button" class="btn btn-primary" onclick="window.location.href='/';">{{ t.go_to_orders }}</button>
                         <button type="button" class="btn btn-secondary" onclick="closePurchaseModal(); location.reload();" style="margin-left: 12px;">{{ t.close }}</button>
                     </div>
                 </div>
@@ -1313,6 +1313,11 @@
 
                 if (response.ok) {
                     const result = await response.json();
+
+                    if (result.redirect_url) {
+                        window.location.href = result.redirect_url;
+                        return;
+                    }
                     
                     // Переход к успеху
                     document.getElementById('step3').style.display = 'none';

@@ -447,6 +447,7 @@
                 return;
             }
 
+            orders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
             container.innerHTML = orders.map(order => `
                 <div class="order-card">
                     <div class="order-header">
@@ -454,7 +455,7 @@
                             <h3>{{ t.order_hash }} #${order.id}</h3>
                             <p class="order-date">${formatDate(order.created_at)}</p>
                         </div>
-                        <span class="order-status status-${order.status}">${getStatusText(order.status)}</span>
+                        <span class="order-status status-${order.delivery_status || order.status}">${getStatusText(order.delivery_status || order.status)}</span>
                     </div>
 
                     <div class="order-detail">
@@ -513,22 +514,12 @@
 
                     <div class="order-actions">
                         <a href="/product?id=${order.post_id}" class="btn btn-outline">{{ t.view_product }}</a>
-                        ${order.status === 'paid' ? `
-                        <button class="btn btn-primary" onclick="openShipModal(${order.id})">
-                            {{ t.mark_shipped_btn }}
-                        </button>
-                        ` : ''}
-                        ${order.status === 'shipped' ? `
-                        <div style="background: #cce5ff; color: #004085; font-weight: 500; padding: 12px 16px; border-radius: 8px; border-left: 4px solid #004085;">
-                            {{ t.awaiting_confirmation }}
-                        </div>
-                        ` : ''}
-                        ${order.status === 'completed' ? `
-                        <div style="background: #d4edda; color: #155724; font-weight: 500; padding: 12px 16px; border-radius: 8px; border-left: 4px solid #28a745;">
-                            {{ t.buyer_confirmed }}
-                        </div>
-                        ` : ''}
-                        ${order.status === 'cancelled' ? `
+                        ${order.tracking_number ? `
+                        <a href="/orders?tracking=${encodeURIComponent(order.tracking_number)}" class="btn btn-primary">Открыть страницу заказа</a>
+                        ` : `
+                        <a href="/orders?tracking=ORD${order.id}" class="btn btn-primary">Открыть страницу заказа</a>
+                        `}
+                        ${(order.delivery_status || order.status) === 'cancelled' ? `
                         <div style="background: #f8d7da; color: #721c24; font-weight: 500; padding: 12px 16px; border-radius: 8px; border-left: 4px solid #dc3545;">
                             {{ t.buyer_rejected }}
                         </div>

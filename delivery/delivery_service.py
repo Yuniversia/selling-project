@@ -133,9 +133,6 @@ class DeliveryService:
             
             # Уведомляем posts-service что доставка получена
             self._notify_posts_service_delivery_received(delivery)
-            
-            # Уведомляем posts-service что доставка получена
-            self._notify_posts_service_delivery_received(delivery)
         
         self.db.add(delivery)
         self.db.commit()
@@ -204,7 +201,8 @@ class DeliveryService:
                 recipient_email=delivery.recipient_email,
                 recipient_name=delivery.recipient_name,
                 message=message,
-                order_id=delivery.order_id
+                order_id=delivery.order_id,
+                tracking_number=delivery.tracking_number
             )
             
             delivery.notification_sent_at_pickup_point = True
@@ -224,7 +222,7 @@ class DeliveryService:
         
         try:
             # Формируем ссылку на отзыв
-            review_link = f"{configs.FRONTEND_URL}/orders/{delivery.order_id}/review"
+            review_link = f"{configs.FRONTEND_URL}/orders/{delivery.tracking_number}"
             
             # Формируем сообщение
             message = (
@@ -240,7 +238,8 @@ class DeliveryService:
                 recipient_email=delivery.recipient_email,
                 recipient_name=delivery.recipient_name,
                 message=message,
-                order_id=delivery.order_id
+                order_id=delivery.order_id,
+                tracking_number=delivery.tracking_number
             )
             
             delivery.notification_sent_picked_up = True
@@ -282,7 +281,8 @@ class DeliveryService:
         recipient_email: str,
         recipient_name: str,
         message: str,
-        order_id: int
+        order_id: int,
+        tracking_number: Optional[str] = None
     ):
         """Асинхронная отправка уведомления в notification service"""
         try:
@@ -311,7 +311,7 @@ class DeliveryService:
                             "product_model": f"{post.get('memory', '')}GB {post.get('color', '')}".strip() if post.get('memory') else None,
                             "order_price": order.get("price", 0.0),
                             "delivery_method": order.get("delivery_method", "delivery"),
-                            "review_url": f"{configs.FRONTEND_URL}/orders/{order_id}/review"
+                            "review_url": f"{configs.FRONTEND_URL}/orders/{tracking_number or order_id}"
                         }
             except Exception as e:
                 logger.warning(f"⚠️ Failed to fetch order details: {e}, using minimal data")
@@ -328,7 +328,7 @@ class DeliveryService:
                     "product_name": "iPhone",
                     "order_price": 0.0,
                     "delivery_method": "delivery",
-                    "review_url": f"{configs.FRONTEND_URL}/orders/{order_id}/review"
+                    "review_url": f"{configs.FRONTEND_URL}/orders/{tracking_number or order_id}"
                 }
             
             # Отправляем запрос на специальный endpoint order-delivered

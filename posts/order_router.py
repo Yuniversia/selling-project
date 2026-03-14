@@ -12,7 +12,9 @@ import httpx
 from database import get_session
 from models import (
     Order, OrderCreate, OrderResponse,
-    Iphone, DeliveryMethod, OrderStatus, User
+    Iphone, DeliveryMethod, OrderStatus, User,
+    OrderReview, OrderIssue, OrderPageReviewCreate,
+    OrderIssueCreate, OrderIssueStatus
 )
 from configs import Configs
 
@@ -60,6 +62,24 @@ async def get_delivery_info(order_id: int) -> Optional[dict]:
                 return None
     except Exception as e:
         print(f"❌ Error fetching delivery info: {e}")
+        return None
+
+
+async def get_delivery_by_tracking(tracking_number: str) -> Optional[dict]:
+    """Получение информации о доставке по tracking_number из delivery-service"""
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(
+                f"{Configs.DELIVERY_SERVICE_URL}/api/v1/delivery/order-page/{tracking_number}"
+            )
+            if response.status_code == 200:
+                return response.json()
+            if response.status_code == 404:
+                return None
+            print(f"⚠️ Delivery service returned {response.status_code} for tracking {tracking_number}")
+            return None
+    except Exception as e:
+        print(f"❌ Error fetching delivery by tracking: {e}")
         return None
 
 
@@ -361,6 +381,13 @@ async def process_payment(
             # Продолжаем выполнение даже если доставка не создалась
     else:
         print(f"[PAY] ⏭️ Skipping delivery creation (method: {order.delivery_method})")
+
+    if not order.tracking_number:
+        order.tracking_number = f"ORD{order.id}"
+        db.commit()
+        db.refresh(order)
+
+    order_page_url = f"{Configs.FRONTEND_URL.rstrip('/')}/orders?tracking={order.tracking_number}"
     
     # Отправляем уведомление об оплате (продавцу и покупателю)
     try:
@@ -380,7 +407,7 @@ async def process_payment(
             "product_model": f"{post.memory}GB {post.color}" if post and post.memory and post.color else None,
             "order_price": order.price,
             "delivery_method": order.delivery_method,
-            "tracking_url": f"{Configs.FRONTEND_URL}api/v1/delivery/order/{order.id}"
+            "tracking_url": order_page_url
         }
         
         # Отправляем асинхронно
@@ -391,8 +418,200 @@ async def process_payment(
     return {
         "success": True,
         "order_id": order.id,
+        "tracking_number": order.tracking_number,
+        "redirect_url": order_page_url,
         "status": order.status,
         "message": "Товар успешно куплен! Продавец получил уведомление и отправит товар в ближайшее время."
+    }
+
+
+@order_router.get("/tracking/{tracking_number}")
+async def get_order_page_by_tracking(
+    tracking_number: str,
+    db: Session = Depends(get_session)
+):
+    """
+    Публичные данные для страницы заказа: domain/orders/{tracking_number}
+
+    Возвращает:
+    - базовую информацию о заказе
+    - текущую стадию доставки
+    - отзыв (если оставлен)
+    - жалобы/возвраты по заказу
+    """
+    order = db.exec(
+        select(Order).where(Order.tracking_number == tracking_number)
+    ).first()
+
+    # Fallback: поддерживаем старые/альтернативные ссылки вида /orders/{order_id} или /orders/ORD{order_id}
+    if not order:
+        resolved_order_id = None
+
+        if tracking_number.isdigit():
+            resolved_order_id = int(tracking_number)
+        elif tracking_number.startswith("ORD") and tracking_number[3:].isdigit():
+            resolved_order_id = int(tracking_number[3:])
+
+        if resolved_order_id is not None:
+            order = db.get(Order, resolved_order_id)
+
+    delivery_data = await get_delivery_by_tracking(tracking_number)
+
+    if not order and delivery_data:
+        order = db.get(Order, delivery_data.get("order_id"))
+
+    if not order:
+        raise HTTPException(status_code=404, detail="Заказ не найден")
+
+    post = db.get(Iphone, order.post_id)
+
+    review = db.exec(
+        select(OrderReview).where(OrderReview.order_id == order.id)
+    ).first()
+
+    issues = db.exec(
+        select(OrderIssue)
+        .where(OrderIssue.order_id == order.id)
+        .order_by(OrderIssue.created_at.desc())
+    ).all()
+
+    status_stage_map = {
+        OrderStatus.PENDING_PAYMENT.value: "payment_pending",
+        OrderStatus.PAID.value: "paid",
+        OrderStatus.PROCESSING.value: "processing",
+        OrderStatus.SHIPPED.value: "in_transit",
+        OrderStatus.DELIVERED.value: "delivered",
+        OrderStatus.COMPLETED.value: "received",
+        OrderStatus.CANCELLED.value: "cancelled",
+        OrderStatus.REFUNDED.value: "refunded"
+    }
+
+    effective_status = delivery_data.get("status") if delivery_data else order.status
+
+    return {
+        "order": {
+            "order_id": order.id,
+            "post_id": order.post_id,
+            "tracking_number": order.tracking_number,
+            "status": effective_status,
+            "delivery_method": order.delivery_method,
+            "product_name": post.model if post and post.model else "iPhone",
+            "price": order.price,
+            "created_at": order.created_at,
+            "paid_at": order.paid_at,
+            "shipped_at": order.shipped_at,
+            "delivered_at": order.delivered_at,
+            "completed_at": order.completed_at
+        },
+        "delivery": delivery_data,
+        "review": {
+            "id": review.id if review else order.id,
+            "rating": order.review_rating if order.review_rating is not None else (review.seller_rating if review else None),
+            "review_text": order.review_text if order.review_text is not None else (review.review_text if review else None),
+            "updated_at": review.updated_at if review else order.completed_at or order.delivered_at or order.created_at
+        } if order.review_rating is not None or order.review_text or review else None,
+        "issues": [
+            {
+                "id": issue.id,
+                "issue_type": issue.issue_type,
+                "reason": issue.reason,
+                "description": issue.description,
+                "status": issue.status,
+                "created_at": issue.created_at,
+                "updated_at": issue.updated_at
+            }
+            for issue in issues
+        ],
+        "actions": {
+            "can_leave_review": True,
+            "can_open_issue": True
+        }
+    }
+
+
+@order_router.post("/tracking/{tracking_number}/review")
+async def leave_tracking_review(
+    tracking_number: str,
+    review_data: OrderPageReviewCreate,
+    db: Session = Depends(get_session)
+):
+    """Оставить/обновить единый отзыв по tracking_number."""
+    order = db.exec(
+        select(Order).where(Order.tracking_number == tracking_number)
+    ).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Заказ не найден")
+
+    # Используем существующий функционал отзывов на заказе
+    order.review_rating = review_data.rating
+    order.review_text = review_data.review_text
+    db.add(order)
+
+    db.commit()
+    db.refresh(order)
+
+    # Пересчет рейтинга продавца
+    seller = db.exec(select(User).where(User.id == order.seller_id)).first()
+    if seller:
+        rated_orders = db.exec(
+            select(Order).where(
+                Order.seller_id == order.seller_id,
+                Order.review_rating.isnot(None)
+            )
+        ).all()
+        if rated_orders:
+            total = sum(item.review_rating for item in rated_orders if item.review_rating is not None)
+            seller.rating = round(total / len(rated_orders), 2)
+            db.add(seller)
+            db.commit()
+
+    return {
+        "success": True,
+        "order_id": order.id,
+        "tracking_number": tracking_number,
+        "review_id": order.id,
+        "message": "Отзыв сохранен"
+    }
+
+
+@order_router.post("/tracking/{tracking_number}/issue")
+async def create_tracking_issue(
+    tracking_number: str,
+    issue_data: OrderIssueCreate,
+    db: Session = Depends(get_session)
+):
+    """Создать жалобу/заявку на возврат по tracking_number."""
+    order = db.exec(
+        select(Order).where(Order.tracking_number == tracking_number)
+    ).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Заказ не найден")
+
+    issue = OrderIssue(
+        order_id=order.id,
+        tracking_number=tracking_number,
+        issue_type=issue_data.issue_type.value,
+        reason=issue_data.reason,
+        description=issue_data.description,
+        status=OrderIssueStatus.OPEN.value
+    )
+    db.add(issue)
+    db.commit()
+    db.refresh(issue)
+
+    return {
+        "success": True,
+        "order_id": order.id,
+        "tracking_number": tracking_number,
+        "issue": {
+            "id": issue.id,
+            "issue_type": issue.issue_type,
+            "status": issue.status,
+            "reason": issue.reason,
+            "description": issue.description,
+            "created_at": issue.created_at
+        },
+        "message": "Заявка создана"
     }
 
 
@@ -583,7 +802,7 @@ async def get_my_orders(
         print(f"[MY-ORDERS] Invalid token - returning empty list")
         return {"orders": []}
     
-    statement = select(Order).where(Order.buyer_id == user_id)
+    statement = select(Order).where(Order.buyer_id == user_id).order_by(Order.created_at.desc())
     print(f"[MY-ORDERS] Executing query: SELECT * FROM order WHERE buyer_id = {user_id}")
     orders = db.exec(statement).all()
     
@@ -650,7 +869,7 @@ async def get_my_sales(
         print(f"[MY-SALES] Invalid token - returning empty list")
         return {"sales": []}
     
-    statement = select(Order).where(Order.seller_id == user_id)
+    statement = select(Order).where(Order.seller_id == user_id).order_by(Order.created_at.desc())
     print(f"[MY-SALES] Executing query: SELECT * FROM order WHERE seller_id = {user_id}")
     orders = db.exec(statement).all()
     
@@ -842,7 +1061,7 @@ async def delivery_received_webhook(
             "product_model": f"{post.memory}GB {post.color}" if post and post.memory and post.color else None,
             "order_price": order.price,
             "delivery_method": order.delivery_method,
-            "review_url": f"{Configs.FRONTEND_URL}/orders/{order.id}/review"
+            "review_url": f"{Configs.FRONTEND_URL.rstrip('/')}/orders/{order.tracking_number or f'ORD{order.id}'}"
         }
         
         # Отправляем асинхронно SMS с благодарностью и ссылкой на отзыв
