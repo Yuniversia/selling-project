@@ -1,11 +1,14 @@
 """
 Утилиты для работы с Cloudflare R2 для загрузки изображений объявлений
 """
+import logging
 import boto3
 from botocore.exceptions import ClientError
 from typing import Optional
 from fastapi import HTTPException
 from configs import Configs
+
+logger = logging.getLogger("posts.cloudflare_r2")
 
 
 class CloudflareR2Client:
@@ -19,12 +22,14 @@ class CloudflareR2Client:
         self.r2_bucket_name = Configs.POSTS_R2_BUCKET_NAME
         self.s3_client = None
         
-        # Debug логирование
-        print(f"[R2 INIT] Account ID: {'SET' if self.account_id else 'MISSING'}")
-        print(f"[R2 INIT] Account Hash: {'SET' if self.account_hash else 'MISSING'}")
-        print(f"[R2 INIT] Access Key: {'SET' if self.r2_access_key else 'MISSING'}")
-        print(f"[R2 INIT] Secret Key: {'SET' if self.r2_secret_key else 'MISSING'}")
-        print(f"[R2 INIT] Bucket Name: {self.r2_bucket_name}")
+        # Проверка наличия credentials при инициализации
+        logger.info(
+            f"R2 init | account_id={'SET' if self.account_id else 'MISSING'} | "
+            f"account_hash={'SET' if self.account_hash else 'MISSING'} | "
+            f"access_key={'SET' if self.r2_access_key else 'MISSING'} | "
+            f"secret_key={'SET' if self.r2_secret_key else 'MISSING'} | "
+            f"bucket={self.r2_bucket_name}"
+        )
         
         # Инициализируем S3-совместимый клиент для R2 если есть credentials
         if self.account_id and self.r2_access_key and self.r2_secret_key:
@@ -35,9 +40,9 @@ class CloudflareR2Client:
                 aws_secret_access_key=self.r2_secret_key,
                 region_name='auto'
             )
-            print(f"[R2 INIT] S3 client initialized successfully")
+            logger.info("R2 S3 client initialized")
         else:
-            print("[R2 INIT] Warning: Cloudflare R2 credentials not configured")
+            logger.warning("R2 credentials not configured — image upload unavailable")
     
     def _ensure_configured(self):
         """Проверить что credentials настроены"""
@@ -61,7 +66,7 @@ class CloudflareR2Client:
         """
         self._ensure_configured()
         
-        print(f"[R2] Starting upload: {object_key}, ContentType: {content_type}, Size: {len(file_data)} bytes")
+        logger.info(f"R2 upload start | key={object_key} | content_type={content_type} | size={len(file_data)} bytes")
         
         try:
             # Загружаем файл в R2 через S3-совместимый API
@@ -82,20 +87,19 @@ class CloudflareR2Client:
                 # Fallback на стандартный R2 URL
                 public_url = f"https://{self.r2_bucket_name}.{self.account_id}.r2.cloudflarestorage.com/{object_key}"
             
-            print(f"[R2] File uploaded successfully: {object_key} -> {public_url}")
-            print(f"[R2] Bucket: {self.r2_bucket_name}, Account: {self.account_id}, Hash: {self.account_hash}")
+            logger.info(f"R2 upload OK | key={object_key} | url={public_url}")
             return public_url
             
         except ClientError as e:
             error_code = e.response['Error']['Code']
             error_message = e.response['Error']['Message']
-            print(f"[R2] Upload error: {error_code} - {error_message}")
+            logger.error(f"R2 upload error | key={object_key} | {error_code}: {error_message}")
             raise HTTPException(
                 status_code=500,
                 detail=f"Failed to upload to R2: {error_message}"
             )
         except Exception as e:
-            print(f"[R2] Unexpected error during upload: {str(e)}")
+            logger.error(f"R2 unexpected upload error | key={object_key} | {e}")
             raise HTTPException(
                 status_code=500,
                 detail=f"Failed to upload to R2: {str(e)}"

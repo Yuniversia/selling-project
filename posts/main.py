@@ -1,6 +1,7 @@
 # main.py (для микросервиса Posts API)
 
 import os
+import logging
 from fastapi import FastAPI
 from post_router import api_router
 from bought_router import bought_router
@@ -9,15 +10,24 @@ from starlette.middleware.cors import CORSMiddleware
 from database import create_db_and_tables
 from configs import Configs
 
-# Отладка: проверяем загрузку Cloudflare конфигурации
-print("[CLOUDFLARE CONFIG DEBUG]")
-print(f"  CF_ACCOUNT_ID: {'✓ SET' if Configs.CF_ACCOUNT_ID else '✗ NOT SET'}")
-print(f"  CF_ACCOUNT_HASH: {'✓ SET' if Configs.CF_ACCOUNT_HASH else '✗ NOT SET'}")
-print(f"  CF_API_TOKEN: {'✓ SET' if Configs.CF_API_TOKEN else '✗ NOT SET'}")
-print(f"  CF_R2_ACCESS_KEY_ID: {'✓ SET' if Configs.CF_R2_ACCESS_KEY_ID else '✗ NOT SET'}")
-print(f"  CF_R2_SECRET_ACCESS_KEY: {'✓ SET' if Configs.CF_R2_SECRET_ACCESS_KEY else '✗ NOT SET'}")
-print(f"  CF_IMAGE_DELIVERY_URL: {'✓ SET' if Configs.CF_IMAGE_DELIVERY_URL else '✗ NOT SET'}")
-print(f"  CF_BASE_URL: {Configs.CF_BASE_URL if Configs.CF_BASE_URL else '✗ NOT SET'}")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+logger = logging.getLogger("posts.main")
+
+# Раз при старте: проверяем загрузку Cloudflare конфигурации
+logger.info(
+    "Cloudflare config | "
+    f"CF_ACCOUNT_ID={'SET' if Configs.CF_ACCOUNT_ID else 'NOT SET'} | "
+    f"CF_ACCOUNT_HASH={'SET' if Configs.CF_ACCOUNT_HASH else 'NOT SET'} | "
+    f"CF_API_TOKEN={'SET' if Configs.CF_API_TOKEN else 'NOT SET'} | "
+    f"CF_R2_ACCESS_KEY_ID={'SET' if Configs.CF_R2_ACCESS_KEY_ID else 'NOT SET'} | "
+    f"CF_R2_SECRET_ACCESS_KEY={'SET' if Configs.CF_R2_SECRET_ACCESS_KEY else 'NOT SET'} | "
+    f"CF_IMAGE_DELIVERY_URL={'SET' if Configs.CF_IMAGE_DELIVERY_URL else 'NOT SET'} | "
+    f"CF_BASE_URL={Configs.CF_BASE_URL or 'NOT SET'}"
+)
 
 # Создаем таблицы БД при запуске
 create_db_and_tables()

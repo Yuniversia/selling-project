@@ -1,8 +1,11 @@
 # database.py
 
+import logging
+import os
 from sqlmodel import create_engine, Session, SQLModel
 from typing import Generator
-import os
+
+logger = logging.getLogger("posts.database")
 
 # Попытка загрузить переменные окружения (если есть .env файл)
 try:
@@ -23,15 +26,15 @@ if USE_POSTGRES:
     POSTGRES_DB = os.getenv("POSTGRES_DB", "lais_marketplace")
     
     DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
-    print(f"[DATABASE] 🐘 Подключение к PostgreSQL: {POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}")
+    logger.info(f"Connecting to PostgreSQL: {POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}")
     
-    engine = create_engine(DATABASE_URL, echo=True, pool_pre_ping=True)
+    engine = create_engine(DATABASE_URL, echo=False, pool_pre_ping=True)
 else:
     # SQLite Connection - используем базу из auth для совместимости
     DATABASE_URL = "sqlite:///../auth/database.db"
-    print(f"[DATABASE] 📁 Подключение к SQLite: {DATABASE_URL}")
+    logger.info(f"Connecting to SQLite: {DATABASE_URL}")
     
-    engine = create_engine(DATABASE_URL, echo=True, connect_args={"check_same_thread": False})
+    engine = create_engine(DATABASE_URL, echo=False, connect_args={"check_same_thread": False})
 
 # Функция для создания всех таблиц
 def create_db_and_tables():

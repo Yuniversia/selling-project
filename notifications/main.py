@@ -1,5 +1,6 @@
 # main.py - Главный файл notification service
 
+import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -8,17 +9,24 @@ from database import create_db_and_tables
 from notification_router import notification_router
 from configs import configs
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+logger = logging.getLogger("notification.main")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifecycle events"""
     # Startup
-    print("🚀 Starting Notification Service...")
+    logger.info("Starting Notification Service")
     create_db_and_tables()
-    print("✅ Database tables created")
+    logger.info("Database tables ready")
     yield
     # Shutdown
-    print("👋 Shutting down Notification Service...")
+    logger.info("Shutting down Notification Service")
 
 
 app = FastAPI(

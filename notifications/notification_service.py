@@ -147,6 +147,13 @@ class NotificationService:
         """Отправка SMS уведомлений после оплаты заказа (продавцу и покупателю)"""
         notification_ids = []
         errors = []
+
+        logger.info(
+            f"ORDER_PAID notification | order_id={order_data.order_id} | "
+            f"product='{order_data.product_name}' | price=€{order_data.order_price:.2f} | "
+            f"seller='{order_data.seller_name}' (phone={'set' if order_data.seller_phone else 'MISSING'}) | "
+            f"buyer='{order_data.buyer_name}' (phone={'set' if order_data.buyer_phone else 'missing'})"
+        )
         
         # Отправляем продавцу
         if order_data.seller_phone:
@@ -176,6 +183,11 @@ class NotificationService:
             elif error:
                 errors.append(f"SMS to seller: {error}")
         else:
+            logger.warning(
+                f"Seller has no phone number — SMS skipped | "
+                f"order_id={order_data.order_id} | seller='{order_data.seller_name}' | "
+                f"product='{order_data.product_name}'"
+            )
             errors.append("Seller phone number not provided")
         
         # Отправляем покупателю
@@ -216,7 +228,13 @@ class NotificationService:
         """Отправка SMS запроса на отзыв после получения заказа"""
         notification_ids = []
         errors = []
-        
+
+        logger.info(
+            f"ORDER_REVIEW_REQUEST notification | order_id={order_data.order_id} | "
+            f"product='{order_data.product_name}' | seller='{order_data.seller_name}' | "
+            f"buyer='{order_data.buyer_name}' (phone={'set' if order_data.buyer_phone else 'missing — SMS skipped'})"
+        )
+
         if not order_data.buyer_phone:
             # Если нет телефона покупателя, просто возвращаем успех (не критично)
             return True, [], []
@@ -296,6 +314,7 @@ class NotificationService:
                     self.db.commit()
                     
                     if attempt < max_retries - 1:
+                        logger.warning(f"Send attempt {attempt + 1}/{max_retries} failed, retrying — order_id={order_id} | error={error}")
                         time.sleep(2 ** attempt)  # Exponential backoff
                     
             except Exception as e:

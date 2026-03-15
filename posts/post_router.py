@@ -1,5 +1,6 @@
 # post_router.py - Posts API Routes
 
+import logging
 from fastapi import (
     APIRouter, 
     Depends, 
@@ -37,6 +38,7 @@ from cloudflare_r2 import r2_client
 
 # API Router для постов
 api_router = APIRouter(prefix="/api/v1", tags=["Iphone Posts"])
+logger = logging.getLogger("posts.post_router")
 
 
 
@@ -80,7 +82,7 @@ async def get_direct_upload_url():
             "Content-Type": "application/json"
         }
         
-        print(f"[DEBUG] Запрашиваем URL для загрузки у Cloudflare: {api_url}")
+        logger.debug(f"Cloudflare direct upload request | url={api_url}")
         
         # Отправляем запрос в Cloudflare API
         response = await http_client.post(api_url, headers=headers)
@@ -88,15 +90,12 @@ async def get_direct_upload_url():
         
         result = response.json()
         
-        print(f"[DEBUG] Полный ответ от Cloudflare: {result}")
-        
         # Cloudflare возвращает uploadURL для сессии загрузки
         upload_url = result['result']['uploadURL']
         # Это НЕ финальный ID! Финальный ID будет в ответе после загрузки файла
         temp_id = result['result']['id']
         
-        print(f"[DEBUG] Upload URL: {upload_url}")
-        print(f"[DEBUG] Временный ID (для отладки): {temp_id}")
+        logger.debug(f"Cloudflare upload URL acquired | upload_url_preview=...{upload_url[-30:]} | temp_id={temp_id}")
         
         # Возвращаем URL клиенту, а также account hash и base URL для формирования публичного URL
         return {
@@ -107,12 +106,11 @@ async def get_direct_upload_url():
         }
         
     except httpx.HTTPStatusError as e:
-        print(f"[ERROR] Ошибка Cloudflare API: {e.response.status_code}")
-        print(f"[ERROR] Ответ: {e.response.text}")
+        logger.error(f"Cloudflare API error | HTTP {e.response.status_code}")
         detail = f"Ошибка Cloudflare API: {e.response.status_code}. Ответ: {e.response.text}"
         raise HTTPException(status_code=500, detail=detail)
     except Exception as e:
-        print(f"[ERROR] Непредвиденная ошибка: {str(e)}")
+        logger.error(f"Cloudflare direct upload unexpected error | {e}")
         raise HTTPException(status_code=500, detail=f"Непредвиденная ошибка: {str(e)}")
 
 
@@ -173,7 +171,7 @@ async def upload_image_to_r2(file: UploadFile = File(...)):
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[ERROR] Ошибка при загрузке изображения: {str(e)}")
+        logger.error(f"Image upload to R2 failed | {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Ошибка при загрузке изображения: {str(e)}"
@@ -443,30 +441,23 @@ def router_list(
     # Приоритет: сначала по дате (если указана), затем по цене (если указана)
     order_clauses = []
     
-    print(f"[SORT DEBUG] sort_date={sort_date}, sort_price={sort_price}")
+    logger.debug(f"Sort params | sort_date={sort_date} | sort_price={sort_price}")
     
     if sort_date:
         if sort_date.lower() == "asc":
             order_clauses.append(Iphone.created_at.asc())
-            print("[SORT DEBUG] Added created_at ASC")
         elif sort_date.lower() == "desc":
             order_clauses.append(Iphone.created_at.desc())
-            print("[SORT DEBUG] Added created_at DESC")
     
     if sort_price:
         if sort_price.lower() == "asc":
             order_clauses.append(Iphone.price.asc())
-            print("[SORT DEBUG] Added price ASC")
         elif sort_price.lower() == "desc":
             order_clauses.append(Iphone.price.desc())
-            print("[SORT DEBUG] Added price DESC")
     
     # Если нет сортировки - сортируем по ID (порядок добавления)
     if not order_clauses:
         order_clauses.append(Iphone.id.desc())
-        print("[SORT DEBUG] No sort params, using ID DESC")
-    
-    print(f"[SORT DEBUG] Total order clauses: {len(order_clauses)}")
     statement = statement.order_by(*order_clauses)
     
     # Применяем пагинацию
@@ -474,7 +465,7 @@ def router_list(
     
     try:
         posts = db.exec(statement).all()
-        print(f"[FILTER] Found {len(posts)} posts | Filters: model={model}, price={sort_price}, date={sort_date}")
+        logger.debug(f"Posts list | count={len(posts)} | model={model} | sort_price={sort_price} | sort_date={sort_date}")
         return posts
     except Exception as e:
         raise HTTPException(
@@ -581,9 +572,9 @@ def router_get(
         db.commit()
         db.refresh(iphone_post)
         
-        print(f"[UNIQUE VIEW] Post #{id} | Viewer: {'User#' + str(viewer_id) if viewer_id else viewer_ip} | Total views: {iphone_post.view_count}")
+        logger.debug(f"Unique view | post_id={id} | viewer={'user#' + str(viewer_id) if viewer_id else viewer_ip} | total={iphone_post.view_count}")
     else:
-        print(f"[DUPLICATE VIEW] Post #{id} | Viewer: {'User#' + str(viewer_id) if viewer_id else viewer_ip} | Not counted")
+        logger.debug(f"Duplicate view skipped | post_id={id} | viewer={'user#' + str(viewer_id) if viewer_id else viewer_ip}")
     
     return iphone_post
 
@@ -661,7 +652,7 @@ async def create_report(
     db.commit()
     db.refresh(new_report)
     
-    print(f"[REPORT] Post #{report_data.post_id} | Reporter: {'User#' + str(reporter_id) if reporter_id else reporter_ip} | Reason: {report_data.reason.value}")
+    logger.info(f"Report submitted | post_id={report_data.post_id} | reporter={'user#' + str(reporter_id) if reporter_id else reporter_ip} | reason={report_data.reason.value}")
     
     return ReportResponse(
         id=new_report.id,
@@ -860,7 +851,7 @@ async def update_report_status(
     db.add(report)
     db.commit()
     
-    print(f"[ADMIN] Report #{report_id} updated by User#{user_data['user_id']} | Status: {new_status} | Action: {action}")
+    logger.info(f"Admin report update | report_id={report_id} | admin_id={user_data['user_id']} | status={new_status} | action={action}")
     
     return {
         "status": "success",
@@ -899,7 +890,7 @@ async def deactivate_post(
     db.add(post)
     db.commit()
     
-    print(f"[ADMIN] Post #{post_id} deactivated by User#{user_data['user_id']}")
+    logger.info(f"Admin post deactivated | post_id={post_id} | admin_id={user_data['user_id']}")
     
     return {
         "status": "success",
@@ -937,7 +928,7 @@ async def activate_post(
     db.add(post)
     db.commit()
     
-    print(f"[ADMIN] Post #{post_id} activated by User#{user_data['user_id']}")
+    logger.info(f"Admin post activated | post_id={post_id} | admin_id={user_data['user_id']}")
     
     return {
         "status": "success",

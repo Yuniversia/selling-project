@@ -1,12 +1,15 @@
 # database.py - Подключение к базе данных
 
+import logging
 from sqlmodel import SQLModel, create_engine, Session
 from configs import configs
+
+logger = logging.getLogger("notification.database")
 
 # Создаем движок базы данных
 engine = create_engine(
     configs.database_url,
-    echo=True,  # Логирование SQL запросов
+    echo=False,  # SQL-запросы не дублируем в логах
     pool_pre_ping=True  # Проверка соединения перед использованием
 )
 
@@ -14,7 +17,7 @@ engine = create_engine(
 def create_db_and_tables():
     """Создание всех таблиц в базе данных"""
     SQLModel.metadata.create_all(engine)
-    print("✅ Database tables created successfully")
+    logger.info("Database tables created/verified")
 
 
 def get_session():

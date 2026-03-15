@@ -1,5 +1,6 @@
 # bought_router.py - API для покупок
 
+import logging
 from fastapi import APIRouter, Depends, status, HTTPException, Cookie
 from sqlmodel import Session, select
 from jose import jwt
@@ -12,6 +13,8 @@ from models import Iphone
 
 import sys
 import os
+
+logger = logging.getLogger("posts.bought_router")
 
 # Импорт User модели
 auth_path = os.path.join(os.path.dirname(__file__), '..', 'auth')
@@ -158,7 +161,7 @@ async def create_purchase(
         db.commit()
         db.refresh(bought_item)
         
-        print(f"[PURCHASE] User {buyer_id} bought post {purchase_data.post_id}")
+        logger.info(f"Purchase | buyer_id={buyer_id} | post_id={purchase_data.post_id}")
         
         return bought_item
         

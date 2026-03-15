@@ -1,5 +1,6 @@
 # order_router.py - Роутер для системы покупки и доставки
 
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Request, Cookie
 from sqlmodel import Session, select
 from typing import Optional
@@ -19,6 +20,7 @@ from models import (
 from configs import Configs
 
 order_router = APIRouter(prefix="/api/v1/orders", tags=["Orders"])
+logger = logging.getLogger("posts.order_router")
 
 
 async def send_notification_async(endpoint: str, data: dict):
@@ -32,14 +34,22 @@ async def send_notification_async(endpoint: str, data: dict):
             )
             if response.status_code == 200:
                 result = response.json()
-                print(f"✅ Notification sent: {endpoint}")
-                print(f"   Result: {result}")
+                logger.info(
+                    f"Notification sent | type={endpoint} | order_id={data.get('order_id')} | "
+                    f"seller='{data.get('seller_name')}' (phone={'set' if data.get('seller_phone') else 'MISSING'}) | "
+                    f"buyer='{data.get('buyer_name')}' | "
+                    f"product='{data.get('product_name')}' | "
+                    f"ids={result.get('notification_ids', [])}"
+                )
                 return result
             else:
-                print(f"⚠️ Notification failed: {response.status_code} - {response.text}")
+                logger.warning(
+                    f"Notification failed | type={endpoint} | order_id={data.get('order_id')} | "
+                    f"HTTP {response.status_code}"
+                )
                 return None
     except Exception as e:
-        print(f"❌ Error sending notification: {e}")
+        logger.error(f"Notification error | type={endpoint} | order_id={data.get('order_id')} | {e}")
         return None
 
 
@@ -52,16 +62,16 @@ async def get_delivery_info(order_id: int) -> Optional[dict]:
             )
             if response.status_code == 200:
                 delivery = response.json()
-                print(f"🚚 Delivery info fetched for order {order_id}: {delivery.get('tracking_number')}")
+                logger.info(f"Delivery info | order_id={order_id} | tracking={delivery.get('tracking_number')}")
                 return delivery
             elif response.status_code == 404:
-                print(f"📦 No delivery found for order {order_id} (probably pickup)")
+                logger.debug(f"No delivery for order_id={order_id} (pickup or not created yet)")
                 return None
             else:
-                print(f"⚠️ Delivery service error: {response.status_code}")
+                logger.warning(f"Delivery service error | order_id={order_id} | HTTP {response.status_code}")
                 return None
     except Exception as e:
-        print(f"❌ Error fetching delivery info: {e}")
+        logger.error(f"Delivery info fetch error | order_id={order_id} | {e}")
         return None
 
 
@@ -76,10 +86,10 @@ async def get_delivery_by_tracking(tracking_number: str) -> Optional[dict]:
                 return response.json()
             if response.status_code == 404:
                 return None
-            print(f"⚠️ Delivery service returned {response.status_code} for tracking {tracking_number}")
+            logger.warning(f"Delivery service | tracking={tracking_number} | HTTP {response.status_code}")
             return None
     except Exception as e:
-        print(f"❌ Error fetching delivery by tracking: {e}")
+        logger.error(f"Delivery tracking fetch error | tracking={tracking_number} | {e}")
         return None
 
 
@@ -88,17 +98,11 @@ def get_current_user(access_token: str) -> dict:
     if not access_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
     
-    # БЕЗОПАСНОСТЬ: НЕ логируем токены и секретные ключи
-    # print(f"[AUTH] Attempting to decode token: {access_token[:50]}...")
-    # print(f"[AUTH] Using secret_key: {Configs.secret_key[:10]}... algorithm: {Configs.token_algoritm}")
-    
     try:
         payload = jwt.decode(access_token, Configs.secret_key, algorithms=[Configs.token_algoritm])
-        # НЕ логируем payload - может содержать чувствительную информацию
-        # print(f"[AUTH] ✅ Token decoded successfully! Payload: {payload}")
         user_id = payload.get("user_id")
         if not user_id:
-            print(f"[AUTH] ❌ No user_id in payload!")
+            logger.warning("Auth | token valid but no user_id in payload")
             raise HTTPException(status_code=401, detail="Invalid token")
         return {
             "user_id": user_id,
@@ -106,8 +110,7 @@ def get_current_user(access_token: str) -> dict:
             "user_type": payload.get("user_type", "regular")
         }
     except Exception as e:
-        # Ловим все исключения JWT (ExpiredSignatureError, InvalidTokenError, DecodeError и т.д.)
-        print(f"[AUTH] ❌ Token validation failed: {type(e).__name__}")
+        logger.warning(f"Auth | token validation failed: {type(e).__name__}")
         raise HTTPException(status_code=401, detail=f"Token validation failed: {str(e)}")
 
 
@@ -223,12 +226,11 @@ async def create_order(
             raise HTTPException(status_code=500, detail="Ошибка сохранения заказа в базу данных")
         
         # БЕЗОПАСНОСТЬ: НЕ логируем персональные данные (имя, email, телефон)
-        print(f"[CREATE ORDER] ✅ Order #{order.id} created successfully")
-        print(f"  buyer_id: {order.buyer_id} (None = anonymous)")
-        print(f"  seller_id: {order.seller_id}")
-        print(f"  post_id: {order.post_id}")
-        print(f"  price: {order.price}")
-        print(f"  status: {order.status}")
+        logger.info(
+            f"Order created | id={order.id} | "
+            f"buyer_id={order.buyer_id or 'anonymous'} | seller_id={order.seller_id} | "
+            f"post_id={order.post_id} | price=€{order.price} | status={order.status}"
+        )
         
         # Отправляем уведомления продавцу и покупателю
         try:
@@ -255,14 +257,14 @@ async def create_order(
             # await send_notification_async("order-paid", notification_data)
             
         except Exception as e:
-            print(f"[CREATE ORDER] ⚠️ Failed to prepare notification data: {e}")
+            logger.warning(f"Notification data prep failed | order_id={order.id} | {e}")
             # Продолжаем выполнение даже если подготовка данных не удалась
             
     except HTTPException:
         raise
     except Exception as e:
         db.rollback()
-        print(f"[ERROR] Ошибка создания заказа: {e}")
+        logger.error(f"Order create failed | {e}")
         raise HTTPException(status_code=500, detail=f"Ошибка создания заказа: {str(e)}")
     
     return OrderResponse(
@@ -338,7 +340,7 @@ async def process_payment(
     
     # Создаем доставку через delivery service (если не pickup)
     if order.delivery_method in [DeliveryMethod.DPD.value, DeliveryMethod.OMNIVA.value]:
-        print(f"[PAY] 🚚 Creating delivery for order {order.id}, method: {order.delivery_method}")
+        logger.info(f"Delivery create | order_id={order.id} | method={order.delivery_method}")
         try:
             # Получаем информацию о продавце для отправки
             seller = db.get(User, order.seller_id)
@@ -358,7 +360,7 @@ async def process_payment(
                 "delivery_country": order.delivery_country or "Latvia"
             }
             
-            print(f"[PAY] 📦 Sending request to: {Configs.DELIVERY_SERVICE_URL}/api/v1/delivery/create")
+            logger.debug(f"Delivery create request | order_id={order.id} | url={Configs.DELIVERY_SERVICE_URL}/api/v1/delivery/create")
             
             async with httpx.AsyncClient(timeout=10.0) as client:
                 response = await client.post(
@@ -370,17 +372,15 @@ async def process_payment(
                     delivery_info = response.json()
                     order.tracking_number = delivery_info.get("tracking_number")
                     db.commit()
-                    print(f"✅ Delivery created for order {order.id}: {order.tracking_number}")
+                    logger.info(f"Delivery created | order_id={order.id} | tracking={order.tracking_number}")
                 else:
-                    print(f"⚠️ Failed to create delivery: {response.status_code} - {response.text}")
+                    logger.warning(f"Delivery create failed | order_id={order.id} | HTTP {response.status_code}")
                     
         except Exception as e:
-            print(f"❌ Error creating delivery: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.error(f"Delivery create error | order_id={order.id} | {e}")
             # Продолжаем выполнение даже если доставка не создалась
     else:
-        print(f"[PAY] ⏭️ Skipping delivery creation (method: {order.delivery_method})")
+        logger.info(f"Delivery skipped | order_id={order.id} | method={order.delivery_method}")
 
     if not order.tracking_number:
         order.tracking_number = f"ORD{order.id}"
@@ -413,7 +413,7 @@ async def process_payment(
         # Отправляем асинхронно
         await send_notification_async("order-paid", notification_data)
     except Exception as e:
-        print(f"[PAY] ⚠️ Failed to send payment notification: {e}")
+        logger.warning(f"Payment notification failed | order_id={order.id} | {e}")
     
     return {
         "success": True,
@@ -650,16 +650,14 @@ async def mark_as_shipped(
     
     db.commit()
     
-    print(f"[SHIP] Order #{order.id} marked as shipped by seller {user['user_id']}")
+    logger.info(f"Order shipped | order_id={order.id} | seller_id={user['user_id']}")
     
     # Обновляем статус доставки в delivery service (если не pickup)
     if order.delivery_method in [DeliveryMethod.DPD.value, DeliveryMethod.OMNIVA.value]:
-        print(f"[SHIP] 🚚 Updating delivery status for order {order.id}")
+        logger.info(f"Delivery status update | order_id={order.id}")
         try:
             # Получаем доставку по order_id
             async with httpx.AsyncClient(timeout=10.0) as client:
-                print(f"[SHIP] 📦 Getting delivery: {Configs.DELIVERY_SERVICE_URL}/api/v1/delivery/order/{order.id}")
-                
                 # Получаем delivery_id
                 delivery_response = await client.get(
                     f"{Configs.DELIVERY_SERVICE_URL}/api/v1/delivery/order/{order.id}"
@@ -669,7 +667,7 @@ async def mark_as_shipped(
                     delivery = delivery_response.json()
                     delivery_id = delivery.get("id")
                     
-                    print(f"[SHIP] 📦 Updating delivery {delivery_id} status to in_transit")
+                    logger.debug(f"Delivery status → in_transit | order_id={order.id} | delivery_id={delivery_id}")
                     
                     # Обновляем статус на "in_transit"
                     update_response = await client.patch(
@@ -678,19 +676,17 @@ async def mark_as_shipped(
                     )
                     
                     if update_response.status_code == 200:
-                        print(f"✅ Delivery status updated to in_transit for order {order.id}")
+                        logger.info(f"Delivery status updated to in_transit | order_id={order.id}")
                     else:
-                        print(f"⚠️ Failed to update delivery status: {update_response.status_code} - {update_response.text}")
+                        logger.warning(f"Delivery status update failed | order_id={order.id} | HTTP {update_response.status_code}")
                 else:
-                    print(f"⚠️ Delivery not found for order {order.id}: {delivery_response.status_code}")
+                    logger.warning(f"Delivery not found for ship | order_id={order.id} | HTTP {delivery_response.status_code}")
                     
         except Exception as e:
-            print(f"❌ Error updating delivery status: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.error(f"Delivery status update error | order_id={order.id} | {e}")
             # Продолжаем выполнение
     else:
-        print(f"[SHIP] ⏭️ Skipping delivery update (method: {order.delivery_method})")
+        logger.info(f"Delivery update skipped | order_id={order.id} | method={order.delivery_method}")
     
     return {
         "success": True,
@@ -748,8 +744,7 @@ async def leave_review(
     db.add(order)
     db.commit()
     
-    print(f"[REVIEW] ✅ Order #{order.id} review saved by buyer {user['user_id']}")
-    print(f"  Rating: {rating}/5, Review: {review_text[:50] if review_text else 'None'}")
+    logger.info(f"Review saved | order_id={order.id} | buyer_id={user['user_id']} | rating={rating}/5")
     
     # Обновляем рейтинг продавца
     try:
@@ -771,9 +766,9 @@ async def leave_review(
                 db.add(seller)
                 db.commit()
             
-            print(f"[REVIEW] Seller {seller.id} rating updated: {seller.rating}")
+            logger.info(f"Seller rating updated | seller_id={seller.id} | rating={seller.rating}")
     except Exception as e:
-        print(f"[REVIEW] ⚠️ Failed to update seller rating: {e}")
+        logger.warning(f"Seller rating update failed | order_id={order.id} | {e}")
     
     return {
         "success": True,
@@ -789,24 +784,20 @@ async def get_my_orders(
     db: Session = Depends(get_session)
 ):
     """Получить все заказы пользователя (как покупателя) - БЕЗ ЛИЧНЫХ ДАННЫХ"""
-    print("[MY-ORDERS] Request received")
     if not access_token:
-        print(f"[MY-ORDERS] No access_token - returning empty list")
         return {"orders": []}
     
     try:
         user = get_current_user(access_token)
         user_id = user["user_id"]
-        print(f"[MY-ORDERS] Authenticated user: {user_id}")
+        logger.info(f"My orders | user_id={user_id}")
     except HTTPException as e:
-        print(f"[MY-ORDERS] Invalid token - returning empty list")
         return {"orders": []}
     
     statement = select(Order).where(Order.buyer_id == user_id).order_by(Order.created_at.desc())
-    print(f"[MY-ORDERS] Executing query: SELECT * FROM order WHERE buyer_id = {user_id}")
     orders = db.exec(statement).all()
     
-    print(f"[MY-ORDERS] User {user_id} has {len(orders)} orders")
+    logger.info(f"My orders result | user_id={user_id} | count={len(orders)}")
     
     # Форматируем ответ БЕЗ личных данных (покупатель видит свои заказы)
     safe_orders = []
@@ -852,28 +843,20 @@ async def get_my_sales(
     db: Session = Depends(get_session)
 ):
     """Получить все продажи пользователя (как продавца) - ТОЛЬКО ИМЯ ПОКУПАТЕЛЯ"""
-    print("[MY-SALES] Request received")
-    print(f"[MY-SALES] access_token present: {bool(access_token)}")
-    if access_token:
-        print(f"[MY-SALES] Token preview: {access_token[:50]}...")
-    
     if not access_token:
-        print(f"[MY-SALES] No access_token - returning empty list")
         return {"sales": []}
     
     try:
         user = get_current_user(access_token)
         user_id = user["user_id"]
-        print(f"[MY-SALES] Authenticated user: {user_id}")
+        logger.info(f"My sales | user_id={user_id}")
     except HTTPException as e:
-        print(f"[MY-SALES] Invalid token - returning empty list")
         return {"sales": []}
     
     statement = select(Order).where(Order.seller_id == user_id).order_by(Order.created_at.desc())
-    print(f"[MY-SALES] Executing query: SELECT * FROM order WHERE seller_id = {user_id}")
     orders = db.exec(statement).all()
     
-    print(f"[MY-SALES] User {user_id} has {len(orders)} sales")
+    logger.info(f"My sales result | user_id={user_id} | count={len(orders)}")
     
     # Форматируем ответ: продавец видит ТОЛЬКО ИМЯ покупателя (БЕЗ email/phone/адреса)
     safe_sales = []
@@ -961,18 +944,17 @@ async def delivery_received_webhook(
     if not order_id:
         raise HTTPException(status_code=400, detail="order_id is required")
     
-    print(f"[DELIVERY-RECEIVED] Webhook received for order #{order_id}")
-    print(f"[DELIVERY-RECEIVED] Tracking: {tracking_number}, Picked up at: {picked_up_at}")
+    logger.info(f"Delivery received webhook | order_id={order_id} | tracking={tracking_number} | picked_up_at={picked_up_at}")
     
     # Находим заказ
     order = db.get(Order, order_id)
     if not order:
-        print(f"[DELIVERY-RECEIVED] ❌ Order #{order_id} not found")
+        logger.warning(f"Delivery received | order_id={order_id} not found")
         raise HTTPException(status_code=404, detail="Заказ не найден")
     
     # Проверяем текущий статус
     if order.status not in [OrderStatus.SHIPPED.value, OrderStatus.PROCESSING.value]:
-        print(f"[DELIVERY-RECEIVED] ⚠️ Order #{order_id} has wrong status: {order.status}")
+        logger.warning(f"Delivery received | order_id={order_id} | unexpected status={order.status}")
         return {
             "success": False,
             "message": f"Заказ имеет статус {order.status}, ожидался shipped или processing"
@@ -988,7 +970,7 @@ async def delivery_received_webhook(
     db.commit()
     db.refresh(order)
     
-    print(f"[DELIVERY-RECEIVED] ✅ Order #{order_id} status updated to COMPLETED (auto-confirmed)")
+    logger.info(f"Order auto-completed | order_id={order_id} | tracking={tracking_number}")
     
     # Обновляем статистику продавца (автоматически, как при подтверждении)
     try:
@@ -1014,9 +996,9 @@ async def delivery_received_webhook(
             db.add(seller)
             db.commit()
             
-            print(f"[DELIVERY-RECEIVED] Seller {seller.id} stats updated: sells={seller.sells_count}, rating={seller.rating}")
+            logger.info(f"Seller stats updated | seller_id={seller.id} | sells={seller.sells_count} | rating={seller.rating}")
     except Exception as e:
-        print(f"[DELIVERY-RECEIVED] ⚠️ Failed to update seller stats: {e}")
+        logger.warning(f"Seller stats update failed | order_id={order_id} | {e}")
     
     # Скрываем чаты связанные с этим заказом
     if order.buyer_id:
@@ -1024,7 +1006,7 @@ async def delivery_received_webhook(
             buyer_id_for_chat = str(order.buyer_id)
             chat_api_url = "http://chat-service:4000/api/chat/chats/hide-for-order"
             
-            print(f"[DELIVERY-RECEIVED] Hiding chats for post_id={order.post_id}, buyer_id={buyer_id_for_chat}")
+            logger.info(f"Hiding chats | post_id={order.post_id} | buyer_id={buyer_id_for_chat}")
             
             async with httpx.AsyncClient(timeout=5.0) as client:
                 response = await client.post(
@@ -1037,11 +1019,11 @@ async def delivery_received_webhook(
                 
                 if response.status_code == 200:
                     result = response.json()
-                    print(f"[DELIVERY-RECEIVED] ✅ Hidden {result.get('hidden_count', 0)} chat(s)")
+                    logger.info(f"Chats hidden | post_id={order.post_id} | count={result.get('hidden_count', 0)}")
                 else:
-                    print(f"[DELIVERY-RECEIVED] ⚠️ Chat service returned status {response.status_code}")
+                    logger.warning(f"Chat hide failed | post_id={order.post_id} | HTTP {response.status_code}")
         except Exception as e:
-            print(f"[DELIVERY-RECEIVED] ❌ Error hiding chats: {e}")
+            logger.error(f"Chat hide error | post_id={order.post_id} | {e}")
     
     # Отправляем SMS с благодарностью и ссылкой на отзыв
     try:
@@ -1067,7 +1049,7 @@ async def delivery_received_webhook(
         # Отправляем асинхронно SMS с благодарностью и ссылкой на отзыв
         await send_notification_async("order-delivered", notification_data)
     except Exception as e:
-        print(f"[DELIVERY-RECEIVED] ⚠️ Failed to send review request SMS: {e}")
+        logger.warning(f"Review request SMS failed | order_id={order.id} | {e}")
     
     return {
         "success": True,
