@@ -179,12 +179,24 @@ def my_sales_page(request: Request):
 @frontend_router.get("/orders", name="order_tracking")
 def order_tracking_page(request: Request, tracking: str = Query(default="")):
     """Отдает публичную страницу заказа по tracking number (query param)."""
+    if not tracking:
+        raw_qs = request.url.query or ""
+        if raw_qs and "=" not in raw_qs:
+            tracking = raw_qs
+        else:
+            tracking = next(iter(request.query_params.keys()), "")
+
     context = get_template_context(request, "Статус заказа")
     context["tracking_number"] = tracking
     return templates.TemplateResponse(
         "order-tracking.html",
         context
     )
+
+@frontend_router.get("/order", name="order_tracking_single")
+def order_tracking_single_page(request: Request, tracking: str = Query(default="")):
+    """Alias endpoint: /order?tracking=..."""
+    return order_tracking_page(request, tracking)
 
 @frontend_router.get("/push-test", name="push_test")
 def push_test_page(request: Request):

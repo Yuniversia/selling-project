@@ -161,7 +161,7 @@ async def create_purchase(
         db.commit()
         db.refresh(bought_item)
         
-        logger.info(f"Purchase | buyer_id={buyer_id} | post_id={purchase_data.post_id}")
+        logger.info(f"Purchase created | post_id={purchase_data.post_id}")
         
         return bought_item
         

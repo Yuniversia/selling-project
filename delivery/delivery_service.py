@@ -88,7 +88,7 @@ class DeliveryService:
         # Добавляем в историю
         self._add_status_history(delivery.id, DeliveryStatus.CREATED.value, "Доставка создана")
         
-        logger.info(f"✅ Delivery created: {delivery.tracking_number} for order {delivery.order_id}")
+        logger.info(f"Delivery created | order_id={delivery.order_id}")
         
         return delivery
     
@@ -122,14 +122,11 @@ class DeliveryService:
             if not delivery.pickup_code:
                 delivery.pickup_code = self.generate_pickup_code()
             
-            # Отправляем уведомление с кодом
-            self._send_pickup_code_notification(delivery)
+            # Уведомление о прибытии в пункт выдачи отключено
+            # чтобы не отправлять лишние SMS.
         
         elif new_status == DeliveryStatus.PICKED_UP.value:
             delivery.picked_up_at = now
-            
-            # Отправляем уведомление о получении + ссылку на отзыв
-            self._send_picked_up_notification(delivery)
             
             # Уведомляем posts-service что доставка получена
             self._notify_posts_service_delivery_received(delivery)
@@ -145,7 +142,7 @@ class DeliveryService:
             status_update.notes or f"Статус изменен с {old_status} на {new_status}"
         )
         
-        logger.info(f"✅ Delivery {delivery.tracking_number} status updated: {old_status} → {new_status}")
+        logger.info(f"Delivery status updated | order_id={delivery.order_id} | {old_status} → {new_status}")
         
         return delivery
     
@@ -182,7 +179,7 @@ class DeliveryService:
     def _send_pickup_code_notification(self, delivery: Delivery):
         """Отправка уведомления с кодом получения"""
         if delivery.notification_sent_at_pickup_point:
-            logger.info(f"⏭️ Pickup code notification already sent for {delivery.tracking_number}")
+            logger.info(f"Pickup code notification already sent | order_id={delivery.order_id}")
             return
         
         try:
@@ -209,7 +206,7 @@ class DeliveryService:
             self.db.add(delivery)
             self.db.commit()
             
-            logger.info(f"✅ Pickup code notification sent for {delivery.tracking_number}")
+            logger.info(f"Pickup code notification sent | order_id={delivery.order_id}")
             
         except Exception as e:
             logger.error(f"❌ Failed to send pickup code notification: {e}")
@@ -217,12 +214,12 @@ class DeliveryService:
     def _send_picked_up_notification(self, delivery: Delivery):
         """Отправка уведомления о получении + ссылка на отзыв"""
         if delivery.notification_sent_picked_up:
-            logger.info(f"⏭️ Picked up notification already sent for {delivery.tracking_number}")
+            logger.info(f"Picked up notification already sent | order_id={delivery.order_id}")
             return
         
         try:
             # Формируем ссылку на отзыв
-            review_link = f"{configs.FRONTEND_URL}/orders/{delivery.tracking_number}"
+            review_link = f"{configs.FRONTEND_URL.rstrip('/')}/order?tracking={delivery.tracking_number}"
             
             # Формируем сообщение
             message = (
@@ -246,7 +243,7 @@ class DeliveryService:
             self.db.add(delivery)
             self.db.commit()
             
-            logger.info(f"✅ Picked up notification sent for {delivery.tracking_number}")
+            logger.info(f"Picked up notification sent | order_id={delivery.order_id}")
             
         except Exception as e:
             logger.error(f"❌ Failed to send picked up notification: {e}")
@@ -254,7 +251,7 @@ class DeliveryService:
     def _notify_posts_service_delivery_received(self, delivery: Delivery):
         """Уведомление posts-service о том, что доставка получена покупателем"""
         try:
-            logger.info(f"📞 Notifying posts-service: delivery {delivery.tracking_number} picked up for order {delivery.order_id}")
+            logger.info(f"Notifying posts-service about delivery receipt | order_id={delivery.order_id}")
             
             with httpx.Client(timeout=5.0) as client:
                 response = client.post(
@@ -262,12 +259,13 @@ class DeliveryService:
                     json={
                         "order_id": delivery.order_id,
                         "tracking_number": delivery.tracking_number,
+                        "language": self._extract_language_from_notes(delivery.notes),
                         "picked_up_at": delivery.picked_up_at.isoformat() if delivery.picked_up_at else None
                     }
                 )
                 
                 if response.status_code == 200:
-                    logger.info(f"✅ Posts-service notified about delivery receipt for order {delivery.order_id}")
+                    logger.info(f"Posts-service notified about delivery receipt | order_id={delivery.order_id}")
                 else:
                     logger.warning(f"⚠️ Posts-service notification failed: {response.status_code} - {response.text}")
                     
@@ -311,7 +309,7 @@ class DeliveryService:
                             "product_model": f"{post.get('memory', '')}GB {post.get('color', '')}".strip() if post.get('memory') else None,
                             "order_price": order.get("price", 0.0),
                             "delivery_method": order.get("delivery_method", "delivery"),
-                            "review_url": f"{configs.FRONTEND_URL}/orders/{tracking_number or order_id}"
+                            "review_url": f"{configs.FRONTEND_URL.rstrip('/')}/order?tracking={tracking_number or order_id}"
                         }
             except Exception as e:
                 logger.warning(f"⚠️ Failed to fetch order details: {e}, using minimal data")
@@ -328,7 +326,7 @@ class DeliveryService:
                     "product_name": "iPhone",
                     "order_price": 0.0,
                     "delivery_method": "delivery",
-                    "review_url": f"{configs.FRONTEND_URL}/orders/{tracking_number or order_id}"
+                    "review_url": f"{configs.FRONTEND_URL.rstrip('/')}/order?tracking={tracking_number or order_id}"
                 }
             
             # Отправляем запрос на специальный endpoint order-delivered
@@ -345,6 +343,16 @@ class DeliveryService:
                     
         except Exception as e:
             logger.error(f"❌ Failed to send notification: {e}")
+
+    def _extract_language_from_notes(self, notes: Optional[str]) -> str:
+        if not notes:
+            return "ru"
+        marker = "lang="
+        idx = notes.find(marker)
+        if idx == -1:
+            return "ru"
+        raw = notes[idx + len(marker):].strip().split()[0].lower()
+        return raw if raw in ["ru", "lv", "en"] else "ru"
     
     def simulate_delivery_process(self, delivery_id: int):
         """
@@ -365,5 +373,5 @@ class DeliveryService:
                 )
             )
         
-        logger.info(f"✅ Delivery simulation started for {delivery.tracking_number}")
+        logger.info(f"Delivery simulation started | order_id={delivery.order_id}")
         return delivery

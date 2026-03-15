@@ -6,6 +6,7 @@ import logging
 from typing import Optional, Tuple
 from datetime import datetime
 from sqlmodel import Session
+from sqlmodel import select
 from urllib.parse import urlencode
 
 from configs import configs
@@ -15,6 +16,25 @@ from models import NotificationLog, NotificationTemplate, NotificationStatus, Or
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+SMS_TEXTS = {
+    "ru": {
+        "order_paid_seller": "Товар '{product_name}' куплен. Подготовьте отправку.",
+        "order_paid_buyer": "Оплата {product_name} успешна! Отслеживание: {tracking_url}",
+        "order_review_request": "Заказ #{order_id} получен. Оставьте отзыв: {review_url}"
+    },
+    "lv": {
+        "order_paid_seller": "Prece '{product_name}' ir nopirkta. Sagatavojiet nosūtīšanu.",
+        "order_paid_buyer": "Maksājums par {product_name} veiksmīgs! Izsekošana: {tracking_url}",
+        "order_review_request": "Pasūtījums #{order_id} ir saņemts. Atstājiet atsauksmi: {review_url}"
+    },
+    "en": {
+        "order_paid_seller": "Item '{product_name}' has been purchased. Please prepare shipment.",
+        "order_paid_buyer": "Payment for {product_name} successful! Tracking: {tracking_url}",
+        "order_review_request": "Order #{order_id} has been received. Leave a review: {review_url}"
+    }
+}
 
 
 class SendBerryService:
@@ -51,7 +71,7 @@ class SendBerryService:
         if not formatted_phone.startswith("+"):
             formatted_phone = f"+{formatted_phone}"
         
-        logger.info(f"📱 Sending SMS to {formatted_phone} via SendBerry")
+        logger.info("Sending SMS via SendBerry")
         
         try:
             # Подготавливаем параметры запроса
@@ -79,7 +99,6 @@ class SendBerryService:
             
             # Логируем сырой ответ для отладки
             logger.info(f"SendBerry response status: {response.status_code}")
-            logger.info(f"SendBerry response body: {response.text}")
             
             # Парсим ответ
             if response.status_code == 200:
@@ -127,13 +146,62 @@ class NotificationService:
     
     def _get_template(self, notification_type: str) -> Optional[NotificationTemplate]:
         """Получение шаблона уведомления"""
-        from sqlmodel import select
-        
         statement = select(NotificationTemplate).where(
             NotificationTemplate.notification_type == notification_type,
             NotificationTemplate.is_active == True
         )
         return self.db.exec(statement).first()
+
+    def _normalize_language(self, lang: Optional[str]) -> str:
+        value = (lang or "ru").strip().lower()
+        return value if value in {"ru", "lv", "en"} else "ru"
+
+    def _get_buyer_language_for_order(
+        self,
+        order_id: int,
+        buyer_phone: Optional[str],
+        fallback: Optional[str] = None
+    ) -> str:
+        normalized_fallback = self._normalize_language(fallback)
+        if not buyer_phone:
+            return normalized_fallback
+
+        statement = (
+            select(NotificationLog)
+            .where(
+                NotificationLog.order_id == order_id,
+                NotificationLog.notification_type == "order_paid_buyer",
+                NotificationLog.recipient_phone == buyer_phone,
+                NotificationLog.status == NotificationStatus.SENT.value,
+            )
+            .order_by(NotificationLog.created_at.desc())
+        )
+        prev = self.db.exec(statement).first()
+        if not prev:
+            return normalized_fallback
+
+        language_from_name = (prev.recipient_name or "").strip().lower()
+        if language_from_name in {"ru", "lv", "en"}:
+            return language_from_name
+
+        return normalized_fallback
+
+    def _already_sent(self, notification_type: str, order_id: int, phone: Optional[str]) -> bool:
+        if not phone:
+            return False
+
+        statement = select(NotificationLog).where(
+            NotificationLog.notification_type == notification_type,
+            NotificationLog.order_id == order_id,
+            NotificationLog.recipient_phone == phone,
+            NotificationLog.status == NotificationStatus.SENT.value,
+        )
+        return self.db.exec(statement).first() is not None
+
+    def _build_default_sms(self, key: str, lang: str, data: dict) -> str:
+        lang_code = self._normalize_language(lang)
+        template = SMS_TEXTS.get(lang_code, SMS_TEXTS["ru"]).get(key, SMS_TEXTS["ru"][key])
+        return template.format(**data)
     
     def _render_template(self, template_text: str, data: dict) -> str:
         """Простая замена переменных в шаблоне"""
@@ -148,79 +216,79 @@ class NotificationService:
         notification_ids = []
         errors = []
 
-        logger.info(
-            f"ORDER_PAID notification | order_id={order_data.order_id} | "
-            f"product='{order_data.product_name}' | price=€{order_data.order_price:.2f} | "
-            f"seller='{order_data.seller_name}' (phone={'set' if order_data.seller_phone else 'MISSING'}) | "
-            f"buyer='{order_data.buyer_name}' (phone={'set' if order_data.buyer_phone else 'missing'})"
-        )
+        logger.info(f"ORDER_PAID notification | order_id={order_data.order_id}")
+        language = self._normalize_language(order_data.language)
         
         # Отправляем продавцу
         if order_data.seller_phone:
-            template = self._get_template("order_paid_seller")
-            
-            template_data = {
-                "seller_name": order_data.seller_name,
-                "buyer_name": order_data.buyer_name,
-                "product_name": order_data.product_name,
-                "product_model": order_data.product_model or "",
-                "order_price": f"{order_data.order_price:.2f}",
-                "order_id": order_data.order_id,
-                "frontend_url": configs.frontend_url
-            }
-            
-            if template and template.sms_text:
-                sms_message = self._render_template(template.sms_text, template_data)
+            if self._already_sent("order_paid_seller", order_data.order_id, order_data.seller_phone):
+                logger.info(f"Skip duplicate seller SMS | order_id={order_data.order_id}")
             else:
-                sms_message = f"Товар '{order_data.product_name}' куплен! Заказ #{order_data.order_id} оплачен (€{order_data.order_price:.2f}). Подготовьте к отгрузке."
-            
-            success, external_id, error = self._send_with_retry(
-                "sms", order_data.seller_phone, None, sms_message, order_data.order_id
-            )
-            
-            if success and external_id:
-                notification_ids.append(external_id)
-            elif error:
-                errors.append(f"SMS to seller: {error}")
+                template_data = {
+                    "seller_name": order_data.seller_name,
+                    "buyer_name": order_data.buyer_name,
+                    "product_name": order_data.product_name,
+                    "product_model": order_data.product_model or "",
+                    "order_price": f"{order_data.order_price:.2f}",
+                    "order_id": order_data.order_id,
+                    "frontend_url": configs.frontend_url
+                }
+
+                sms_message = self._build_default_sms("order_paid_seller", language, template_data)
+
+                success, external_id, error = self._send_with_retry(
+                    "sms",
+                    order_data.seller_phone,
+                    None,
+                    sms_message,
+                    order_data.order_id,
+                    notification_type="order_paid_seller",
+                    recipient_name=language,
+                )
+
+                if success and external_id:
+                    notification_ids.append(external_id)
+                elif error:
+                    errors.append(f"SMS to seller: {error}")
         else:
-            logger.warning(
-                f"Seller has no phone number — SMS skipped | "
-                f"order_id={order_data.order_id} | seller='{order_data.seller_name}' | "
-                f"product='{order_data.product_name}'"
-            )
+            logger.warning(f"Seller SMS skipped (missing contact) | order_id={order_data.order_id}")
             errors.append("Seller phone number not provided")
         
         # Отправляем покупателю
         if order_data.buyer_phone:
-            template = self._get_template("order_paid_buyer")
-            
-            tracking_url = order_data.tracking_url or f"{configs.frontend_url}api/v1/delivery/order/{order_data.order_id}"
-            tracking_number = order_data.tracking_url.split('/')[-1] if order_data.tracking_url else "будет предоставлен"
-            
-            template_data = {
-                "buyer_name": order_data.buyer_name,
-                "product_name": order_data.product_name,
-                "product_model": order_data.product_model or "",
-                "order_price": f"{order_data.order_price:.2f}",
-                "order_id": order_data.order_id,
-                "tracking_url": tracking_url,
-                "tracking_number": tracking_number,
-                "delivery_method": order_data.delivery_method
-            }
-            
-            if template and template.sms_text:
-                sms_message = self._render_template(template.sms_text, template_data)
+            if self._already_sent("order_paid_buyer", order_data.order_id, order_data.buyer_phone):
+                logger.info(f"Skip duplicate buyer SMS | order_id={order_data.order_id}")
             else:
-                sms_message = f"Оплата успешна! Заказ #{order_data.order_id} {order_data.product_name} за €{order_data.order_price:.2f}. Товар будет отправлен. Отслеживание: {tracking_url}"
-            
-            success, external_id, error = self._send_with_retry(
-                "sms", order_data.buyer_phone, None, sms_message, order_data.order_id
-            )
-            
-            if success and external_id:
-                notification_ids.append(external_id)
-            elif error:
-                errors.append(f"SMS to buyer: {error}")
+                tracking_url = order_data.tracking_url or f"{configs.frontend_url.rstrip('/')}/order?tracking={order_data.tracking_number or order_data.order_id}"
+                tracking_number = order_data.tracking_number or ""
+
+                template_data = {
+                    "buyer_name": order_data.buyer_name,
+                    "product_name": order_data.product_name,
+                    "product_model": order_data.product_model or "",
+                    "order_price": f"{order_data.order_price:.2f}",
+                    "order_id": order_data.order_id,
+                    "tracking_url": tracking_url,
+                    "tracking_number": tracking_number,
+                    "delivery_method": order_data.delivery_method
+                }
+
+                sms_message = self._build_default_sms("order_paid_buyer", language, template_data)
+
+                success, external_id, error = self._send_with_retry(
+                    "sms",
+                    order_data.buyer_phone,
+                    None,
+                    sms_message,
+                    order_data.order_id,
+                    notification_type="order_paid_buyer",
+                    recipient_name=language,
+                )
+
+                if success and external_id:
+                    notification_ids.append(external_id)
+                elif error:
+                    errors.append(f"SMS to buyer: {error}")
         
         return len(errors) == 0, notification_ids, errors
     
@@ -229,19 +297,23 @@ class NotificationService:
         notification_ids = []
         errors = []
 
-        logger.info(
-            f"ORDER_REVIEW_REQUEST notification | order_id={order_data.order_id} | "
-            f"product='{order_data.product_name}' | seller='{order_data.seller_name}' | "
-            f"buyer='{order_data.buyer_name}' (phone={'set' if order_data.buyer_phone else 'missing — SMS skipped'})"
-        )
+        logger.info(f"ORDER_REVIEW_REQUEST notification | order_id={order_data.order_id}")
 
         if not order_data.buyer_phone:
             # Если нет телефона покупателя, просто возвращаем успех (не критично)
             return True, [], []
+
+        if self._already_sent("order_review_request_buyer", order_data.order_id, order_data.buyer_phone):
+            logger.info(f"Skip duplicate review-request SMS | order_id={order_data.order_id}")
+            return True, [], []
         
-        template = self._get_template("order_review_request")
-        
-        review_url = order_data.review_url or f"{configs.frontend_url}orders/{order_data.order_id}/review"
+        language = self._get_buyer_language_for_order(
+            order_data.order_id,
+            order_data.buyer_phone,
+            order_data.language,
+        )
+
+        review_url = order_data.review_url or f"{configs.frontend_url.rstrip('/')}/order?tracking={order_data.tracking_number or order_data.order_id}"
         
         template_data = {
             "buyer_name": order_data.buyer_name,
@@ -251,14 +323,16 @@ class NotificationService:
             "review_url": review_url
         }
         
-        # SMS сообщение покупателю после получения
-        if template and template.sms_text:
-            sms_message = self._render_template(template.sms_text, template_data)
-        else:
-            sms_message = f"Спасибо за использование нашего сервиса! Заказ #{order_data.order_id} получен. Пожалуйста, оставьте отзыв о товаре '{order_data.product_name}': {review_url}"
+        sms_message = self._build_default_sms("order_review_request", language, template_data)
         
         success, external_id, error = self._send_with_retry(
-            "sms", order_data.buyer_phone, None, sms_message, order_data.order_id
+            "sms",
+            order_data.buyer_phone,
+            None,
+            sms_message,
+            order_data.order_id,
+            notification_type="order_review_request_buyer",
+            recipient_name=language,
         )
         
         if success and external_id:
@@ -274,16 +348,19 @@ class NotificationService:
                         email: Optional[str],
                         message: str,
                         order_id: int,
+                        notification_type: str,
+                        recipient_name: Optional[str] = None,
                         subject: Optional[str] = None,
                         max_retries: int = 3) -> Tuple[bool, Optional[int], Optional[str]]:
         """Отправка уведомления с retry механизмом"""
         
         # Создаем лог в БД
         log = NotificationLog(
-            notification_type="order_notification",
+            notification_type=notification_type,
             channel=channel,
             recipient_phone=phone,
             recipient_email=email,
+            recipient_name=recipient_name,
             subject=subject,
             message=message,
             order_id=order_id,

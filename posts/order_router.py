@@ -36,9 +36,6 @@ async def send_notification_async(endpoint: str, data: dict):
                 result = response.json()
                 logger.info(
                     f"Notification sent | type={endpoint} | order_id={data.get('order_id')} | "
-                    f"seller='{data.get('seller_name')}' (phone={'set' if data.get('seller_phone') else 'MISSING'}) | "
-                    f"buyer='{data.get('buyer_name')}' | "
-                    f"product='{data.get('product_name')}' | "
                     f"ids={result.get('notification_ids', [])}"
                 )
                 return result
@@ -62,7 +59,7 @@ async def get_delivery_info(order_id: int) -> Optional[dict]:
             )
             if response.status_code == 200:
                 delivery = response.json()
-                logger.info(f"Delivery info | order_id={order_id} | tracking={delivery.get('tracking_number')}")
+                logger.info(f"Delivery info fetched | order_id={order_id}")
                 return delivery
             elif response.status_code == 404:
                 logger.debug(f"No delivery for order_id={order_id} (pickup or not created yet)")
@@ -86,10 +83,10 @@ async def get_delivery_by_tracking(tracking_number: str) -> Optional[dict]:
                 return response.json()
             if response.status_code == 404:
                 return None
-            logger.warning(f"Delivery service | tracking={tracking_number} | HTTP {response.status_code}")
+            logger.warning(f"Delivery service error by tracking | HTTP {response.status_code}")
             return None
     except Exception as e:
-        logger.error(f"Delivery tracking fetch error | tracking={tracking_number} | {e}")
+        logger.error(f"Delivery tracking fetch error | {e}")
         return None
 
 
@@ -250,7 +247,7 @@ async def create_order(
                 "product_model": f"{post.memory}GB {post.color}" if post.memory and post.color else None,
                 "order_price": order.price,
                 "delivery_method": order.delivery_method,
-                "tracking_url": f"{Configs.FRONTEND_URL}/orders/{order.id}"
+                "tracking_url": f"{Configs.FRONTEND_URL.rstrip('/')}/order?tracking={order.tracking_number}"
             }
             
             # Примечание: уведомления отправляются после оплаты в /pay endpoint
@@ -283,6 +280,7 @@ async def create_order(
 async def process_payment(
     order_id: int,
     access_token: str = Cookie(None),
+    lang: str = Cookie("ru"),
     db: Session = Depends(get_session)
 ):
     """
@@ -305,6 +303,9 @@ async def process_payment(
             user_id = user["user_id"]
         except HTTPException:
             user_id = None
+
+    if lang not in ["ru", "lv", "en"]:
+        lang = "ru"
     
     # Получаем заказ
     order = db.get(Order, order_id)
@@ -357,7 +358,8 @@ async def process_payment(
                 "delivery_address": order.delivery_address,
                 "delivery_city": order.delivery_city,
                 "delivery_zip": order.delivery_zip,
-                "delivery_country": order.delivery_country or "Latvia"
+                "delivery_country": order.delivery_country or "Latvia",
+                "notes": f"lang={lang}"
             }
             
             logger.debug(f"Delivery create request | order_id={order.id} | url={Configs.DELIVERY_SERVICE_URL}/api/v1/delivery/create")
@@ -372,7 +374,7 @@ async def process_payment(
                     delivery_info = response.json()
                     order.tracking_number = delivery_info.get("tracking_number")
                     db.commit()
-                    logger.info(f"Delivery created | order_id={order.id} | tracking={order.tracking_number}")
+                    logger.info(f"Delivery created | order_id={order.id}")
                 else:
                     logger.warning(f"Delivery create failed | order_id={order.id} | HTTP {response.status_code}")
                     
@@ -387,7 +389,7 @@ async def process_payment(
         db.commit()
         db.refresh(order)
 
-    order_page_url = f"{Configs.FRONTEND_URL.rstrip('/')}/orders?tracking={order.tracking_number}"
+    order_page_url = f"{Configs.FRONTEND_URL.rstrip('/')}/order?tracking={order.tracking_number}"
     
     # Отправляем уведомление об оплате (продавцу и покупателю)
     try:
@@ -407,7 +409,9 @@ async def process_payment(
             "product_model": f"{post.memory}GB {post.color}" if post and post.memory and post.color else None,
             "order_price": order.price,
             "delivery_method": order.delivery_method,
-            "tracking_url": order_page_url
+            "tracking_url": order_page_url,
+            "tracking_number": order.tracking_number,
+            "language": lang,
         }
         
         # Отправляем асинхронно
@@ -650,7 +654,7 @@ async def mark_as_shipped(
     
     db.commit()
     
-    logger.info(f"Order shipped | order_id={order.id} | seller_id={user['user_id']}")
+    logger.info(f"Order shipped | order_id={order.id}")
     
     # Обновляем статус доставки в delivery service (если не pickup)
     if order.delivery_method in [DeliveryMethod.DPD.value, DeliveryMethod.OMNIVA.value]:
@@ -744,7 +748,7 @@ async def leave_review(
     db.add(order)
     db.commit()
     
-    logger.info(f"Review saved | order_id={order.id} | buyer_id={user['user_id']} | rating={rating}/5")
+    logger.info(f"Review saved | order_id={order.id} | rating={rating}/5")
     
     # Обновляем рейтинг продавца
     try:
@@ -766,7 +770,7 @@ async def leave_review(
                 db.add(seller)
                 db.commit()
             
-            logger.info(f"Seller rating updated | seller_id={seller.id} | rating={seller.rating}")
+            logger.info(f"Seller rating updated | order_id={order.id}")
     except Exception as e:
         logger.warning(f"Seller rating update failed | order_id={order.id} | {e}")
     
@@ -940,11 +944,12 @@ async def delivery_received_webhook(
     order_id = request.get("order_id")
     tracking_number = request.get("tracking_number")
     picked_up_at = request.get("picked_up_at")
+    language = request.get("language") or "ru"
     
     if not order_id:
         raise HTTPException(status_code=400, detail="order_id is required")
     
-    logger.info(f"Delivery received webhook | order_id={order_id} | tracking={tracking_number} | picked_up_at={picked_up_at}")
+    logger.info(f"Delivery received webhook | order_id={order_id}")
     
     # Находим заказ
     order = db.get(Order, order_id)
@@ -970,7 +975,7 @@ async def delivery_received_webhook(
     db.commit()
     db.refresh(order)
     
-    logger.info(f"Order auto-completed | order_id={order_id} | tracking={tracking_number}")
+    logger.info(f"Order auto-completed | order_id={order_id}")
     
     # Обновляем статистику продавца (автоматически, как при подтверждении)
     try:
@@ -996,7 +1001,7 @@ async def delivery_received_webhook(
             db.add(seller)
             db.commit()
             
-            logger.info(f"Seller stats updated | seller_id={seller.id} | sells={seller.sells_count} | rating={seller.rating}")
+            logger.info(f"Seller stats updated | order_id={order_id}")
     except Exception as e:
         logger.warning(f"Seller stats update failed | order_id={order_id} | {e}")
     
@@ -1006,7 +1011,7 @@ async def delivery_received_webhook(
             buyer_id_for_chat = str(order.buyer_id)
             chat_api_url = "http://chat-service:4000/api/chat/chats/hide-for-order"
             
-            logger.info(f"Hiding chats | post_id={order.post_id} | buyer_id={buyer_id_for_chat}")
+            logger.info(f"Hiding chats for completed order | order_id={order_id}")
             
             async with httpx.AsyncClient(timeout=5.0) as client:
                 response = await client.post(
@@ -1043,7 +1048,9 @@ async def delivery_received_webhook(
             "product_model": f"{post.memory}GB {post.color}" if post and post.memory and post.color else None,
             "order_price": order.price,
             "delivery_method": order.delivery_method,
-            "review_url": f"{Configs.FRONTEND_URL.rstrip('/')}/orders/{order.tracking_number or f'ORD{order.id}'}"
+            "tracking_number": order.tracking_number or f"ORD{order.id}",
+            "language": language,
+            "review_url": f"{Configs.FRONTEND_URL.rstrip('/')}/order?tracking={order.tracking_number or f'ORD{order.id}'}"
         }
         
         # Отправляем асинхронно SMS с благодарностью и ссылкой на отзыв

@@ -493,9 +493,9 @@
                     <div class="order-actions">
                         <a href="/product?id=${order.post_id}" class="btn btn-outline">{{ t.view_product }}</a>
                         ${order.tracking_number ? `
-                        <a href="/orders?tracking=${encodeURIComponent(order.tracking_number)}" class="btn btn-primary">Открыть страницу заказа</a>
+                        <a href="/order?tracking=${encodeURIComponent(order.tracking_number)}" class="btn btn-outline">Открыть страницу заказа</a>
                         ` : `
-                        <a href="/orders?tracking=ORD${order.id}" class="btn btn-primary">Открыть страницу заказа</a>
+                        <a href="/order?tracking=ORD${order.id}" class="btn btn-outline">Открыть страницу заказа</a>
                         `}
                         ${order.status === 'cancelled' ? `
                         <div style="background: #f8d7da; color: #721c24; padding: 12px 16px; border-radius: 8px; border-left: 4px solid #dc3545;">
@@ -569,7 +569,11 @@
                 'delivered': '{{ t.status_delivered_label }}',
                 'completed': '{{ t.status_completed_label }}',
                 'cancelled': '{{ t.status_cancelled }}',
-                'refunded': '{{ t.status_refunded }}'
+                'refunded': '{{ t.status_refunded }}',
+                'created': '{{ t.status_processing_label }}',
+                'in_transit': '{{ t.status_shipped_label }}',
+                'at_pickup_point': '{{ t.status_delivered_label }}',
+                'picked_up': '{{ t.status_completed_label }}'
             };
             return statusMap[status] || status;
         }

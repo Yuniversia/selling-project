@@ -117,6 +117,8 @@ class OrderNotificationData(BaseModel):
     delivery_method: str
     tracking_url: Optional[str] = None
     review_url: Optional[str] = None
+    tracking_number: Optional[str] = None
+    language: Optional[str] = None
 
 
 class SendNotificationRequest(BaseModel):

@@ -37,21 +37,21 @@
 
 <main class="order-page">
     <div class="card">
-        <h1 style="margin:0 0 8px;">Страница заказа</h1>
+        <h1 id="pageTitle" style="margin:0 0 8px;">Страница заказа</h1>
         <div id="orderError" class="error" style="display:none;"></div>
         <div id="orderLoading" class="muted">Загружаем информацию о заказе...</div>
     </div>
 
     <div class="card" id="orderInfo" style="display:none;">
-        <h2 style="margin-top:0;">Статус доставки</h2>
+        <h2 id="deliveryStatusTitle" style="margin-top:0;">Статус доставки</h2>
         <div style="margin-bottom:10px;"><span class="status-pill" id="statusText">—</span></div>
         <div class="row">
-            <div><div class="label">Tracking number</div><div class="value" id="tracking">—</div></div>
-            <div><div class="label">Номер заказа</div><div class="value" id="orderId">—</div></div>
-            <div><div class="label">Товар</div><div class="value" id="productName">—</div></div>
-            <div><div class="label">Способ доставки</div><div class="value" id="deliveryMethod">—</div></div>
-            <div><div class="label">Цена</div><div class="value" id="price">—</div></div>
-            <div><div class="label">Пункт/город</div><div class="value" id="location">—</div></div>
+            <div><div id="labelTracking" class="label">Tracking number</div><div class="value" id="tracking">—</div></div>
+            <div><div id="labelOrderNumber" class="label">Номер заказа</div><div class="value" id="orderId">—</div></div>
+            <div><div id="labelProduct" class="label">Товар</div><div class="value" id="productName">—</div></div>
+            <div><div id="labelDeliveryMethod" class="label">Способ доставки</div><div class="value" id="deliveryMethod">—</div></div>
+            <div><div id="labelPrice" class="label">Цена</div><div class="value" id="price">—</div></div>
+            <div><div id="labelLocation" class="label">Пункт/город</div><div class="value" id="location">—</div></div>
         </div>
         <div class="actions" style="margin-top:16px;">
             <a href="#" id="viewProductBtn" class="btn btn-outline" style="display:none;">Посмотреть объявление</a>
@@ -59,26 +59,26 @@
     </div>
 
     <div class="card" id="timelineCard" style="display:none;">
-        <h2 style="margin-top:0;">История статусов</h2>
+        <h2 id="timelineTitle" style="margin-top:0;">История статусов</h2>
         <div id="timeline"></div>
     </div>
 
     <div class="card" id="reviewCard" style="display:none;">
-        <h2 style="margin-top:0;">Оставить отзыв</h2>
+        <h2 id="reviewTitle" style="margin-top:0;">Оставить отзыв</h2>
         <form id="reviewForm">
             <div class="form-group">
-                <label for="rating">Оценка (1-5)</label>
+                <label id="ratingLabel" for="rating">Оценка (1-5)</label>
                 <select id="rating" required>
                     <option value="">Выберите</option>
                     <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
                 </select>
             </div>
             <div class="form-group">
-                <label for="reviewText">Комментарий</label>
+                <label id="reviewTextLabel" for="reviewText">Комментарий</label>
                 <textarea id="reviewText" rows="4" maxlength="1000" placeholder="Опишите впечатления"></textarea>
             </div>
             <div class="actions">
-                <button type="submit" class="btn btn-primary">Сохранить отзыв</button>
+                <button id="saveReviewBtn" type="submit" class="btn btn-primary">Сохранить отзыв</button>
             </div>
             <div id="reviewMsg" class="muted" style="margin-top:10px;"></div>
         </form>
@@ -86,29 +86,29 @@
 
     <div class="card" id="issueCard" style="display:none;">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
-            <h2 style="margin-top:0; margin-bottom:0;">Жалоба / Возврат</h2>
+            <h2 id="issueTitle" style="margin-top:0; margin-bottom:0;">Жалоба / Возврат</h2>
             <button type="button" id="toggleIssueBtn" class="btn btn-outline">Открыть форму</button>
         </div>
         <form id="issueForm" style="display:none; margin-top:16px;">
             <div class="row">
                 <div class="form-group">
-                    <label for="issueType">Тип заявки</label>
+                    <label id="issueTypeLabel" for="issueType">Тип заявки</label>
                     <select id="issueType" required>
-                        <option value="complaint">Жалоба</option>
-                        <option value="return">Возврат</option>
+                        <option id="issueTypeComplaintOption" value="complaint">Жалоба</option>
+                        <option id="issueTypeReturnOption" value="return">Возврат</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="issueReason">Причина</label>
+                    <label id="issueReasonLabel" for="issueReason">Причина</label>
                     <input id="issueReason" type="text" minlength="3" maxlength="255" required placeholder="Короткая причина"/>
                 </div>
             </div>
             <div class="form-group">
-                <label for="issueDescription">Описание</label>
+                <label id="issueDescriptionLabel" for="issueDescription">Описание</label>
                 <textarea id="issueDescription" rows="4" minlength="10" maxlength="2000" required placeholder="Подробно опишите проблему"></textarea>
             </div>
             <div class="actions">
-                <button type="submit" class="btn btn-primary">Создать заявку</button>
+                <button id="createIssueBtn" type="submit" class="btn btn-primary">Создать заявку</button>
             </div>
             <div id="issueMsg" class="muted" style="margin-top:10px;"></div>
         </form>
@@ -118,7 +118,193 @@
 
 <script>
 (() => {
-    const tracking = new URLSearchParams(window.location.search).get('tracking') || "{{ tracking_number }}";
+    const currentLang = ['ru', 'lv', 'en'].includes('{{ lang }}') ? '{{ lang }}' : 'ru';
+
+    const UI_TEXTS = {
+        ru: {
+            pageTitle: 'Страница заказа',
+            orderLoading: 'Загружаем информацию о заказе...',
+            deliveryStatusTitle: 'Статус доставки',
+            labelTracking: 'Трек-номер',
+            labelOrderNumber: 'Номер заказа',
+            labelProduct: 'Товар',
+            labelDeliveryMethod: 'Способ доставки',
+            labelPrice: 'Цена',
+            labelLocation: 'Пункт/город',
+            viewProductBtn: 'Посмотреть объявление',
+            timelineTitle: 'История статусов',
+            reviewTitle: 'Оставить отзыв',
+            ratingLabel: 'Оценка (1-5)',
+            reviewTextLabel: 'Комментарий',
+            saveReviewBtn: 'Сохранить отзыв',
+            issueTitle: 'Жалоба / Возврат',
+            toggleOpen: 'Открыть форму',
+            toggleClose: 'Скрыть форму',
+            issueTypeLabel: 'Тип заявки',
+            issueTypeComplaint: 'Жалоба',
+            issueTypeReturn: 'Возврат',
+            issueReasonLabel: 'Причина',
+            issueDescriptionLabel: 'Описание',
+            createIssueBtn: 'Создать заявку',
+            noIssues: 'Пока нет заявок.',
+            noHistory: 'История статусов пока недоступна.',
+            missingTracking: 'Не указан tracking number в ссылке заказа.',
+            notFound: 'Заказ по этому tracking number не найден.',
+            loadFailed: 'Не удалось загрузить данные заказа. Попробуйте обновить страницу позже.',
+            saving: 'Сохраняем...',
+            saveError: 'Ошибка сохранения',
+            saveSuccess: 'Отзыв сохранён.',
+            creatingIssue: 'Создаём заявку...',
+            issueError: 'Ошибка создания заявки',
+            issueSuccess: 'Заявка создана.',
+            choose: 'Выберите',
+            statusChanged: 'Статус изменён с {from} на {to}',
+            notes: {
+                'Доставка создана': 'Доставка создана',
+                'Посылка передана курьеру': 'Посылка передана курьеру',
+                'Посылка прибыла в пункт выдачи': 'Посылка прибыла в пункт выдачи',
+                'Посылка получена покупателем': 'Посылка получена покупателем'
+            },
+            status: {
+                pending_payment: 'Ожидает оплаты',
+                paid: 'Оплачен',
+                processing: 'В обработке',
+                shipped: 'Отправлен',
+                in_transit: 'В пути',
+                delivered: 'Доставлен',
+                at_pickup_point: 'Готов к выдаче',
+                picked_up: 'Получен',
+                completed: 'Завершён',
+                cancelled: 'Отменён',
+                refunded: 'Возврат'
+            }
+        },
+        lv: {
+            pageTitle: 'Pasūtījuma lapa',
+            orderLoading: 'Ielādējam pasūtījuma informāciju...',
+            deliveryStatusTitle: 'Piegādes statuss',
+            labelTracking: 'Sūtījuma numurs',
+            labelOrderNumber: 'Pasūtījuma numurs',
+            labelProduct: 'Prece',
+            labelDeliveryMethod: 'Piegādes veids',
+            labelPrice: 'Cena',
+            labelLocation: 'Punkts/pilsēta',
+            viewProductBtn: 'Skatīt sludinājumu',
+            timelineTitle: 'Statusu vēsture',
+            reviewTitle: 'Atstāt atsauksmi',
+            ratingLabel: 'Vērtējums (1-5)',
+            reviewTextLabel: 'Komentārs',
+            saveReviewBtn: 'Saglabāt atsauksmi',
+            issueTitle: 'Sūdzība / Atgriešana',
+            toggleOpen: 'Atvērt formu',
+            toggleClose: 'Paslēpt formu',
+            issueTypeLabel: 'Pieteikuma tips',
+            issueTypeComplaint: 'Sūdzība',
+            issueTypeReturn: 'Atgriešana',
+            issueReasonLabel: 'Iemesls',
+            issueDescriptionLabel: 'Apraksts',
+            createIssueBtn: 'Izveidot pieteikumu',
+            noIssues: 'Pagaidām nav pieteikumu.',
+            noHistory: 'Statusu vēsture pagaidām nav pieejama.',
+            missingTracking: 'Saitē nav norādīts tracking numurs.',
+            notFound: 'Pasūtījums ar šo tracking numuru netika atrasts.',
+            loadFailed: 'Neizdevās ielādēt pasūtījuma datus. Mēģiniet vēlāk.',
+            saving: 'Saglabājam...',
+            saveError: 'Saglabāšanas kļūda',
+            saveSuccess: 'Atsauksme saglabāta.',
+            creatingIssue: 'Veidojam pieteikumu...',
+            issueError: 'Pieteikuma izveides kļūda',
+            issueSuccess: 'Pieteikums izveidots.',
+            choose: 'Izvēlieties',
+            statusChanged: 'Statuss mainīts no {from} uz {to}',
+            notes: {
+                'Доставка создана': 'Piegāde izveidota',
+                'Посылка передана курьеру': 'Sūtījums nodots kurjeram',
+                'Посылка прибыла в пункт выдачи': 'Sūtījums piegādāts saņemšanas punktā',
+                'Посылка получена покупателем': 'Sūtījumu saņēma pircējs'
+            },
+            status: {
+                pending_payment: 'Gaida apmaksu',
+                paid: 'Apmaksāts',
+                processing: 'Apstrādē',
+                shipped: 'Nosūtīts',
+                in_transit: 'Ceļā',
+                delivered: 'Piegādāts',
+                at_pickup_point: 'Gatavs saņemšanai',
+                picked_up: 'Saņemts',
+                completed: 'Pabeigts',
+                cancelled: 'Atcelts',
+                refunded: 'Atmaksa'
+            }
+        },
+        en: {
+            pageTitle: 'Order page',
+            orderLoading: 'Loading order details...',
+            deliveryStatusTitle: 'Delivery status',
+            labelTracking: 'Tracking number',
+            labelOrderNumber: 'Order number',
+            labelProduct: 'Product',
+            labelDeliveryMethod: 'Delivery method',
+            labelPrice: 'Price',
+            labelLocation: 'Pickup point/city',
+            viewProductBtn: 'View listing',
+            timelineTitle: 'Status history',
+            reviewTitle: 'Leave a review',
+            ratingLabel: 'Rating (1-5)',
+            reviewTextLabel: 'Comment',
+            saveReviewBtn: 'Save review',
+            issueTitle: 'Complaint / Return',
+            toggleOpen: 'Open form',
+            toggleClose: 'Hide form',
+            issueTypeLabel: 'Request type',
+            issueTypeComplaint: 'Complaint',
+            issueTypeReturn: 'Return',
+            issueReasonLabel: 'Reason',
+            issueDescriptionLabel: 'Description',
+            createIssueBtn: 'Create request',
+            noIssues: 'No requests yet.',
+            noHistory: 'Status history is not available yet.',
+            missingTracking: 'Tracking number is missing in the URL.',
+            notFound: 'Order with this tracking number was not found.',
+            loadFailed: 'Failed to load order data. Please try again later.',
+            saving: 'Saving...',
+            saveError: 'Save error',
+            saveSuccess: 'Review saved.',
+            creatingIssue: 'Creating request...',
+            issueError: 'Request creation error',
+            issueSuccess: 'Request created.',
+            choose: 'Choose',
+            statusChanged: 'Status changed from {from} to {to}',
+            notes: {
+                'Доставка создана': 'Delivery created',
+                'Посылка передана курьеру': 'Package handed over to courier',
+                'Посылка прибыла в пункт выдачи': 'Package arrived at pickup point',
+                'Посылка получена покупателем': 'Package picked up by buyer'
+            },
+            status: {
+                pending_payment: 'Awaiting payment',
+                paid: 'Paid',
+                processing: 'Processing',
+                shipped: 'Shipped',
+                in_transit: 'In transit',
+                delivered: 'Delivered',
+                at_pickup_point: 'Ready for pickup',
+                picked_up: 'Picked up',
+                completed: 'Completed',
+                cancelled: 'Cancelled',
+                refunded: 'Refunded'
+            }
+        }
+    };
+
+    const UI = UI_TEXTS[currentLang];
+
+    const queryParams = new URLSearchParams(window.location.search);
+    let tracking = queryParams.get('tracking');
+    if (!tracking) {
+        const firstQueryKey = queryParams.keys().next().value;
+        tracking = firstQueryKey || "{{ tracking_number }}";
+    }
 
     const el = {
         loading: document.getElementById('orderLoading'),
@@ -144,19 +330,34 @@
         toggleIssueBtn: document.getElementById('toggleIssueBtn')
     };
 
-    const STATUS_LABELS = {
-        pending_payment: 'Ожидает оплаты',
-        paid: 'Оплачен',
-        processing: 'В обработке',
-        shipped: 'Отправлен',
-        in_transit: 'В пути',
-        delivered: 'Доставлен',
-        at_pickup_point: 'Готов к выдаче',
-        picked_up: 'Получен',
-        completed: 'Завершён',
-        cancelled: 'Отменён',
-        refunded: 'Возврат'
-    };
+    const STATUS_LABELS = UI.status;
+
+    document.getElementById('pageTitle').textContent = UI.pageTitle;
+    el.loading.textContent = UI.orderLoading;
+    document.getElementById('deliveryStatusTitle').textContent = UI.deliveryStatusTitle;
+    document.getElementById('labelTracking').textContent = UI.labelTracking;
+    document.getElementById('labelOrderNumber').textContent = UI.labelOrderNumber;
+    document.getElementById('labelProduct').textContent = UI.labelProduct;
+    document.getElementById('labelDeliveryMethod').textContent = UI.labelDeliveryMethod;
+    document.getElementById('labelPrice').textContent = UI.labelPrice;
+    document.getElementById('labelLocation').textContent = UI.labelLocation;
+    document.getElementById('viewProductBtn').textContent = UI.viewProductBtn;
+    document.getElementById('timelineTitle').textContent = UI.timelineTitle;
+    document.getElementById('reviewTitle').textContent = UI.reviewTitle;
+    document.getElementById('ratingLabel').textContent = UI.ratingLabel;
+    document.getElementById('reviewTextLabel').textContent = UI.reviewTextLabel;
+    document.getElementById('saveReviewBtn').textContent = UI.saveReviewBtn;
+    document.getElementById('issueTitle').textContent = UI.issueTitle;
+    document.getElementById('toggleIssueBtn').textContent = UI.toggleOpen;
+    document.getElementById('issueTypeLabel').textContent = UI.issueTypeLabel;
+    document.getElementById('issueTypeComplaintOption').textContent = UI.issueTypeComplaint;
+    document.getElementById('issueTypeReturnOption').textContent = UI.issueTypeReturn;
+    document.getElementById('issueReasonLabel').textContent = UI.issueReasonLabel;
+    document.getElementById('issueDescriptionLabel').textContent = UI.issueDescriptionLabel;
+    document.getElementById('createIssueBtn').textContent = UI.createIssueBtn;
+
+    const ratingPlaceholder = document.querySelector('#rating option[value=""]');
+    if (ratingPlaceholder) ratingPlaceholder.textContent = UI.choose;
 
     function formatDate(value) {
         if (!value) return '—';
@@ -172,17 +373,35 @@
 
     function renderIssues(issues) {
         if (!issues || !issues.length) {
-            el.issuesList.innerHTML = '<div class="muted">Пока нет заявок.</div>';
+            el.issuesList.innerHTML = `<div class="muted">${UI.noIssues}</div>`;
             return;
         }
         el.issuesList.innerHTML = issues.map(issue => `
             <div class="card" style="box-shadow:none;border:1px solid #efefef;padding:12px;margin-bottom:8px;">
-                <div><strong>${issue.issue_type === 'return' ? 'Возврат' : 'Жалоба'}</strong> — ${issue.status}</div>
+                <div><strong>${issue.issue_type === 'return' ? UI.issueTypeReturn : UI.issueTypeComplaint}</strong> — ${issue.status}</div>
                 <div class="muted">${issue.reason}</div>
                 <div>${issue.description}</div>
                 <div class="muted">${formatDate(issue.created_at)}</div>
             </div>
         `).join('');
+    }
+
+    function translateTimelineNote(note) {
+        if (!note) return '';
+
+        const known = UI.notes && UI.notes[note];
+        if (known) return known;
+
+        const statusChangedMatch = note.match(/^Статус изменен с (.+) на (.+)$/);
+        if (statusChangedMatch) {
+            const fromRaw = statusChangedMatch[1];
+            const toRaw = statusChangedMatch[2];
+            const fromLabel = STATUS_LABELS[fromRaw] || fromRaw;
+            const toLabel = STATUS_LABELS[toRaw] || toRaw;
+            return UI.statusChanged.replace('{from}', fromLabel).replace('{to}', toLabel);
+        }
+
+        return note;
     }
 
     function fillFormReview(review) {
@@ -194,11 +413,16 @@
     }
 
     async function loadOrder() {
+        if (!tracking) {
+            showError(UI.missingTracking);
+            return;
+        }
+
         try {
             const response = await fetch(`/api/v1/posts/orders/tracking/${encodeURIComponent(tracking)}`);
             if (!response.ok) {
                 if (response.status === 404) {
-                    showError('Заказ по этому tracking number не найден.');
+                    showError(UI.notFound);
                     return;
                 }
                 throw new Error(`HTTP ${response.status}`);
@@ -236,27 +460,27 @@
             if (history.length) {
                 el.timeline.innerHTML = history.map(item => `
                     <div class="timeline-item">
-                        <div><strong>${item.status}</strong></div>
-                        <div class="muted">${item.notes || ''}</div>
+                        <div><strong>${STATUS_LABELS[item.status] || item.status}</strong></div>
+                        <div class="muted">${translateTimelineNote(item.notes || '')}</div>
                         <div class="muted">${formatDate(item.created_at)}</div>
                     </div>
                 `).join('');
             } else {
-                el.timeline.innerHTML = '<div class="muted">История статусов пока недоступна.</div>';
+                el.timeline.innerHTML = `<div class="muted">${UI.noHistory}</div>`;
             }
 
             fillFormReview(data.review);
             renderIssues(data.issues || []);
         } catch (err) {
             console.error(err);
-            showError('Не удалось загрузить данные заказа. Попробуйте обновить страницу позже.');
+            showError(UI.loadFailed);
         }
     }
 
     el.reviewForm.addEventListener('submit', async (event) => {
         event.preventDefault();
         el.reviewMsg.className = 'muted';
-        el.reviewMsg.textContent = 'Сохраняем...';
+        el.reviewMsg.textContent = UI.saving;
 
         const payload = {
             rating: Number(document.getElementById('rating').value),
@@ -270,9 +494,9 @@
                 body: JSON.stringify(payload)
             });
             const data = await response.json();
-            if (!response.ok) throw new Error(data.detail || 'Ошибка сохранения');
+            if (!response.ok) throw new Error(data.detail || UI.saveError);
             el.reviewMsg.className = 'ok';
-            el.reviewMsg.textContent = 'Отзыв сохранён.';
+            el.reviewMsg.textContent = UI.saveSuccess;
             await loadOrder();
         } catch (err) {
             el.reviewMsg.className = 'error';
@@ -283,7 +507,7 @@
     el.issueForm.addEventListener('submit', async (event) => {
         event.preventDefault();
         el.issueMsg.className = 'muted';
-        el.issueMsg.textContent = 'Создаём заявку...';
+        el.issueMsg.textContent = UI.creatingIssue;
 
         const payload = {
             issue_type: document.getElementById('issueType').value,
@@ -298,9 +522,9 @@
                 body: JSON.stringify(payload)
             });
             const data = await response.json();
-            if (!response.ok) throw new Error(data.detail || 'Ошибка создания заявки');
+            if (!response.ok) throw new Error(data.detail || UI.issueError);
             el.issueMsg.className = 'ok';
-            el.issueMsg.textContent = 'Заявка создана.';
+            el.issueMsg.textContent = UI.issueSuccess;
             document.getElementById('issueReason').value = '';
             document.getElementById('issueDescription').value = '';
             await loadOrder();
@@ -313,7 +537,7 @@
     el.toggleIssueBtn.addEventListener('click', () => {
         const isHidden = el.issueForm.style.display === 'none';
         el.issueForm.style.display = isHidden ? 'block' : 'none';
-        el.toggleIssueBtn.textContent = isHidden ? 'Скрыть форму' : 'Открыть форму';
+        el.toggleIssueBtn.textContent = isHidden ? UI.toggleClose : UI.toggleOpen;
     });
 
     loadOrder();

@@ -572,9 +572,9 @@ def router_get(
         db.commit()
         db.refresh(iphone_post)
         
-        logger.debug(f"Unique view | post_id={id} | viewer={'user#' + str(viewer_id) if viewer_id else viewer_ip} | total={iphone_post.view_count}")
+        logger.debug(f"Unique view | post_id={id} | total={iphone_post.view_count}")
     else:
-        logger.debug(f"Duplicate view skipped | post_id={id} | viewer={'user#' + str(viewer_id) if viewer_id else viewer_ip}")
+        logger.debug(f"Duplicate view skipped | post_id={id}")
     
     return iphone_post
 
