@@ -3,6 +3,9 @@
 from sqlmodel import create_engine, Session
 from typing import Generator
 import os
+import logging
+
+logger = logging.getLogger("auth.database")
 
 # Попытка загрузить переменные окружения (если есть .env файл)
 try:
@@ -23,15 +26,15 @@ if USE_POSTGRES:
     POSTGRES_DB = os.getenv("POSTGRES_DB", "lais_marketplace")
     
     DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
-    print(f"[DATABASE] 🐘 Подключение к PostgreSQL: {POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}")
+    logger.info(f"Connected to PostgreSQL: {POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}")
     
-    engine = create_engine(DATABASE_URL, echo=True, pool_pre_ping=True)
+    engine = create_engine(DATABASE_URL, echo=False, pool_pre_ping=True)
 else:
     # SQLite Connection (по умолчанию)
     DATABASE_URL = "sqlite:///./database.db"
-    print(f"[DATABASE] 📁 Подключение к SQLite: {DATABASE_URL}")
+    logger.info(f"Connected to SQLite: {DATABASE_URL}")
     
-    engine = create_engine(DATABASE_URL, echo=True, connect_args={"check_same_thread": False})
+    engine = create_engine(DATABASE_URL, echo=False, connect_args={"check_same_thread": False})
 
 # Функция для получения сессии базы данных
 def get_session() -> Generator[Session, None, None]:

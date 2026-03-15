@@ -1,6 +1,6 @@
 # auth_router.py
 
-from fastapi import APIRouter, Depends, status, HTTPException, Form, Response, Query
+from fastapi import APIRouter, Depends, status, HTTPException, Form, Response, Query, Body
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session, select
@@ -384,7 +384,7 @@ async def read_users_me(request: Request, db: Session = Depends(get_session)):
 @auth_router.put("/me")
 async def update_user_profile(
     request: Request,
-    # user_update: dict,
+    user_update: dict = Body(...),
     db: Session = Depends(get_session)
 ):
     """

@@ -1,6 +1,7 @@
 # main.py
 
 import os
+import logging
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from starlette.middleware.sessions import SessionMiddleware
@@ -9,16 +10,22 @@ from starlette.middleware.cors import CORSMiddleware
 from database import create_db_and_tables 
 from auth_router import auth_router
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s | %(message)s"
+)
+logger = logging.getLogger("auth.main")
+
 # Используем асинхронный контекстный менеджер для инициализации базы данных
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
     Вызывается при запуске и завершении работы приложения.
     """
-    print("Создание таблиц базы данных...")
+    logger.info("Creating database tables...")
     create_db_and_tables()
     yield
-    print("Приложение завершает работу.")
+    logger.info("Application shutdown complete.")
 
 app = FastAPI(
     title="Modular FastAPI Auth App",
