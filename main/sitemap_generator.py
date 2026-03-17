@@ -41,18 +41,20 @@ async def generate_dynamic_sitemap(posts_api_url: str) -> str:
     dynamic_urls = []
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(f"{posts_api_url}/api/v1/iphone/list")
+            response = await client.get(f"{posts_api_url}/api/v1/posts")
             if response.status_code == 200:
-                posts = response.json()
+                payload = response.json()
+                posts = payload.get("data", []) if isinstance(payload, dict) else []
                 for post in posts:
+                    attrs = post.get("attributes", {})
                     # Добавляем страницу товара
                     dynamic_urls.append({
                         "loc": f"https://test.yuniversia.eu/product?id={post['id']}",
                         "lastmod": post.get('updated_at', post.get('created_at', datetime.now().strftime("%Y-%m-%d"))),
                         "changefreq": "weekly",
                         "priority": "0.9",
-                        "image": post.get('photos', [None])[0] if post.get('photos') else None,
-                        "image_title": f"{post.get('model', 'iPhone')} {post.get('memory', '')}GB"
+                        "image": post.get('images_url', [None])[0] if post.get('images_url') else None,
+                        "image_title": f"{attrs.get('model', 'Product')} {attrs.get('memory', '')}GB"
                     })
     except Exception as e:
         print(f"Error fetching posts for sitemap: {e}")

@@ -88,7 +88,7 @@ def index_page(request: Request):
 def products_page(request: Request, id: Optional[int] = None):
     """
     Отдает страницу товара.
-    JavaScript на клиенте сам проверит существование поста через /api/v1/posts/iphone.
+    JavaScript на клиенте сам проверит существование поста через /api/v1/posts/{id}.
     Если пост не найден - JS покажет 404 или перенаправит.
     """
     # Если нет ID - показываем 404

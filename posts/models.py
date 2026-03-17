@@ -1,3 +1,6 @@
+from models_v2 import *
+
+"""
 # models.py - ИСПРАВЛЕНО
 
 from sqlmodel import Field, SQLModel
@@ -377,3 +380,4 @@ class OrderIssueCreate(BaseModel):
     issue_type: OrderIssueType
     reason: str = PydanticField(..., min_length=3, max_length=255)
     description: str = PydanticField(..., min_length=10, max_length=2000)
+"""

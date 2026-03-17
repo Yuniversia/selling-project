@@ -2,6 +2,18 @@
 # Использование: docker-compose -f docker-compose.prod.yml up -d
 
 services:
+  redis:
+    image: redis:7-alpine
+    container_name: lais-redis-prod
+    command: ["redis-server", "--save", "60", "1", "--appendonly", "yes"]
+    expose:
+      - "6379"
+    volumes:
+      - redis_prod_data:/data
+    networks:
+      - lais-network
+    restart: always
+
   # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
@@ -45,6 +57,7 @@ services:
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
       - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_SCHEMA=posts_db
       - PORT=8000
       - AUTH_SERVICE_URL=http://auth-service:8000
       - POSTS_SERVICE_URL=http://posts-service:3000
@@ -92,6 +105,7 @@ services:
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
       - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_SCHEMA=posts_db
       - PORT=3000
       - AUTH_SERVICE_URL=http://auth-service:8000
       - SECRET_KEY=${SECRET_KEY}
@@ -107,11 +121,15 @@ services:
       - POST_CF_R2_BUCKET_NAME=${POST_CF_R2_BUCKET_NAME}
       - POST_CF_R2_ACCESS_KEY_ID=${POST_CF_R2_ACCESS_KEY_ID}
       - POST_CF_R2_SECRET_ACCESS_KEY=${POST_CF_R2_SECRET_ACCESS_KEY}
+      - REDIS_URL=redis://redis:6379/0
+      - REDIS_RESULT_URL=redis://redis:6379/1
     expose:
       - "3000"
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
       auth-service:
         condition: service_healthy
     networks:
@@ -131,6 +149,38 @@ services:
         reservations:
           cpus: '0.25'
           memory: 256M
+
+  posts-worker:
+    build:
+      context: ./posts
+      dockerfile: Dockerfile
+    container_name: lais-posts-worker-prod
+    command: ["taskiq", "worker", "tasks:broker", "tasks"]
+    environment:
+      - USE_POSTGRES=true
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB}
+      - CF_ACCOUNT_ID=${CF_ACCOUNT_ID}
+      - CF_ACCOUNT_HASH=${CF_ACCOUNT_HASH}
+      - CF_R2_ACCESS_KEY_ID=${CF_R2_ACCESS_KEY_ID}
+      - CF_R2_SECRET_ACCESS_KEY=${CF_R2_SECRET_ACCESS_KEY}
+      - POST_CF_R2_HASH=${POST_CF_R2_HASH}
+      - POST_CF_R2_BUCKET_NAME=${POST_CF_R2_BUCKET_NAME}
+      - POST_CF_R2_ACCESS_KEY_ID=${POST_CF_R2_ACCESS_KEY_ID}
+      - POST_CF_R2_SECRET_ACCESS_KEY=${POST_CF_R2_SECRET_ACCESS_KEY}
+      - REDIS_URL=redis://redis:6379/0
+      - REDIS_RESULT_URL=redis://redis:6379/1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - lais-network
+    restart: always
 
 
 
@@ -274,4 +324,6 @@ networks:
 
 volumes:
   postgres_prod_data:
+    driver: local
+  redis_prod_data:
     driver: local

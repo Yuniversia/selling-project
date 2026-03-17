@@ -625,7 +625,7 @@
 
             try {
                 console.log(`Загружаем данные поста с ID: ${postId}`);
-                const apiUrl = `${POSTS_API}/iphone?id=${postId}`;
+                const apiUrl = `${POSTS_API}/${postId}`;
                 console.log('📡 Запрос к API:', apiUrl);
                 
                 // Кешируем данные объявления на 10 минут
@@ -648,7 +648,8 @@
                     return;
                 }
 
-                currentPostData = await response.json();
+                const payload = await response.json();
+                currentPostData = payload.data || payload;
                 // НЕ логируем данные поста в продакшене - могут содержать чувствительную информацию
                 // console.log('Данные поста получены:', currentPostData);
                 
@@ -656,8 +657,8 @@
                 updateProductDisplay(currentPostData);
                 
                 // Загружаем информацию об авторе
-                if (currentPostData.author_id) {
-                    await loadAuthorInfo(currentPostData.author_id);
+                if (currentPostData.seller_id) {
+                    await loadAuthorInfo(currentPostData.seller_id);
                 }
                 
                 // Показываем админские кнопки если пост загружен
@@ -694,7 +695,8 @@
             }
 
             // Обновляем заголовок и основную информацию
-            const model = postData.model || 'iPhone';
+            const attrs = postData.attributes || {};
+            const model = attrs.model || postData.title || 'Product';
             document.getElementById('productTitle').textContent = model;
             document.getElementById('breadcrumb').textContent = `iPhone / ${model}`;
 
@@ -728,12 +730,12 @@
 
             // Заполняем спеки
             const specs = {
-                'specModel': postData.model || '—',
-                'specMemory': formatMemory(postData.memory),
-                'specColor': postData.color || '—',
-                'specBattery': postData.batery ? `${postData.batery}%` : '—',
-                'specIMEI': postData.imei || '—',
-                'specSerial': postData.serial_number || '—'
+                'specModel': attrs.model || postData.title || '—',
+                'specMemory': formatMemory(attrs.memory),
+                'specColor': attrs.color || '—',
+                'specBattery': attrs.batery ? `${attrs.batery}%` : '—',
+                'specIMEI': attrs.imei || '—',
+                'specSerial': attrs.serial || '—'
             };
 
             // Обновляем видимые спеки
@@ -745,47 +747,47 @@
             });
 
             // Дополнительные спеки (если есть данные) - теперь заполняем скрытые элементы
-            if (postData.fmi !== null && postData.fmi !== undefined) {
-                const fmiText = postData.fmi ? '{{ t.fmi_lost }}' : '{{ t.fmi_clean }}';
+            if (attrs.fmi !== null && attrs.fmi !== undefined) {
+                const fmiText = attrs.fmi ? '{{ t.fmi_lost }}' : '{{ t.fmi_clean }}';
                 document.getElementById('specFMI').textContent = fmiText;
                 document.getElementById('detailedFMI').textContent = fmiText;
             }
 
-            if (postData.icloud_pair !== null && postData.icloud_pair !== undefined) {
-                const icloudText = postData.icloud_pair ? '{{ t.icloud_locked }}' : '{{ t.icloud_unlocked }}';
+            if (attrs.icloud_pair !== null && attrs.icloud_pair !== undefined) {
+                const icloudText = attrs.icloud_pair ? '{{ t.icloud_locked }}' : '{{ t.icloud_unlocked }}';
                 document.getElementById('specICloud').textContent = icloudText;
                 document.getElementById('detailedICloud').textContent = icloudText;
             }
 
-            if (postData.simlock !== null && postData.simlock !== undefined) {
-                const simlockText = postData.simlock ? '{{ t.simlock_yes }}' : '{{ t.simlock_no }}';
+            if (attrs.simlock !== null && attrs.simlock !== undefined) {
+                const simlockText = attrs.simlock ? '{{ t.simlock_yes }}' : '{{ t.simlock_no }}';
                 document.getElementById('specSimlock').textContent = simlockText;
                 document.getElementById('detailedSimlock').textContent = simlockText;
             }
 
-            if (postData.activated !== null && postData.activated !== undefined) {
-                document.getElementById('specActivated').textContent = postData.activated ? '{{ t.device_activated }}' : '{{ t.device_not_activated }}';
+            if (attrs.activated !== null && attrs.activated !== undefined) {
+                document.getElementById('specActivated').textContent = attrs.activated ? '{{ t.device_activated }}' : '{{ t.device_not_activated }}';
             }
 
             // Инициализация кнопки показа детальной информации
             initDetailedInfoButton();
 
             document.getElementById("BuyButon").innerHTML = `{{ t.buy_button }} ${postData.price || '0'} eur`;
-            document.getElementById('specCondition').textContent = translateCondition(postData.condition);
+            document.getElementById('specCondition').textContent = translateCondition(attrs.condition);
 
             // Обновляем комплектацию
-            document.getElementById('cb_original_box').checked = postData.has_original_box || false;
-            document.getElementById('cb_charger').checked = postData.has_charger || false;
-            document.getElementById('cb_cable').checked = postData.has_cable || false;
-            document.getElementById('cb_receipt').checked = postData.has_receipt || false;
-            document.getElementById('cb_warranty').checked = postData.has_warranty || false;
+            document.getElementById('cb_original_box').checked = attrs.has_original_box || false;
+            document.getElementById('cb_charger').checked = attrs.has_charger || false;
+            document.getElementById('cb_cable').checked = attrs.has_cable || false;
+            document.getElementById('cb_receipt').checked = attrs.has_receipt || false;
+            document.getElementById('cb_warranty').checked = attrs.has_warranty || false;
 
             // Обновляем описание
             document.getElementById('productDescription').textContent = postData.description || 'Нет описания';
 
             // Загружаем фотографии
             if (postData.images_url) {
-                currentImages = postData.images_url.split(',').filter(url => url.trim());
+                currentImages = Array.isArray(postData.images_url) ? postData.images_url : [];
                 renderGallery();
             }
         }
@@ -1354,14 +1356,15 @@
             try {
                 // Получаем ID продавца из кешированных данных
                 const response = await cachedFetch(
-                    `${POSTS_API}/iphone?id=${postId}`,
+                    `${POSTS_API}/${postId}`,
                     {},
                     10 * 60 * 1000
                 );
-                const postData = await response.json();
+                const payload = await response.json();
+                const postData = payload.data || payload;
                 
-                if (postData.author_id && window.chatManager) {
-                    window.chatManager.openChat(postData.author_id, parseInt(postId));
+                if (postData.seller_id && window.chatManager) {
+                    window.chatManager.openChat(postData.seller_id, parseInt(postId));
                 } else {
                     showAlert('{{ t.js_chat_open_failed }}', 'error');
                 }
@@ -1396,7 +1399,7 @@
                 
                 if (response.ok) {
                     const data = await response.json();
-                    if (data.has_reported) {
+                    if ((data.data || data).has_reported) {
                         showAlert('Вы уже отправили жалобу на это объявление', 'warning');
                         return;
                     }
@@ -1512,9 +1515,11 @@
             if (!confirm('Вы уверены, что хотите деактивировать это объявление?')) return;
             
             try {
-                const response = await fetch(`${POSTS_API}/admin/posts/${postId}/deactivate`, {
-                    method: 'PUT',
-                    credentials: 'include'
+                const response = await fetch(`${POSTS_API}/${postId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ active: false })
                 });
                 
                 if (response.ok) {
@@ -1535,9 +1540,11 @@
             if (!confirm('Активировать это объявление?')) return;
             
             try {
-                const response = await fetch(`${POSTS_API}/admin/posts/${postId}/activate`, {
-                    method: 'PUT',
-                    credentials: 'include'
+                const response = await fetch(`${POSTS_API}/${postId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ active: true })
                 });
                 
                 if (response.ok) {

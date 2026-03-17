@@ -3,12 +3,14 @@
 import os
 import logging
 from fastapi import FastAPI
-from post_router import api_router
+from fastapi import HTTPException
+from post_router_v2 import api_router
 from bought_router import bought_router
 from order_router import order_router
 from starlette.middleware.cors import CORSMiddleware
 from database import create_db_and_tables
 from configs import Configs
+from middlewares import RequestContextMiddleware, http_exception_handler
 
 logging.basicConfig(
     level=logging.INFO,
@@ -35,11 +37,14 @@ create_db_and_tables()
 # Создаем экземпляр FastAPI
 app = FastAPI(
     title="Posts API Service",
-    description="Микросервис, который управляет постами об iPhone.",
+    description="Микросервис, который управляет объявлениями продуктов.",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc"
 )
+
+app.add_middleware(RequestContextMiddleware)
+app.add_exception_handler(HTTPException, http_exception_handler)
 
 # CORS - разрешаем конкретные origins для работы с credentials
 app.add_middleware(
@@ -67,7 +72,7 @@ app.include_router(order_router)
 @app.get("/health")
 async def health_check():
     """Проверка здоровья сервиса для Docker healthcheck"""
-    return {"status": "healthy", "service": "posts"}
+    return {"status": "success", "data": {"service": "posts", "health": "healthy"}, "request_id": ""}
 
 if __name__ == "__main__":
     import uvicorn

@@ -22,7 +22,7 @@ class BoughtItem(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     
     # ID объявления и покупателя
-    post_id: int = Field(index=True, foreign_key="iphone.id")
+    post_id: int = Field(index=True, foreign_key="products.id")
     buyer_id: int = Field(index=True)  # ID пользователя из auth
     
     # Контактная информация покупателя

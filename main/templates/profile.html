@@ -928,7 +928,8 @@
                 });
                 
                 if (response.ok) {
-                    const reports = await response.json();
+                    const payload = await response.json();
+                    const reports = payload.data || [];
                     document.getElementById('pendingReportsCount').textContent = reports.length;
                 }
             } catch (error) {
@@ -955,7 +956,8 @@
                 });
                 
                 if (response.ok) {
-                    allReports = await response.json();
+                    const payload = await response.json();
+                    allReports = payload.data || [];
                     displayReports();
                 } else {
                     document.getElementById('reportsList').innerHTML = 
@@ -1135,9 +1137,11 @@
             if (!confirm(window.t.js_confirm_deactivate)) return;
             
             try {
-                const response = await fetch(`${POSTS_API}/admin/posts/${currentPostId}/deactivate`, {
-                    method: 'PUT',
-                    credentials: 'include'
+                const response = await fetch(`${POSTS_API}/${currentPostId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ active: false })
                 });
                 
                 if (response.ok) {

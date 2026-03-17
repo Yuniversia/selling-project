@@ -1068,9 +1068,10 @@ class SellerChatsManager {
         }
         
         try {
-            const response = await fetch(`/api/v1/posts/iphone?id=${iphoneId}`);
+            const response = await fetch(`/api/v1/posts/${iphoneId}`);
             if (response.ok) {
-                const data = await response.json();
+                const payload = await response.json();
+                const data = payload.data || payload;
                 this.cachedIphoneData[iphoneId] = data;
                 console.log('[SellerChats] iPhone data', iphoneId, 'loaded and cached');
                 return data;

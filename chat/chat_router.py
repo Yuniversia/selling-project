@@ -69,8 +69,7 @@ async def find_chat(
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                f"{POSTS_API_URL}/api/v1/posts/iphone",
-                params={"id": iphone_id},
+                f"{POSTS_API_URL}/api/v1/posts/{iphone_id}",
                 timeout=5.0
             )
             
@@ -80,7 +79,8 @@ async def find_chat(
                     detail="Объявление не найдено"
                 )
             
-            post_data = response.json()
+            payload = response.json()
+            post_data = payload.get("data", {}) if isinstance(payload, dict) else {}
             
             # Запрещаем создание чата для неактивных объявлений
             if not post_data.get("active", False):

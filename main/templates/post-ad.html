@@ -749,10 +749,9 @@
                 const finalPrice = Math.round(basePrice * 1.05);
                 
                 // Все поля уже проверены выше, просто добавляем
-                formData.append('imei', imeiInput.value);
-                formData.append('batery', batteryValue);
+                formData.append('category_id', '1');
                 formData.append('price', finalPrice); // Отправляем конечную цену с +5%
-                formData.append('condition', conditionInput.value);
+                formData.append('title', 'iPhone');
                 
                 // Описание (необязательное)
                 const description = document.getElementById('description').value;
@@ -760,12 +759,23 @@
                     formData.append('description', description);
                 }
                 
-                // Комплектация (checkboxes)
-                formData.append('has_original_box', document.querySelector('input[name="has_original_box"]').checked);
-                formData.append('has_charger', document.querySelector('input[name="has_charger"]').checked);
-                formData.append('has_cable', document.querySelector('input[name="has_cable"]').checked);
-                formData.append('has_receipt', document.querySelector('input[name="has_receipt"]').checked);
-                formData.append('has_warranty', document.querySelector('input[name="has_warranty"]').checked);
+                // Атрибуты продукта (новый формат)
+                const attributes = {
+                    imei: imeiInput.value,
+                    batery: batteryValue,
+                    condition: conditionInput.value,
+                    has_original_box: document.querySelector('input[name="has_original_box"]').checked,
+                    has_charger: document.querySelector('input[name="has_charger"]').checked,
+                    has_cable: document.querySelector('input[name="has_cable"]').checked,
+                    has_receipt: document.querySelector('input[name="has_receipt"]').checked,
+                    has_warranty: document.querySelector('input[name="has_warranty"]').checked,
+                    data_source: {
+                        origin: 'imei_checker',
+                        verified: false,
+                        updated_at: new Date().toISOString()
+                    }
+                };
+                formData.append('attributes', JSON.stringify(attributes));
                 
                 // Добавляем URL фотографий вместо самих файлов
                 if (imageUrls.length > 0) {
@@ -776,14 +786,15 @@
                 updateProgress(progressBar, progressText, progressPercent, 80, '{{ t.sending_data }}');
                 
                 console.log('Отправляем данные на Posts API...');
-                const response = await fetch(`${POSTS_API}/iphone`, {
+                const response = await fetch(`${POSTS_API}`, {
                     method: 'POST',
                     body: formData,
                     credentials: 'include' // Отправляем cookies с JWT токеном
                 });
                 
                 if (response.ok) {
-                    const data = await response.json();
+                    const payload = await response.json();
+                    const data = payload.data || payload;
                     // Обновляем прогресс: 100% - успешно
                     updateProgress(progressBar, progressText, progressPercent, 100, '{{ t.upload_complete }}');
                     

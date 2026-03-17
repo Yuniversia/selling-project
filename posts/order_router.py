@@ -11,9 +11,9 @@ from datetime import datetime
 import httpx
 
 from database import get_session
-from models import (
+from models_v2 import (
     Order, OrderCreate, OrderResponse,
-    Iphone, DeliveryMethod, OrderStatus, User,
+    Product, DeliveryMethod, OrderStatus, User,
     OrderReview, OrderIssue, OrderPageReviewCreate,
     OrderIssueCreate, OrderIssueStatus
 )
@@ -21,6 +21,24 @@ from configs import Configs
 
 order_router = APIRouter(prefix="/api/v1/orders", tags=["Orders"])
 logger = logging.getLogger("posts.order_router")
+
+
+def product_name(product: Optional[Product]) -> str:
+    if not product:
+        return "Product"
+    attrs = product.attributes or {}
+    return attrs.get("model") or product.title or "Product"
+
+
+def product_model_text(product: Optional[Product]) -> Optional[str]:
+    if not product:
+        return None
+    attrs = product.attributes or {}
+    memory = attrs.get("memory")
+    color = attrs.get("color")
+    if memory and color:
+        return f"{memory}GB {color}"
+    return None
 
 
 async def send_notification_async(endpoint: str, data: dict):
@@ -150,7 +168,7 @@ async def create_order(
             pass
     
     # Проверяем товар
-    post = db.get(Iphone, order_data.post_id)
+    post = db.get(Product, order_data.post_id)
     if not post:
         raise HTTPException(status_code=404, detail="Товар не найден")
     
@@ -161,7 +179,7 @@ async def create_order(
         raise HTTPException(status_code=400, detail="Цена товара не указана")
     
     # Проверяем, что покупатель не продавец (только для авторизованных)
-    if buyer_id and post.author_id == buyer_id:
+    if buyer_id and post.seller_id == buyer_id:
         raise HTTPException(status_code=400, detail="Нельзя купить собственный товар")
     
     # Проверяем адрес доставки
@@ -179,7 +197,7 @@ async def create_order(
     # Проверяем все обязательные данные ПЕРЕД созданием заказа
     if not all([
         post.id,
-        post.author_id,
+        post.seller_id,
         post.price,
         order_data.first_name,
         order_data.last_name,
@@ -194,7 +212,7 @@ async def create_order(
         order = Order(
             post_id=post.id,
             buyer_id=buyer_id,  # Может быть None для анонимных
-            seller_id=post.author_id,
+            seller_id=post.seller_id,
             price=post.price,
             delivery_method=order_data.delivery_method.value,
             buyer_first_name=order_data.first_name,
@@ -232,7 +250,7 @@ async def create_order(
         # Отправляем уведомления продавцу и покупателю
         try:
             # Получаем информацию о продавце
-            seller = db.get(User, post.author_id)
+            seller = db.get(User, post.seller_id)
             
             notification_data = {
                 "post_id": order.post_id,
@@ -243,8 +261,8 @@ async def create_order(
                 "buyer_name": f"{order.buyer_first_name} {order.buyer_last_name}",
                 "buyer_email": order.buyer_email,
                 "buyer_phone": order.buyer_phone,
-                "product_name": post.model or "iPhone",
-                "product_model": f"{post.memory}GB {post.color}" if post.memory and post.color else None,
+                "product_name": product_name(post),
+                "product_model": product_model_text(post),
                 "order_price": order.price,
                 "delivery_method": order.delivery_method,
                 "tracking_url": f"{Configs.FRONTEND_URL.rstrip('/')}/order?tracking={order.tracking_number}"
@@ -332,7 +350,7 @@ async def process_payment(
     order.paid_at = datetime.utcnow()
     
     # Деактивируем объявление
-    post = db.get(Iphone, order.post_id)
+    post = db.get(Product, order.post_id)
     if post:
         post.active = False
     
@@ -394,7 +412,7 @@ async def process_payment(
     # Отправляем уведомление об оплате (продавцу и покупателю)
     try:
         seller = db.get(User, order.seller_id)
-        post = db.get(Iphone, order.post_id)
+        post = db.get(Product, order.post_id)
         
         notification_data = {
             "post_id": order.post_id,
@@ -405,8 +423,8 @@ async def process_payment(
             "buyer_name": f"{order.buyer_first_name} {order.buyer_last_name}",
             "buyer_email": order.buyer_email,
             "buyer_phone": order.buyer_phone,
-            "product_name": post.model or "iPhone" if post else "iPhone",
-            "product_model": f"{post.memory}GB {post.color}" if post and post.memory and post.color else None,
+            "product_name": product_name(post),
+            "product_model": product_model_text(post),
             "order_price": order.price,
             "delivery_method": order.delivery_method,
             "tracking_url": order_page_url,
@@ -467,7 +485,7 @@ async def get_order_page_by_tracking(
     if not order:
         raise HTTPException(status_code=404, detail="Заказ не найден")
 
-    post = db.get(Iphone, order.post_id)
+    post = db.get(Product, order.post_id)
 
     review = db.exec(
         select(OrderReview).where(OrderReview.order_id == order.id)
@@ -499,7 +517,7 @@ async def get_order_page_by_tracking(
             "tracking_number": order.tracking_number,
             "status": effective_status,
             "delivery_method": order.delivery_method,
-            "product_name": post.model if post and post.model else "iPhone",
+            "product_name": product_name(post),
             "price": order.price,
             "created_at": order.created_at,
             "paid_at": order.paid_at,
@@ -919,7 +937,7 @@ async def get_order_details(
         raise HTTPException(status_code=403, detail="Доступ запрещен")
     
     # Получаем информацию о товаре
-    post = db.get(Iphone, order.post_id)
+    post = db.get(Product, order.post_id)
     
     return {
         "order": order,
@@ -1033,7 +1051,7 @@ async def delivery_received_webhook(
     # Отправляем SMS с благодарностью и ссылкой на отзыв
     try:
         seller = db.get(User, order.seller_id)
-        post = db.get(Iphone, order.post_id)
+        post = db.get(Product, order.post_id)
         
         notification_data = {
             "post_id": order.post_id,
@@ -1044,8 +1062,8 @@ async def delivery_received_webhook(
             "buyer_name": f"{order.buyer_first_name} {order.buyer_last_name}",
             "buyer_email": order.buyer_email,
             "buyer_phone": order.buyer_phone,
-            "product_name": post.model or "iPhone" if post else "iPhone",
-            "product_model": f"{post.memory}GB {post.color}" if post and post.memory and post.color else None,
+            "product_name": product_name(post),
+            "product_model": product_model_text(post),
             "order_price": order.price,
             "delivery_method": order.delivery_method,
             "tracking_number": order.tracking_number or f"ORD{order.id}",

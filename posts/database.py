@@ -25,7 +25,11 @@ if USE_POSTGRES:
     POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
     POSTGRES_DB = os.getenv("POSTGRES_DB", "lais_marketplace")
     
-    DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+    POSTGRES_SCHEMA = os.getenv("POSTGRES_SCHEMA", "posts_db")
+    DATABASE_URL = (
+        f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+        f"?options=-csearch_path%3D{POSTGRES_SCHEMA},public"
+    )
     logger.info(f"Connecting to PostgreSQL: {POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}")
     
     engine = create_engine(DATABASE_URL, echo=False, pool_pre_ping=True)
@@ -39,6 +43,9 @@ else:
 # Функция для создания всех таблиц
 def create_db_and_tables():
     """Создает все таблицы в базе данных при запуске приложения."""
+    if USE_POSTGRES:
+        with engine.begin() as connection:
+            connection.exec_driver_sql("CREATE SCHEMA IF NOT EXISTS posts_db")
     SQLModel.metadata.create_all(engine)
 
 # Функция для получения сессии базы данных

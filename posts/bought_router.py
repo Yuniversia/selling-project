@@ -9,7 +9,7 @@ from typing import Optional
 from configs import Configs
 from database import get_session
 from bought_models import BoughtItem, BoughtItemCreate, BoughtItemPublic
-from models import Iphone
+from models_v2 import Product
 
 import sys
 import os
@@ -81,7 +81,7 @@ async def create_purchase(
         )
     
     # Получаем объявление
-    statement = select(Iphone).where(Iphone.id == purchase_data.post_id)
+    statement = select(Product).where(Product.id == purchase_data.post_id)
     post = db.exec(statement).first()
     
     if not post:
@@ -97,7 +97,7 @@ async def create_purchase(
         )
     
     # Проверяем, что пользователь не покупает свой же товар
-    if post.author_id == buyer_id:
+    if post.seller_id == buyer_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Вы не можете купить собственное объявление"

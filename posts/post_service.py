@@ -1,3 +1,6 @@
+from post_service_v2 import *
+
+"""
 from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import HTTPException, status, Depends
@@ -200,3 +203,4 @@ def delete_post(db: Session, id: int) -> bool:
         return True
     except Exception as e:
         return False
+    """
