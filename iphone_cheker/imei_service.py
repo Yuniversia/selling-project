@@ -243,6 +243,9 @@ class IMEIService:
                 simlock=data.get("simlock"),
                 fmi=data.get("fmi"),
                 activation_lock=data.get("activation_lock"),
+                replaced=data.get("replaced"),
+                network=data.get("network"),
+                technical_support=data.get("technical_support"),
                 source=data.get("source", "unknown"),
                 checked_at=datetime.utcnow(),
                 expires_at=datetime.utcnow() + timedelta(days=Configs.IMEI_CACHE_TTL_DAYS)
@@ -273,6 +276,9 @@ class IMEIService:
             activation_lock=cache.activation_lock,
             find_my_iphone=cache.fmi,  # Алиас
             sim_lock=cache.fmi if cache.simlock and "lock" in cache.simlock.lower() else False,
+            replaced=cache.replaced,
+            network=cache.network,
+            technical_support=cache.technical_support,
             source=cache.source or "unknown",  # Источник из кеша
             checked_at=cache.checked_at,
             cached=cached
@@ -295,6 +301,9 @@ class IMEIService:
             activation_lock=data.get("activation_lock"),
             find_my_iphone=data.get("find_my_iphone", data.get("fmi")),
             sim_lock=data.get("sim_lock", data.get("fmi")),
+            replaced=data.get("replaced"),
+            network=data.get("network"),
+            technical_support=data.get("technical_support"),
             source=data.get("source", "unknown"),
             checked_at=datetime.utcnow(),
             cached=cached

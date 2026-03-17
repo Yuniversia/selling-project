@@ -8,8 +8,20 @@
     <script>
         // API Configuration - единый стандарт /api/v1/<service>
         const API_V1 = "/api/v1";
-        const POSTS_API = `${API_V1}/posts`;
+        const AUTH_API = `${API_V1}/auth`;
+        const ORDERS_API = `${API_V1}/orders`;
         console.log('🔧 API BASE:', API_V1);
+
+        // Единый helper для извлечения сообщения об ошибке
+        function extractError(payload, fallback = 'Ошибка') {
+            if (payload?.error?.message) return payload.error.message;
+            if (payload?.detail) {
+                return Array.isArray(payload.detail)
+                    ? payload.detail.map(e => e.msg || e.message).join(', ')
+                    : payload.detail;
+            }
+            return fallback;
+        }
     </script>
     <style>
         .orders-container {
@@ -408,13 +420,15 @@
         // Загрузка заказов
         async function loadOrders() {
             try {
-                const response = await fetch(`${POSTS_API}/orders/my-orders`, {
+                const response = await fetch(`${ORDERS_API}/my-orders`, {
                     credentials: 'include'
                 });
 
                 if (response.ok) {
-                    const data = await response.json();
-                    renderOrders(data.orders || []);
+                    const payload = await response.json();
+                    // Разворачиваем unified response wrapper {status, data}
+                    const body = payload.data || payload;
+                    renderOrders(body.orders || (Array.isArray(body) ? body : []));
                 } else {
                     showError('{{ t.orders_load_error }}');
                 }

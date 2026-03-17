@@ -69,6 +69,17 @@
         console.log('  POSTS_API:', POSTS_API);
         console.log('  AUTH_API:', AUTH_API);
         console.log('  CHAT_API:', CHAT_API);
+
+        // Единый helper для извлечения сообщения об ошибке из нового формата {status, error}
+        function extractError(payload, fallback = 'Ошибка') {
+            if (payload?.error?.message) return payload.error.message;
+            if (payload?.detail) {
+                return Array.isArray(payload.detail)
+                    ? payload.detail.map(e => e.msg || e.message).join(', ')
+                    : payload.detail;
+            }
+            return fallback;
+        }
         
         // Listen for messages from Service Worker (push notification clicks)
         if ('serviceWorker' in navigator) {
@@ -1254,7 +1265,8 @@
                 });
                 
                 if (response.ok) {
-                    const order = await response.json();
+                    const orderPayload = await response.json();
+                    const order = orderPayload.data || orderPayload;
                     currentOrderId = order.id;
                     
                     // Переход к оплате
@@ -1264,20 +1276,14 @@
                     currentStep = 3;
                     
                 } else {
-                    const error = await response.json();
-                    console.error('Ошибка валидации:', error);
-                    // НЕ логируем данные заказа - содержат персональную информацию
-                    // console.log('Отправленные данные:', orderData);
-                    
-                    // Формируем понятное сообщение об ошибке
-                    let errorMessage = 'Ошибка при создании заказа';
-                    if (error.detail) {
-                        if (Array.isArray(error.detail)) {
-                            errorMessage = error.detail.map(e => `${e.loc?.join('.')}: ${e.msg}`).join(', ');
-                        } else {
-                            errorMessage = error.detail;
-                        }
-                    }
+                    const errPayload = await response.json();
+                    console.error('Ошибка валидации:', errPayload);
+                    // Формируем понятное сообщение об ошибке из нового unified формата
+                    const errorMessage = errPayload?.error?.message
+                        || (Array.isArray(errPayload?.detail)
+                            ? errPayload.detail.map(e => `${e.loc?.join('.')}: ${e.msg}`).join(', ')
+                            : errPayload?.detail)
+                        || 'Ошибка при создании заказа';
                     
                     errorDiv.textContent = errorMessage;
                     errorDiv.style.display = 'block';
@@ -1328,8 +1334,8 @@
                     currentStep = 4;
 
                 } else {
-                    const error = await response.json();
-                    errorDiv.textContent = error.detail || 'Ошибка при оплате';
+                    const errPayload = await response.json();
+                    errorDiv.textContent = extractError(errPayload, 'Ошибка при оплате');
                     errorDiv.style.display = 'block';
                 }
 
@@ -1356,7 +1362,7 @@
             try {
                 // Получаем ID продавца из кешированных данных
                 const response = await cachedFetch(
-                    `${POSTS_API}/${postId}`,
+                    `${POSTS_API}/posts/${postId}`,
                     {},
                     10 * 60 * 1000
                 );
@@ -1481,8 +1487,8 @@
                     }, 2000);
                     
                 } else {
-                    const error = await response.json();
-                    errorDiv.textContent = error.detail || '{{ t.js_report_send_failed }}';
+                    const errPayload = await response.json();
+                    errorDiv.textContent = errPayload?.error?.message || errPayload?.detail || '{{ t.js_report_send_failed }}';
                     errorDiv.style.display = 'block';
                     submitBtn.disabled = false;
                     submitBtn.textContent = '{{ t.submit_report }}';
@@ -1515,7 +1521,7 @@
             if (!confirm('Вы уверены, что хотите деактивировать это объявление?')) return;
             
             try {
-                const response = await fetch(`${POSTS_API}/${postId}`, {
+                const response = await fetch(`${POSTS_API}/posts/${postId}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -1526,8 +1532,8 @@
                     showAlert('Объявление успешно деактивировано', 'success');
                     setTimeout(() => location.reload(), 1000);
                 } else {
-                    const error = await response.json();
-                    showAlert('Ошибка: ' + (error.detail || 'Не удалось деактивировать'), 'error');
+                    const errPayload = await response.json();
+                    showAlert('Ошибка: ' + (errPayload?.error?.message || errPayload?.detail || 'Не удалось деактивировать'), 'error');
                 }
             } catch (error) {
                 console.error('Ошибка:', error);
@@ -1540,7 +1546,7 @@
             if (!confirm('Активировать это объявление?')) return;
             
             try {
-                const response = await fetch(`${POSTS_API}/${postId}`, {
+                const response = await fetch(`${POSTS_API}/posts/${postId}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -1551,8 +1557,8 @@
                     showAlert('Объявление успешно активировано', 'success');
                     setTimeout(() => location.reload(), 1000);
                 } else {
-                    const error = await response.json();
-                    showAlert('Ошибка: ' + (error.detail || 'Не удалось активировать'), 'error');
+                    const errPayload = await response.json();
+                    showAlert('Ошибка: ' + (errPayload?.error?.message || errPayload?.detail || 'Не удалось активировать'), 'error');
                 }
             } catch (error) {
                 console.error('Ошибка:', error);

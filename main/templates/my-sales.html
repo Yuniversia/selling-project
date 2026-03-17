@@ -8,7 +8,7 @@
     <script>
         // API Configuration - единый стандарт /api/v1/<service>
         const API_V1 = "/api/v1";
-        const POSTS_API = `${API_V1}/posts`;
+        const ORDERS_API = `${API_V1}/orders`;
         console.log('🔧 API BASE:', API_V1);
     </script>
     <style>
@@ -414,16 +414,29 @@
     <script>
         let currentShippingOrderId = null;
 
+        // Единый helper для извлечения сообщения об ошибке
+        function extractError(payload, fallback = 'Ошибка') {
+            if (payload?.error?.message) return payload.error.message;
+            if (payload?.detail) {
+                return Array.isArray(payload.detail)
+                    ? payload.detail.map(e => e.msg || e.message).join(', ')
+                    : payload.detail;
+            }
+            return fallback;
+        }
+
         // Загрузка продаж
         async function loadSales() {
             try {
-                const response = await fetch(`${POSTS_API}/orders/my-sales`, {
+                const response = await fetch(`${ORDERS_API}/my-sales`, {
                     credentials: 'include'
                 });
 
                 if (response.ok) {
-                    const data = await response.json();
-                    renderSales(data.sales || []);
+                    const payload = await response.json();
+                    // Разворачиваем unified response wrapper {status, data}
+                    const body = payload.data || payload;
+                    renderSales(body.sales || (Array.isArray(body) ? body : []));
                 } else {
                     showError('{{ t.sales_load_error }}');
                 }
@@ -519,7 +532,7 @@
             errorDiv.style.display = 'none';
 
             try {
-                const response = await fetch(`${POSTS_API}/orders/ship?order_id=${currentShippingOrderId}`, {
+                const response = await fetch(`${ORDERS_API}/ship?order_id=${currentShippingOrderId}`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -532,8 +545,8 @@
                     alert('{{ t.shipped_notification }}');
                     loadSales(); // Перезагрузка списка
                 } else {
-                    const error = await response.json();
-                    errorDiv.textContent = error.detail || '{{ t.update_error }}';
+                    const errPayload = await response.json();
+                    errorDiv.textContent = extractError(errPayload, '{{ t.update_error }}');
                     errorDiv.style.display = 'block';
                 }
             } catch (error) {

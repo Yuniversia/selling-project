@@ -8,9 +8,23 @@
     <script src="/templates/static/cache-manager.js?v=20"></script>
     <script src="/templates/static/push-init.js?v=5" defer></script>
     <script>
-        // API Configuration - использование относительных путей
-        const POSTS_API = "/api/v1";
+        // API Configuration - единый стандарт /api/v1/<service>
+        const API_V1 = "/api/v1";
+        const AUTH_API = `${API_V1}/auth`;
+        const POSTS_API = `${API_V1}/posts`;
+        const IMEI_API = `${API_V1}/imei`;
         console.log('🔧 POSTS API URL:', POSTS_API);
+
+        // Единый helper для извлечения сообщения об ошибке из нового формата {status, error}
+        function extractError(payload, fallback = 'Ошибка') {
+            if (payload?.error?.message) return payload.error.message;
+            if (payload?.detail) {
+                return Array.isArray(payload.detail)
+                    ? payload.detail.map(e => e.msg || e.message).join(', ')
+                    : payload.detail;
+            }
+            return fallback;
+        }
     </script>
     <style>
         /* Основной контейнер с боковой рекламой */
@@ -594,7 +608,7 @@
 
             // Запрашиваем данные с нового IMEI сервиса
             try {
-                const response = await fetch('/api/v1/imei/check-warranty', {
+                const response = await fetch(`${IMEI_API}/check-warranty`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -607,8 +621,8 @@
                 });
                 
                 if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.detail || 'IMEI check failed');
+                    const errPayload = await response.json();
+                    throw new Error(errPayload?.error?.message || errPayload?.detail || 'IMEI check failed');
                 }
                 
                 const data = await response.json();

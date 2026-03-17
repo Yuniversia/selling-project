@@ -123,6 +123,7 @@ services:
       - POST_CF_R2_SECRET_ACCESS_KEY=${POST_CF_R2_SECRET_ACCESS_KEY}
       - REDIS_URL=redis://redis:6379/0
       - REDIS_RESULT_URL=redis://redis:6379/1
+      - IMEI_CHECKER_SERVICE_URL=http://imei-checker-service:5001
     expose:
       - "3000"
     depends_on:
@@ -173,6 +174,7 @@ services:
       - POST_CF_R2_SECRET_ACCESS_KEY=${POST_CF_R2_SECRET_ACCESS_KEY}
       - REDIS_URL=redis://redis:6379/0
       - REDIS_RESULT_URL=redis://redis:6379/1
+      - IMEI_CHECKER_SERVICE_URL=http://imei-checker-service:5001
     depends_on:
       postgres:
         condition: service_healthy

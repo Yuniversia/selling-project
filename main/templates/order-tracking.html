@@ -419,7 +419,9 @@
         }
 
         try {
-            const response = await fetch(`/api/v1/posts/orders/tracking/${encodeURIComponent(tracking)}`);
+            const response = await fetch(`/api/v1/orders/tracking/${encodeURIComponent(tracking)}`, {
+                credentials: 'include'
+            });
             if (!response.ok) {
                 if (response.status === 404) {
                     showError(UI.notFound);
@@ -488,10 +490,11 @@
         };
 
         try {
-            const response = await fetch(`/api/v1/posts/orders/tracking/${encodeURIComponent(tracking)}/review`, {
+            const response = await fetch(`/api/v1/orders/tracking/${encodeURIComponent(tracking)}/review`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
+                credentials: 'include'
             });
             const data = await response.json();
             if (!response.ok) throw new Error(data.detail || UI.saveError);
@@ -516,10 +519,11 @@
         };
 
         try {
-            const response = await fetch(`/api/v1/posts/orders/tracking/${encodeURIComponent(tracking)}/issue`, {
+            const response = await fetch(`/api/v1/orders/tracking/${encodeURIComponent(tracking)}/issue`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
+                credentials: 'include'
             });
             const data = await response.json();
             if (!response.ok) throw new Error(data.detail || UI.issueError);

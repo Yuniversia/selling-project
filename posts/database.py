@@ -48,6 +48,31 @@ def create_db_and_tables():
             connection.exec_driver_sql("CREATE SCHEMA IF NOT EXISTS posts_db")
     SQLModel.metadata.create_all(engine)
 
+    if USE_POSTGRES:
+        try:
+            with engine.begin() as connection:
+                connection.exec_driver_sql(
+                    """
+                    DELETE FROM postview pv
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM products p WHERE p.id = pv.post_id
+                    )
+                    """
+                )
+                connection.exec_driver_sql(
+                    "ALTER TABLE postview DROP CONSTRAINT IF EXISTS postview_post_id_fkey"
+                )
+                connection.exec_driver_sql(
+                    """
+                    ALTER TABLE postview
+                    ADD CONSTRAINT postview_post_id_fkey
+                    FOREIGN KEY (post_id) REFERENCES products(id) ON DELETE CASCADE
+                    """
+                )
+            logger.info("PostView FK check: postview_post_id_fkey -> products(id)")
+        except Exception as exc:
+            logger.warning(f"PostView FK check skipped/failed: {exc}")
+
 # Функция для получения сессии базы данных
 def get_session() -> Generator[Session, None, None]:
     """

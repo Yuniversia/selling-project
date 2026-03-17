@@ -1,10 +1,12 @@
 import json
+import logging
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Cookie, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
 import httpx
 from jose import jwt
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, and_, select
 
 from api_response import ok_response
@@ -14,6 +16,7 @@ from models_v2 import PostReport, PostUpdateData, PostView, Product, ProductPubl
 from post_service_v2 import create_product_creating, enqueue_or_run, get_post, save_uploads_to_temp, update_product
 
 api_router = APIRouter(prefix="/api/v1", tags=["Posts"])
+logger = logging.getLogger("posts.post_router_v2")
 
 CF_ACCOUNT_ID = Configs.CF_ACCOUNT_ID
 CF_ACCOUNT_HASH = Configs.CF_ACCOUNT_HASH
@@ -63,7 +66,6 @@ async def create_post(
     title: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
     attributes: str = Form("{}"),
-    images_url: Optional[str] = Form(None),
     files: List[UploadFile] = File(default_factory=list),
     access_token: str = Cookie(None),
     db: Session = Depends(get_session),
@@ -91,13 +93,14 @@ async def create_post(
         attributes=attributes_payload,
     )
 
-    if images_url:
-        product.images_url = [url.strip() for url in images_url.split(",") if url.strip()]
-        db.add(product)
-        db.commit()
-
     file_paths = save_uploads_to_temp(files=files, product_id=product.id)
-    await enqueue_or_run(product_id=product.id, file_paths=file_paths)
+    logger.info("create_post: files accepted | post_id=%s | files=%s", product.id, len(file_paths))
+    try:
+        await enqueue_or_run(product_id=product.id, file_paths=file_paths)
+    except Exception as exc:
+        db.delete(product)
+        db.commit()
+        raise HTTPException(status_code=503, detail=f"Не удалось запустить обработку объявления: {exc}")
 
     return ok_response(
         request,
@@ -195,11 +198,21 @@ def get_post_by_id(
 
     viewed = db.exec(q).first()
     if viewed is None:
-        post.view_count += 1
+        old_view_count = post.view_count
+        post.view_count = old_view_count + 1
         db.add(post)
         db.add(PostView(post_id=post_id, viewer_id=viewer_id, viewer_ip=ip, user_agent=user_agent))
-        db.commit()
-        db.refresh(post)
+        try:
+            db.commit()
+            db.refresh(post)
+        except SQLAlchemyError:
+            db.rollback()
+            post.view_count = old_view_count
+            logger.warning(
+                "Не удалось сохранить просмотр объявления post_id=%s (ошибка БД), возвращаем объявление без падения",
+                post_id,
+                exc_info=True,
+            )
 
     return ok_response(request, ProductPublic.model_validate(post).model_dump(mode="json"))
 
@@ -252,6 +265,9 @@ async def get_direct_upload_url(request: Request):
         )
     except httpx.HTTPStatusError as exc:
         raise HTTPException(status_code=500, detail=f"Cloudflare API error: {exc.response.status_code}")
+
+
+
 
 
 @api_router.post("/report", status_code=status.HTTP_201_CREATED)

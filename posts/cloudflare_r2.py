@@ -104,6 +104,21 @@ class CloudflareR2Client:
                 status_code=500,
                 detail=f"Failed to upload to R2: {str(e)}"
             )
+
+    async def delete_file_from_r2(self, object_key: str) -> None:
+        """Удалить файл из R2 по object key"""
+        self._ensure_configured()
+        try:
+            self.s3_client.delete_object(Bucket=self.r2_bucket_name, Key=object_key)
+            logger.info(f"R2 delete OK | key={object_key}")
+        except ClientError as e:
+            error_code = e.response['Error']['Code']
+            error_message = e.response['Error']['Message']
+            logger.error(f"R2 delete error | key={object_key} | {error_code}: {error_message}")
+            raise HTTPException(status_code=500, detail=f"Failed to delete from R2: {error_message}")
+        except Exception as e:
+            logger.error(f"R2 unexpected delete error | key={object_key} | {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to delete from R2: {str(e)}")
     
     def get_public_url(self, file_path: str) -> str:
         """

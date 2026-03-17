@@ -106,6 +106,7 @@ services:
       - NOTIFICATION_SERVICE_URL=http://notifications-service:6000
       - DELIVERY_SERVICE_URL=http://delivery-service:7000
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:8080}
+      - IMEI_CHECKER_SERVICE_URL=http://imei-checker-service:${IMEI_PORT:-5002}
     ports:
       - "${POSTS_PORT:-3000}:${POSTS_PORT:-3000}"
     depends_on:
@@ -148,6 +149,7 @@ services:
       - USE_TEST_MODE=${USE_TEST_MODE:-false}
       - REDIS_URL=redis://redis:6379/0
       - REDIS_RESULT_URL=redis://redis:6379/1
+      - IMEI_CHECKER_SERVICE_URL=http://imei-checker-service:${IMEI_PORT:-5002}
     depends_on:
       redis:
         condition: service_started

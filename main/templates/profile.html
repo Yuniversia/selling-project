@@ -102,6 +102,17 @@
         const CHAT_API = `${API_V1}/chat`;
         const IMEI_API = `${API_V1}/imei`;
         console.log('🔧 API BASE:', API_V1);
+
+        // Единый helper для извлечения сообщения об ошибке из нового формата {status, error}
+        function extractError(payload, fallback = 'Ошибка') {
+            if (payload?.error?.message) return payload.error.message;
+            if (payload?.detail) {
+                return Array.isArray(payload.detail)
+                    ? payload.detail.map(e => e.msg || e.message).join(', ')
+                    : payload.detail;
+            }
+            return fallback;
+        }
         
         // Listen for messages from Service Worker (push notification clicks)
         if ('serviceWorker' in navigator) {
@@ -406,6 +417,34 @@
             background: #f5f5f5;
             color: #999;
         }
+
+        .my-posts-list {
+            display: grid;
+            gap: 10px;
+            margin-top: 8px;
+        }
+
+        .my-posts-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 12px;
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            background: #fff;
+        }
+
+        .my-posts-item-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--color-text);
+        }
+
+        .my-posts-item-meta {
+            font-size: 12px;
+            color: var(--color-text-light);
+        }
     </style>
 </head>
 <body id="profilePage">
@@ -527,6 +566,11 @@
                     </div>
 
                 </form>
+
+                <h3 class="section-title" style="margin-top: 28px;">Активные объявления</h3>
+                <div id="myPostsList" class="my-posts-list">
+                    <div style="color: var(--color-text-light);">Загрузка объявлений...</div>
+                </div>
             </section>
 
         </div>
@@ -696,6 +740,53 @@
             document.getElementById("firstNameInput").value = user.name || "";
             document.getElementById("lastNameInput").value = user.surname || "";
             document.getElementById("phoneInput").value = user.phone || "";
+
+            loadMyActivePosts(user);
+        }
+
+        async function loadMyActivePosts(user) {
+            const userId = user?.id || user?.user_id;
+            const list = document.getElementById('myPostsList');
+            if (!userId || !list) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${POSTS_API}?seller_id=${encodeURIComponent(userId)}&status_filter=published&limit=20`, {
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    list.innerHTML = '<div style="color: var(--color-text-light);">Не удалось загрузить объявления</div>';
+                    return;
+                }
+
+                const payload = await response.json();
+                const items = payload?.data || payload || [];
+
+                if (!Array.isArray(items) || items.length === 0) {
+                    list.innerHTML = '<div style="color: var(--color-text-light);">Активных объявлений пока нет</div>';
+                    return;
+                }
+
+                list.innerHTML = items.map((post) => {
+                    const attrs = post.attributes || {};
+                    const title = attrs.model || post.title || `Объявление #${post.id}`;
+                    const price = post.price != null ? `${post.price} €` : '—';
+                    return `
+                        <a class="my-posts-item" href="/product?id=${post.id}" style="text-decoration:none;">
+                            <div>
+                                <div class="my-posts-item-title">${title}</div>
+                                <div class="my-posts-item-meta">ID: ${post.id} · ${price}</div>
+                            </div>
+                            <span class="btn btn-outline" style="padding: 6px 10px;">Открыть</span>
+                        </a>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error('Ошибка загрузки объявлений:', error);
+                list.innerHTML = '<div style="color: var(--color-text-light);">Ошибка подключения при загрузке объявлений</div>';
+            }
         }
 
         // Логика кнопки Выхода
@@ -776,9 +867,13 @@
                 const avatarDisplay = document.getElementById('avatarDisplay');
                 avatarDisplay.style.opacity = '0.5';
 
-                // Получаем URL для загрузки
-                const linkResponse = await fetch(`${POSTS_API}/r2_link`);
-                const linkData = await linkResponse.json();
+                // Получаем URL для загрузки (разворачиваем {status, data} wrapper)
+                const linkResponse = await fetch(`${POSTS_API}/r2_link`, {
+                    credentials: 'include'
+                });
+                if (!linkResponse.ok) throw new Error('Ошибка получения ссылки для загрузки');
+                const linkPayload = await linkResponse.json();
+                const linkData = linkPayload.data || linkPayload;
 
                 // Загружаем файл в Cloudflare
                 const formData = new FormData();
@@ -793,8 +888,9 @@
                     throw new Error('Ошибка загрузки фото');
                 }
 
-                const uploadResult = await uploadResponse.json();
-                const imageId = uploadResult.result.id;
+                const uploadPayload = await uploadResponse.json();
+                const uploadResult = uploadPayload.result || uploadPayload;
+                const imageId = uploadResult.id;
                 const newAvatarUrl = `${linkData.image_delivery_base}/${imageId}/public`;
 
                 // Обновляем профиль с новым аватаром
@@ -1137,7 +1233,7 @@
             if (!confirm(window.t.js_confirm_deactivate)) return;
             
             try {
-                const response = await fetch(`${POSTS_API}/${currentPostId}`, {
+                const response = await fetch(`${POSTS_API}/posts/${currentPostId}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -1149,8 +1245,8 @@
                     await loadReports();
                     closeReportDetailModal();
                 } else {
-                    const error = await response.json();
-                    alert(window.t.error_prefix + ' ' + (error.detail || window.t.deactivate_error));
+                    const errPayload = await response.json();
+                    alert(window.t.error_prefix + ' ' + (errPayload?.error?.message || errPayload?.detail || window.t.deactivate_error));
                 }
             } catch (error) {
                 console.error('Ошибка деактивации:', error);
@@ -1163,9 +1259,12 @@
             if (!currentReportId) return;
             
             try {
-                const response = await fetch(`${POSTS_API}/admin/reports/${currentReportId}?new_status=${newStatus}&action=none`, {
-                    method: 'PUT',
-                    credentials: 'include'
+                // PATCH для частичного обновления согласно REST стандарту
+                const response = await fetch(`${POSTS_API}/admin/reports/${currentReportId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ status: newStatus })
                 });
                 
                 if (response.ok) {
@@ -1174,8 +1273,8 @@
                     await loadPendingReportsCount();
                     closeReportDetailModal();
                 } else {
-                    const error = await response.json();
-                    alert('Ошибка: ' + (error.detail || 'Не удалось обновить статус'));
+                    const errPayload = await response.json();
+                    alert('Ошибка: ' + (errPayload?.error?.message || errPayload?.detail || 'Не удалось обновить статус'));
                 }
             } catch (error) {
                 console.error('Ошибка обновления статуса:', error);

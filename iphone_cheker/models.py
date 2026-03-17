@@ -34,6 +34,9 @@ class IMEICheckResponse(BaseModel):
     activation_lock: Optional[bool] = None
     find_my_iphone: Optional[bool] = None  # Алиас для fmi
     sim_lock: Optional[bool] = None  # Алиас для simlock
+    replaced: Optional[bool] = None
+    network: Optional[str] = None
+    technical_support: Optional[bool] = None
     
     # Метаданные
     source: str = "unknown"  # "imei.info", "imei.org", "cache", "mock"
@@ -68,6 +71,9 @@ class IMEICache(SQLModel, table=True):
     simlock: Optional[str] = None
     fmi: Optional[bool] = None
     activation_lock: Optional[bool] = None
+    replaced: Optional[bool] = None
+    network: Optional[str] = None
+    technical_support: Optional[bool] = None
     
     # Метаданные
     source: str

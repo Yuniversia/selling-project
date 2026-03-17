@@ -53,6 +53,11 @@ photos_service/.env
 iphone_checker/__pycache__
 iphone_checker/.env
 
+/tests/
 project_guides/
 Refact_posts.md
+refact_main.md
+requirments-test.txt
+how_write_test.md
+pytest.ini
 
