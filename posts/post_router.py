@@ -1,5 +1,6 @@
 # post_router.py - Posts API Routes
-
+import uuid
+import time
 import logging
 from fastapi import (
     APIRouter, 
@@ -148,8 +149,7 @@ async def upload_image_to_r2(file: UploadFile = File(...)):
             )
         
         # Генерируем object_key
-        import uuid
-        import time
+        
         timestamp = int(time.time())
         unique_id = str(uuid.uuid4())[:8]
         file_extension = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
