@@ -1314,9 +1314,16 @@
             payBtn.textContent = 'Обработка платежа...';
             errorDiv.style.display = 'none';
 
+            const requestId = (window.crypto && window.crypto.randomUUID)
+                ? window.crypto.randomUUID()
+                : `req-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
             try {
                 const response = await fetch(`${ORDERS_API}/${currentOrderId}/payments`, {
                     method: 'POST',
+                    headers: {
+                        'X-Request-ID': requestId
+                    },
                     credentials: 'include'
                 });
 
@@ -1346,7 +1353,7 @@
                 errorDiv.style.display = 'block';
             } finally {
                 payBtn.disabled = false;
-                payBtn.textContent = 'Оплатить (ДЕМО)';
+                payBtn.textContent = 'Оплатить (TEST)';
             }
         }
 

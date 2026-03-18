@@ -57,7 +57,8 @@ iphone_checker/.env
 project_guides/
 Refact_posts.md
 refact_main.md
-requirments-test.txt
+requirements-test.txt
 how_write_test.md
 pytest.ini
+/Markdown
 

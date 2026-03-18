@@ -255,7 +255,7 @@ class DeliveryService:
             
             with httpx.Client(timeout=5.0) as client:
                 response = client.post(
-                    f"{configs.POSTS_SERVICE_URL}/api/v1/orders/delivery-received",
+                    f"{configs.POSTS_SERVICE_URL}/api/v1/orders/delivery-events/receipts",
                     json={
                         "order_id": delivery.order_id,
                         "tracking_number": delivery.tracking_number,

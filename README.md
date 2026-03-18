@@ -37,6 +37,7 @@ docker-compose up -d
 - **Auth API**: http://localhost:8000/auth/docs
 - **Posts API**: http://localhost:3000/docs
 - **Chat API**: http://localhost:4000/docs
+- **Payments API**: http://localhost:9000/docs
 - **Notifications API**: http://localhost:6000/notifications/docs
 - **Delivery API**: http://localhost:7000/delivery/docs
 
@@ -73,6 +74,13 @@ ss.lv/
 │   ├── main.py
 │   ├── notification_router.py
 │   ├── notification_service.py
+│   └── models.py
+│
+├── payments/          # Сервис платежей (Stripe)
+│   ├── Dockerfile
+│   ├── main.py
+│   ├── payment_router.py
+│   ├── payment_service.py
 │   └── models.py
 │
 ├── delivery/          # Сервис доставки (Omniva, DPD)
@@ -182,6 +190,13 @@ make db-shell
 - ✅ Система покупок
 - ✅ Статистика просмотров
 - ✅ Фильтры и поиск
+- ✅ API документация: `/docs`
+
+### Payments Service (`:9000`)
+- ✅ Создание PaymentIntent в Stripe
+- ✅ Webhook обработка статусов платежей
+- ✅ Возвраты (refund) через Stripe
+- ✅ Идемпотентность через `X-Request-ID`
 - ✅ API документация: `/docs`
 
 ### Main Service (`:8080`)

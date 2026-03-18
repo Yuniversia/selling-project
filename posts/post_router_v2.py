@@ -187,7 +187,7 @@ def list_posts(
 ):
     query = select(Product)
 
-    filters = []
+    filters = [Product.active == True]
     if status_filter:
         filters.append(Product.status == status_filter)
     if category_id is not None:

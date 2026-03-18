@@ -44,3 +44,9 @@ class Configs:
     
     # Delivery Service URL
     DELIVERY_SERVICE_URL = os.getenv('DELIVERY_SERVICE_URL', 'http://delivery-service:7000')
+
+    # Payments Service URL
+    PAYMENTS_SERVICE_URL = os.getenv('PAYMENTS_SERVICE_URL', 'http://payments-service:9000')
+
+    # Test payment mode (Stripe test payment_method)
+    PAYMENTS_TEST_MODE = os.getenv("PAYMENTS_TEST_MODE", "true").lower() == "true"

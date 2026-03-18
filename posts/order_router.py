@@ -2,12 +2,14 @@
 
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Request, Cookie
+from fastapi.responses import RedirectResponse
 from sqlmodel import Session, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from typing import Optional
 from jose import jwt
 import secrets
 import string
+import uuid
 from datetime import datetime
 import httpx
 
@@ -160,6 +162,108 @@ def generate_pickup_code() -> str:
 def generate_confirmation_code() -> str:
     """Генерация 6-значного кода подтверждения"""
     return ''.join(secrets.choice(string.digits) for _ in range(6))
+
+
+async def finalize_order_after_successful_payment(
+    *,
+    db: Session,
+    order: Order,
+    lang: str,
+) -> str:
+    if order.status == OrderStatus.PAID.value:
+        if not order.tracking_number:
+            order.tracking_number = f"ORD{order.id}"
+            db.commit()
+            db.refresh(order)
+        return f"{Configs.FRONTEND_URL.rstrip('/')}/order?tracking={order.tracking_number}"
+
+    order.status = OrderStatus.PAID.value
+    order.paid_at = datetime.utcnow()
+
+    post = db.get(Product, order.post_id)
+    if post:
+        post.active = False
+
+    db.commit()
+    db.refresh(order)
+
+    if order.delivery_method in [DeliveryMethod.DPD.value, DeliveryMethod.OMNIVA.value]:
+        logger.info(f"Delivery create | order_id={order.id} | method={order.delivery_method}")
+        try:
+            seller = db.get(User, order.seller_id)
+
+            delivery_data = {
+                "post_id": order.post_id,
+                "order_id": order.id,
+                "provider": order.delivery_method,
+                "recipient_name": f"{order.buyer_first_name} {order.buyer_last_name}",
+                "recipient_phone": order.buyer_phone,
+                "recipient_email": order.buyer_email,
+                "sender_name": seller.name or seller.username if seller else "Продавец",
+                "sender_phone": seller.phone if seller and seller.phone else "+37120000000",
+                "delivery_address": order.delivery_address,
+                "delivery_city": order.delivery_city,
+                "delivery_zip": order.delivery_zip,
+                "delivery_country": order.delivery_country or "Latvia",
+                "notes": f"lang={lang}",
+            }
+
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(
+                    f"{Configs.DELIVERY_SERVICE_URL}/api/v1/delivery/create",
+                    json=delivery_data,
+                )
+
+                if response.status_code == 201:
+                    delivery_info = response.json()
+                    order.tracking_number = delivery_info.get("tracking_number")
+                    db.commit()
+                    logger.info(f"Delivery created | order_id={order.id}")
+                else:
+                    logger.warning(f"Delivery create failed | order_id={order.id} | HTTP {response.status_code}")
+
+        except Exception as e:
+            logger.error(
+                f"Delivery create error | order_id={order.id} | error_type={safe_exception_name(e)}"
+            )
+    else:
+        logger.info(f"Delivery skipped | order_id={order.id} | method={order.delivery_method}")
+
+    if not order.tracking_number:
+        order.tracking_number = f"ORD{order.id}"
+        db.commit()
+        db.refresh(order)
+
+    order_page_url = f"{Configs.FRONTEND_URL.rstrip('/')}/order?tracking={order.tracking_number}"
+
+    try:
+        seller = db.get(User, order.seller_id)
+        post = db.get(Product, order.post_id)
+
+        notification_data = {
+            "post_id": order.post_id,
+            "order_id": order.id,
+            "seller_name": seller.name or seller.username if seller else "Продавец",
+            "seller_email": seller.email if seller else None,
+            "seller_phone": seller.phone if seller else None,
+            "buyer_name": f"{order.buyer_first_name} {order.buyer_last_name}",
+            "buyer_email": order.buyer_email,
+            "buyer_phone": order.buyer_phone,
+            "product_name": product_name(post),
+            "product_model": product_model_text(post),
+            "order_price": order.price,
+            "delivery_method": order.delivery_method,
+            "tracking_url": order_page_url,
+            "tracking_number": order.tracking_number,
+            "language": lang,
+        }
+        await send_notification_async("order-paid", notification_data)
+    except Exception as e:
+        logger.warning(
+            f"Payment notification failed | order_id={order.id} | error_type={safe_exception_name(e)}"
+        )
+
+    return order_page_url
 
 
 @order_router.post("/", response_model=OrderResponse)
@@ -354,22 +458,12 @@ async def create_order(
 @order_router.post("/{order_id}/payments")
 async def process_payment(
     order_id: int,
+    request: Request,
     access_token: str = Cookie(None),
     lang: str = Cookie("ru"),
     db: Session = Depends(get_session)
 ):
-    """
-    Обработка оплаты (ЗАГЛУШКА)
-    
-    В реальном приложении здесь была бы интеграция с платёжной системой.
-    Пока просто имитируем успешную оплату.
-    
-    После оплаты:
-    1. Меняем статус на PAID
-    2. Генерируем код для пакомата
-    3. Деактивируем объявление
-    4. Отправляем sms с кодом (пока имитация)
-    """
+    """Создаёт Stripe Checkout Session и возвращает redirect_url на Stripe."""
     # Пытаемся получить текущего пользователя (может быть None для анонимных)
     user_id = None
     if access_token:
@@ -395,117 +489,121 @@ async def process_payment(
     if order.status != OrderStatus.PENDING_PAYMENT.value:
         raise HTTPException(status_code=400, detail="Заказ уже оплачен или отменен")
     
-    # === ИМИТАЦИЯ ПЛАТЕЖА ===
-    # В реальности здесь был бы запрос к Stripe, PayPal и т.д.
-    payment_successful = True  # ЗАГЛУШКА
-    
-    if not payment_successful:
-        raise HTTPException(status_code=400, detail="Ошибка оплаты")
-    
-    # Обновляем заказ
-    order.status = OrderStatus.PAID.value
-    order.paid_at = datetime.utcnow()
-    
-    # Деактивируем объявление
-    post = db.get(Product, order.post_id)
-    if post:
-        post.active = False
-    
-    db.commit()
-    db.refresh(order)
-    
-    # Создаем доставку через delivery service (если не pickup)
-    if order.delivery_method in [DeliveryMethod.DPD.value, DeliveryMethod.OMNIVA.value]:
-        logger.info(f"Delivery create | order_id={order.id} | method={order.delivery_method}")
-        try:
-            # Получаем информацию о продавце для отправки
-            seller = db.get(User, order.seller_id)
-            
-            delivery_data = {
-                "post_id": order.post_id,
-                "order_id": order.id,
-                "provider": order.delivery_method,
-                "recipient_name": f"{order.buyer_first_name} {order.buyer_last_name}",
-                "recipient_phone": order.buyer_phone,
-                "recipient_email": order.buyer_email,
-                "sender_name": seller.name or seller.username if seller else "Продавец",
-                "sender_phone": seller.phone if seller and seller.phone else "+37120000000",
-                "delivery_address": order.delivery_address,
-                "delivery_city": order.delivery_city,
-                "delivery_zip": order.delivery_zip,
-                "delivery_country": order.delivery_country or "Latvia",
-                "notes": f"lang={lang}"
-            }
-            
-            logger.debug(f"Delivery create request | order_id={order.id} | url={Configs.DELIVERY_SERVICE_URL}/api/v1/delivery/create")
-            
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.post(
-                    f"{Configs.DELIVERY_SERVICE_URL}/api/v1/delivery/create",
-                    json=delivery_data
-                )
-                
-                if response.status_code == 201:
-                    delivery_info = response.json()
-                    order.tracking_number = delivery_info.get("tracking_number")
-                    db.commit()
-                    logger.info(f"Delivery created | order_id={order.id}")
-                else:
-                    logger.warning(f"Delivery create failed | order_id={order.id} | HTTP {response.status_code}")
-                    
-        except Exception as e:
-            logger.error(
-                f"Delivery create error | order_id={order.id} | error_type={safe_exception_name(e)}"
-            )
-            # Продолжаем выполнение даже если доставка не создалась
-    else:
-        logger.info(f"Delivery skipped | order_id={order.id} | method={order.delivery_method}")
+    # Stripe hosted checkout redirect
+    amount_cents = int(round(float(order.price) * 100))
+    request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+    success_url = (
+        f"{Configs.FRONTEND_URL.rstrip('/')}/api/v1/orders/{order.id}/payments/success"
+        f"?session_id={{CHECKOUT_SESSION_ID}}&lang={lang}"
+    )
+    cancel_url = f"{Configs.FRONTEND_URL.rstrip('/')}/product?id={order.post_id}&payment=cancelled"
 
-    if not order.tracking_number:
-        order.tracking_number = f"ORD{order.id}"
-        db.commit()
-        db.refresh(order)
-
-    order_page_url = f"{Configs.FRONTEND_URL.rstrip('/')}/order?tracking={order.tracking_number}"
-    
-    # Отправляем уведомление об оплате (продавцу и покупателю)
-    try:
-        seller = db.get(User, order.seller_id)
-        post = db.get(Product, order.post_id)
-        
-        notification_data = {
-            "post_id": order.post_id,
-            "order_id": order.id,
-            "seller_name": seller.name or seller.username if seller else "Продавец",
-            "seller_email": seller.email if seller else None,
-            "seller_phone": seller.phone if seller else None,
-            "buyer_name": f"{order.buyer_first_name} {order.buyer_last_name}",
-            "buyer_email": order.buyer_email,
-            "buyer_phone": order.buyer_phone,
-            "product_name": product_name(post),
-            "product_model": product_model_text(post),
-            "order_price": order.price,
+    payment_payload = {
+        "amount_cents": amount_cents,
+        "currency": "eur",
+        "order_id": order.id,
+        "post_id": order.post_id,
+        "seller_id": order.seller_id,
+        "buyer_email": order.buyer_email,
+        "product_name": f"Order #{order.id}",
+        "description": f"Payment for order #{order.id}",
+        "success_url": success_url,
+        "cancel_url": cancel_url,
+        "metadata": {
+            "flow": "posts-order-checkout",
             "delivery_method": order.delivery_method,
-            "tracking_url": order_page_url,
-            "tracking_number": order.tracking_number,
-            "language": lang,
-        }
-        
-        # Отправляем асинхронно
-        await send_notification_async("order-paid", notification_data)
-    except Exception as e:
-        logger.warning(
-            f"Payment notification failed | order_id={order.id} | error_type={safe_exception_name(e)}"
+        },
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.post(
+                f"{Configs.PAYMENTS_SERVICE_URL}/api/v1/payments/checkout-sessions",
+                json=payment_payload,
+                headers={"X-Request-ID": request_id},
+                cookies={"access_token": access_token} if access_token else None,
+            )
+
+        if response.status_code not in (200, 201, 202):
+            detail = "Payments service unavailable"
+            try:
+                payload = response.json()
+                detail = payload.get("error", {}).get("message") or payload.get("detail") or detail
+            except Exception:
+                pass
+            raise HTTPException(status_code=502, detail=f"Payment failed: {detail}")
+
+        payment_result = response.json()
+        payment_data = payment_result.get("data", payment_result)
+        checkout_url = payment_data.get("checkout_url")
+        if not checkout_url:
+            raise HTTPException(status_code=502, detail="Payment checkout URL missing")
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(
+            "Payment service error | order_id=%s | error_type=%s",
+            order.id,
+            safe_exception_name(exc),
         )
+        raise HTTPException(status_code=502, detail="Payment service error")
     
     return {
         "success": True,
         "order_id": order.id,
-        "tracking_number": order.tracking_number,
-        "redirect_url": order_page_url,
+        "redirect_url": checkout_url,
         "status": order.status,
-        "message": "Товар успешно куплен! Продавец получил уведомление и отправит товар в ближайшее время."
+        "payment_request_id": request_id,
+        "message": "Перенаправление на Stripe Checkout"
     }
+
+
+@order_router.get("/{order_id}/payments/success")
+async def payment_success_callback(
+    order_id: int,
+    session_id: str,
+    lang: str = "ru",
+    db: Session = Depends(get_session),
+):
+    if lang not in ["ru", "lv", "en"]:
+        lang = "ru"
+
+    order = db.get(Order, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Заказ не найден")
+
+    if order.status == OrderStatus.PAID.value:
+        tracking = order.tracking_number or f"ORD{order.id}"
+        return RedirectResponse(url=f"{Configs.FRONTEND_URL.rstrip('/')}/order?tracking={tracking}", status_code=302)
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.get(
+                f"{Configs.PAYMENTS_SERVICE_URL}/api/v1/payments/checkout-sessions/{session_id}"
+            )
+        if response.status_code != 200:
+            return RedirectResponse(
+                url=f"{Configs.FRONTEND_URL.rstrip('/')}/product?id={order.post_id}&payment=failed",
+                status_code=302,
+            )
+
+        payload = response.json()
+        data = payload.get("data", payload)
+        is_paid = bool(data.get("paid"))
+        if not is_paid:
+            return RedirectResponse(
+                url=f"{Configs.FRONTEND_URL.rstrip('/')}/product?id={order.post_id}&payment=not_paid",
+                status_code=302,
+            )
+    except Exception:
+        return RedirectResponse(
+            url=f"{Configs.FRONTEND_URL.rstrip('/')}/product?id={order.post_id}&payment=verification_failed",
+            status_code=302,
+        )
+
+    order_page_url = await finalize_order_after_successful_payment(db=db, order=order, lang=lang)
+    return RedirectResponse(url=order_page_url, status_code=302)
 
 
 @order_router.get("/shipments/{tracking_number}")
@@ -1040,12 +1138,26 @@ async def delivery_received_webhook(
         logger.warning(f"Delivery received | order_id={order_id} not found")
         raise HTTPException(status_code=404, detail="Заказ не найден")
     
+    # Идемпотентность: если уже завершён, просто подтверждаем
+    if order.status == OrderStatus.COMPLETED.value:
+        return {
+            "success": True,
+            "message": "Заказ уже завершён",
+            "order_id": order.id,
+            "status": order.status,
+        }
+
     # Проверяем текущий статус
-    if order.status not in [OrderStatus.SHIPPED.value, OrderStatus.PROCESSING.value]:
+    if order.status not in [
+        OrderStatus.PAID.value,
+        OrderStatus.SHIPPED.value,
+        OrderStatus.PROCESSING.value,
+        OrderStatus.DELIVERED.value,
+    ]:
         logger.warning(f"Delivery received | order_id={order_id} | unexpected status={order.status}")
         return {
             "success": False,
-            "message": f"Заказ имеет статус {order.status}, ожидался shipped или processing"
+            "message": f"Заказ имеет статус {order.status}, ожидался paid/shipped/processing/delivered"
         }
     
     # Обновляем статус на COMPLETED (автоматическое подтверждение получения)

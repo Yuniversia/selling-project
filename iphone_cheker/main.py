@@ -28,6 +28,17 @@ app = FastAPI(
 
 logger = logging.getLogger(__name__)
 
+
+class HealthcheckAccessFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        message = record.getMessage()
+        if '"GET /api/health ' in message:
+            return False
+        return True
+
+
+logging.getLogger("uvicorn.access").addFilter(HealthcheckAccessFilter())
+
 # Создаем таблицы при старте
 @app.on_event("startup")
 def on_startup():

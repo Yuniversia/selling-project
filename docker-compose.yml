@@ -105,6 +105,8 @@ services:
       - USE_TEST_MODE=${USE_TEST_MODE:-false}
       - NOTIFICATION_SERVICE_URL=http://notifications-service:6000
       - DELIVERY_SERVICE_URL=http://delivery-service:7000
+      - PAYMENTS_SERVICE_URL=http://payments-service:9000
+      - PAYMENTS_TEST_MODE=${PAYMENTS_TEST_MODE:-true}
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:8080}
       - IMEI_CHECKER_SERVICE_URL=http://imei-checker-service:${IMEI_PORT:-5002}
     ports:
@@ -117,6 +119,8 @@ services:
       auth-service:
         condition: service_started
       notifications-service:
+        condition: service_started
+      payments-service:
         condition: service_started
     networks:
       - lais-network
@@ -160,6 +164,49 @@ services:
     restart: unless-stopped
     volumes:
       - ./posts:/app
+
+  # Payments Service (Stripe платежи)
+  payments-service:
+    build:
+      context: ./payments
+      dockerfile: Dockerfile
+    container_name: lais-payments
+    environment:
+      - USE_POSTGRES=true
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-pass}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB:-lais_marketplace}
+      - POSTGRES_SCHEMA=payments_db
+      - PORT=${PAYMENTS_PORT:-9000}
+      - BACKEND_HOST=${BACKEND_HOST:-0.0.0.0}
+      - SECRET_KEY=${SECRET_KEY:-My secret key}
+      - TOKEN_ALGORITHM=${TOKEN_ALGORITHM:-HS256}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      - STRIPE_PUBLISHABLE_KEY=${STRIPE_PUBLISHABLE_KEY}
+      - REDIS_URL=redis://redis:6379/0
+      - REDIS_RESULT_URL=redis://redis:6379/1
+    ports:
+      - "${PAYMENTS_PORT:-9000}:${PAYMENTS_PORT:-9000}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      auth-service:
+        condition: service_started
+    networks:
+      - lais-network
+    restart: unless-stopped
+    volumes:
+      - ./payments:/app
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "-O", "/dev/null", "http://localhost:${PAYMENTS_PORT:-9000}/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   # Chat Service (WebSocket чат)
   chat-service:
