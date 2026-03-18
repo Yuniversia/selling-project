@@ -428,7 +428,7 @@
         // Загрузка продаж
         async function loadSales() {
             try {
-                const response = await fetch(`${ORDERS_API}/my-sales`, {
+                const response = await fetch(`${ORDERS_API}/me/sales`, {
                     credentials: 'include'
                 });
 
@@ -532,7 +532,7 @@
             errorDiv.style.display = 'none';
 
             try {
-                const response = await fetch(`${ORDERS_API}/ship?order_id=${currentShippingOrderId}`, {
+                const response = await fetch(`${ORDERS_API}/${currentShippingOrderId}/shipments`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'

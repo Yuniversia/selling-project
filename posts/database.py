@@ -73,6 +73,66 @@ def create_db_and_tables():
         except Exception as exc:
             logger.warning(f"PostView FK check skipped/failed: {exc}")
 
+        try:
+            with engine.begin() as connection:
+                connection.exec_driver_sql(
+                    """
+                    DELETE FROM "order" o
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM products p WHERE p.id = o.post_id
+                    )
+                    """
+                )
+                connection.exec_driver_sql(
+                    'ALTER TABLE "order" DROP CONSTRAINT IF EXISTS order_post_id_fkey'
+                )
+                connection.exec_driver_sql(
+                    """
+                    ALTER TABLE "order"
+                    ADD CONSTRAINT order_post_id_fkey
+                    FOREIGN KEY (post_id) REFERENCES products(id) ON DELETE CASCADE
+                    """
+                )
+            logger.info('Order FK check: order_post_id_fkey -> products(id)')
+        except Exception as exc:
+            logger.warning(f"Order FK check skipped/failed: {type(exc).__name__}")
+
+        try:
+            with engine.begin() as connection:
+                # buyer_id должен поддерживать анонимные заказы и не зависеть от user-таблиц
+                connection.exec_driver_sql(
+                    'ALTER TABLE IF EXISTS posts_db."order" ALTER COLUMN buyer_id DROP NOT NULL'
+                )
+                connection.exec_driver_sql(
+                    """
+                    DO $$
+                    DECLARE
+                        constraint_name text;
+                    BEGIN
+                        FOR constraint_name IN
+                            SELECT con.conname
+                            FROM pg_constraint con
+                            JOIN pg_class rel ON rel.oid = con.conrelid
+                            JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+                            JOIN pg_attribute att ON att.attrelid = rel.oid
+                            WHERE con.contype = 'f'
+                              AND nsp.nspname = 'posts_db'
+                              AND rel.relname = 'order'
+                              AND att.attname = 'buyer_id'
+                              AND att.attnum = ANY (con.conkey)
+                        LOOP
+                            EXECUTE format(
+                                'ALTER TABLE posts_db."order" DROP CONSTRAINT IF EXISTS %%I',
+                                constraint_name
+                            );
+                        END LOOP;
+                    END$$;
+                    """
+                )
+            logger.info('Order buyer_id policy applied: nullable + no FK constraints')
+        except Exception as exc:
+            logger.warning(f"Order buyer_id policy apply skipped/failed: {type(exc).__name__}")
+
 # Функция для получения сессии базы данных
 def get_session() -> Generator[Session, None, None]:
     """

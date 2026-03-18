@@ -419,7 +419,7 @@
         }
 
         try {
-            const response = await fetch(`/api/v1/orders/tracking/${encodeURIComponent(tracking)}`, {
+            const response = await fetch(`/api/v1/orders/shipments/${encodeURIComponent(tracking)}`, {
                 credentials: 'include'
             });
             if (!response.ok) {
@@ -490,7 +490,7 @@
         };
 
         try {
-            const response = await fetch(`/api/v1/orders/tracking/${encodeURIComponent(tracking)}/review`, {
+            const response = await fetch(`/api/v1/orders/shipments/${encodeURIComponent(tracking)}/reviews`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
@@ -519,7 +519,7 @@
         };
 
         try {
-            const response = await fetch(`/api/v1/orders/tracking/${encodeURIComponent(tracking)}/issue`, {
+            const response = await fetch(`/api/v1/orders/shipments/${encodeURIComponent(tracking)}/issues`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),

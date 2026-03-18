@@ -3,6 +3,7 @@
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Request, Cookie
 from sqlmodel import Session, select
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from typing import Optional
 from jose import jwt
 import secrets
@@ -21,6 +22,23 @@ from configs import Configs
 
 order_router = APIRouter(prefix="/api/v1/orders", tags=["Orders"])
 logger = logging.getLogger("posts.order_router")
+
+
+def safe_exception_name(exc: Exception) -> str:
+    """Возвращает безопасный тип исключения без текста с параметрами/PII."""
+    return type(exc).__name__
+
+
+def extract_pg_integrity_meta(exc: IntegrityError) -> dict:
+    """Безопасно извлекает метаданные ошибки БД без персональных данных."""
+    orig = getattr(exc, "orig", None)
+    diag = getattr(orig, "diag", None)
+    return {
+        "sqlstate": getattr(orig, "pgcode", None),
+        "constraint": getattr(diag, "constraint_name", None),
+        "column": getattr(diag, "column_name", None),
+        "table": getattr(diag, "table_name", None),
+    }
 
 
 def product_name(product: Optional[Product]) -> str:
@@ -64,7 +82,10 @@ async def send_notification_async(endpoint: str, data: dict):
                 )
                 return None
     except Exception as e:
-        logger.error(f"Notification error | type={endpoint} | order_id={data.get('order_id')} | {e}")
+        logger.error(
+            f"Notification error | type={endpoint} | order_id={data.get('order_id')} | "
+            f"error_type={safe_exception_name(e)}"
+        )
         return None
 
 
@@ -86,7 +107,9 @@ async def get_delivery_info(order_id: int) -> Optional[dict]:
                 logger.warning(f"Delivery service error | order_id={order_id} | HTTP {response.status_code}")
                 return None
     except Exception as e:
-        logger.error(f"Delivery info fetch error | order_id={order_id} | {e}")
+        logger.error(
+            f"Delivery info fetch error | order_id={order_id} | error_type={safe_exception_name(e)}"
+        )
         return None
 
 
@@ -104,7 +127,7 @@ async def get_delivery_by_tracking(tracking_number: str) -> Optional[dict]:
             logger.warning(f"Delivery service error by tracking | HTTP {response.status_code}")
             return None
     except Exception as e:
-        logger.error(f"Delivery tracking fetch error | {e}")
+        logger.error(f"Delivery tracking fetch error | error_type={safe_exception_name(e)}")
         return None
 
 
@@ -126,7 +149,7 @@ def get_current_user(access_token: str) -> dict:
         }
     except Exception as e:
         logger.warning(f"Auth | token validation failed: {type(e).__name__}")
-        raise HTTPException(status_code=401, detail=f"Token validation failed: {str(e)}")
+        raise HTTPException(status_code=401, detail="Token validation failed")
 
 
 def generate_pickup_code() -> str:
@@ -139,7 +162,7 @@ def generate_confirmation_code() -> str:
     return ''.join(secrets.choice(string.digits) for _ in range(6))
 
 
-@order_router.post("/create", response_model=OrderResponse)
+@order_router.post("/", response_model=OrderResponse)
 async def create_order(
     order_data: OrderCreate,
     access_token: str = Cookie(None),
@@ -272,15 +295,49 @@ async def create_order(
             # await send_notification_async("order-paid", notification_data)
             
         except Exception as e:
-            logger.warning(f"Notification data prep failed | order_id={order.id} | {e}")
+            logger.warning(
+                f"Notification data prep failed | order_id={order.id} | error_type={safe_exception_name(e)}"
+            )
             # Продолжаем выполнение даже если подготовка данных не удалась
             
     except HTTPException:
         raise
+    except IntegrityError as e:
+        db.rollback()
+        meta = extract_pg_integrity_meta(e)
+        logger.error(
+            f"Order create failed | post_id={order_data.post_id} | buyer_id={buyer_id or 'anonymous'} | "
+            f"error_type={safe_exception_name(e)} | sqlstate={meta.get('sqlstate')} | "
+            f"table={meta.get('table')} | column={meta.get('column')} | "
+            f"constraint={meta.get('constraint')}"
+        )
+
+        # Частый случай: в БД buyer_id всё ещё NOT NULL, а заказ создаёт аноним
+        if buyer_id is None and meta.get("sqlstate") == "23502" and meta.get("column") == "buyer_id":
+            raise HTTPException(status_code=401, detail="Для оформления заказа войдите в аккаунт")
+
+        # Нарушение FK/UNIQUE/CHECK
+        if meta.get("sqlstate") in {"23503", "23505", "23514"}:
+            raise HTTPException(status_code=409, detail="Заказ не удалось создать из-за ограничения базы данных")
+
+        raise HTTPException(
+            status_code=500,
+            detail="Ошибка создания заказа. Попробуйте позже или войдите в аккаунт"
+        )
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error(
+            f"Order create failed | post_id={order_data.post_id} | buyer_id={buyer_id or 'anonymous'} | "
+            f"error_type={safe_exception_name(e)}"
+        )
+        raise HTTPException(status_code=500, detail="Ошибка базы данных при создании заказа")
     except Exception as e:
         db.rollback()
-        logger.error(f"Order create failed | {e}")
-        raise HTTPException(status_code=500, detail=f"Ошибка создания заказа: {str(e)}")
+        logger.error(
+            f"Order create failed | post_id={order_data.post_id} | buyer_id={buyer_id or 'anonymous'} | "
+            f"error_type={safe_exception_name(e)}"
+        )
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка при создании заказа")
     
     return OrderResponse(
         id=order.id,
@@ -294,7 +351,7 @@ async def create_order(
     )
 
 
-@order_router.post("/pay")
+@order_router.post("/{order_id}/payments")
 async def process_payment(
     order_id: int,
     access_token: str = Cookie(None),
@@ -397,7 +454,9 @@ async def process_payment(
                     logger.warning(f"Delivery create failed | order_id={order.id} | HTTP {response.status_code}")
                     
         except Exception as e:
-            logger.error(f"Delivery create error | order_id={order.id} | {e}")
+            logger.error(
+                f"Delivery create error | order_id={order.id} | error_type={safe_exception_name(e)}"
+            )
             # Продолжаем выполнение даже если доставка не создалась
     else:
         logger.info(f"Delivery skipped | order_id={order.id} | method={order.delivery_method}")
@@ -435,7 +494,9 @@ async def process_payment(
         # Отправляем асинхронно
         await send_notification_async("order-paid", notification_data)
     except Exception as e:
-        logger.warning(f"Payment notification failed | order_id={order.id} | {e}")
+        logger.warning(
+            f"Payment notification failed | order_id={order.id} | error_type={safe_exception_name(e)}"
+        )
     
     return {
         "success": True,
@@ -447,7 +508,7 @@ async def process_payment(
     }
 
 
-@order_router.get("/tracking/{tracking_number}")
+@order_router.get("/shipments/{tracking_number}")
 async def get_order_page_by_tracking(
     tracking_number: str,
     db: Session = Depends(get_session)
@@ -551,7 +612,7 @@ async def get_order_page_by_tracking(
     }
 
 
-@order_router.post("/tracking/{tracking_number}/review")
+@order_router.post("/shipments/{tracking_number}/reviews")
 async def leave_tracking_review(
     tracking_number: str,
     review_data: OrderPageReviewCreate,
@@ -596,7 +657,7 @@ async def leave_tracking_review(
     }
 
 
-@order_router.post("/tracking/{tracking_number}/issue")
+@order_router.post("/shipments/{tracking_number}/issues")
 async def create_tracking_issue(
     tracking_number: str,
     issue_data: OrderIssueCreate,
@@ -637,7 +698,7 @@ async def create_tracking_issue(
     }
 
 
-@order_router.post("/ship")
+@order_router.post("/{order_id}/shipments")
 async def mark_as_shipped(
     order_id: int,
     access_token: str = Cookie(None),
@@ -705,7 +766,9 @@ async def mark_as_shipped(
                     logger.warning(f"Delivery not found for ship | order_id={order.id} | HTTP {delivery_response.status_code}")
                     
         except Exception as e:
-            logger.error(f"Delivery status update error | order_id={order.id} | {e}")
+            logger.error(
+                f"Delivery status update error | order_id={order.id} | error_type={safe_exception_name(e)}"
+            )
             # Продолжаем выполнение
     else:
         logger.info(f"Delivery update skipped | order_id={order.id} | method={order.delivery_method}")
@@ -718,8 +781,9 @@ async def mark_as_shipped(
     }
 
 
-@order_router.post("/review", response_model=dict)
+@order_router.post("/{order_id}/reviews", response_model=dict)
 async def leave_review(
+    order_id: int,
     review_data: dict,
     access_token: str = Cookie(None),
     db: Session = Depends(get_session)
@@ -734,12 +798,11 @@ async def leave_review(
         raise HTTPException(status_code=401, detail="Not authenticated")
     user = get_current_user(access_token)
     
-    order_id = review_data.get("order_id")
     rating = review_data.get("rating")
     review_text = review_data.get("review_text")
     
-    if not order_id or rating is None:
-        raise HTTPException(status_code=400, detail="order_id и rating обязательны")
+    if rating is None:
+        raise HTTPException(status_code=400, detail="rating обязателен")
     
     if not (0 <= rating <= 5):
         raise HTTPException(status_code=400, detail="Оценка должна быть от 0 до 5")
@@ -790,7 +853,9 @@ async def leave_review(
             
             logger.info(f"Seller rating updated | order_id={order.id}")
     except Exception as e:
-        logger.warning(f"Seller rating update failed | order_id={order.id} | {e}")
+        logger.warning(
+            f"Seller rating update failed | order_id={order.id} | error_type={safe_exception_name(e)}"
+        )
     
     return {
         "success": True,
@@ -800,7 +865,7 @@ async def leave_review(
     }
 
 
-@order_router.get("/my-orders")
+@order_router.get("/me/orders")
 async def get_my_orders(
     access_token: str = Cookie(None),
     db: Session = Depends(get_session)
@@ -859,7 +924,7 @@ async def get_my_orders(
     return {"orders": safe_orders}
 
 
-@order_router.get("/my-sales")
+@order_router.get("/me/sales")
 async def get_my_sales(
     access_token: str = Cookie(None),
     db: Session = Depends(get_session)
@@ -917,7 +982,7 @@ async def get_my_sales(
     return {"sales": safe_sales}
 
 
-@order_router.get("/details")
+@order_router.get("/{order_id}")
 async def get_order_details(
     order_id: int,
     access_token: str = Cookie(None),
@@ -945,7 +1010,7 @@ async def get_order_details(
     }
 
 
-@order_router.post("/delivery-received")
+@order_router.post("/delivery-events/receipts")
 async def delivery_received_webhook(
     request: dict,
     db: Session = Depends(get_session)
@@ -1021,7 +1086,9 @@ async def delivery_received_webhook(
             
             logger.info(f"Seller stats updated | order_id={order_id}")
     except Exception as e:
-        logger.warning(f"Seller stats update failed | order_id={order_id} | {e}")
+        logger.warning(
+            f"Seller stats update failed | order_id={order_id} | error_type={safe_exception_name(e)}"
+        )
     
     # Скрываем чаты связанные с этим заказом
     if order.buyer_id:
@@ -1046,7 +1113,9 @@ async def delivery_received_webhook(
                 else:
                     logger.warning(f"Chat hide failed | post_id={order.post_id} | HTTP {response.status_code}")
         except Exception as e:
-            logger.error(f"Chat hide error | post_id={order.post_id} | {e}")
+            logger.error(
+                f"Chat hide error | post_id={order.post_id} | error_type={safe_exception_name(e)}"
+            )
     
     # Отправляем SMS с благодарностью и ссылкой на отзыв
     try:
@@ -1074,7 +1143,9 @@ async def delivery_received_webhook(
         # Отправляем асинхронно SMS с благодарностью и ссылкой на отзыв
         await send_notification_async("order-delivered", notification_data)
     except Exception as e:
-        logger.warning(f"Review request SMS failed | order_id={order.id} | {e}")
+        logger.warning(
+            f"Review request SMS failed | order_id={order.id} | error_type={safe_exception_name(e)}"
+        )
     
     return {
         "success": True,

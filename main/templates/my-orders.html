@@ -420,7 +420,7 @@
         // Загрузка заказов
         async function loadOrders() {
             try {
-                const response = await fetch(`${ORDERS_API}/my-orders`, {
+                const response = await fetch(`${ORDERS_API}/me/orders`, {
                     credentials: 'include'
                 });
 

@@ -9,7 +9,7 @@ from jose import jwt
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, and_, select
 
-from api_response import ok_response
+from api_response import ok_response, error_response
 from configs import Configs
 from database import get_session
 from models_v2 import PostReport, PostUpdateData, PostView, Product, ProductPublic, ProductStatus, ReportCreate
@@ -82,6 +82,62 @@ async def create_post(
         data_source = {"origin": "imei_checker", "verified": False}
     data_source["updated_at"] = datetime.utcnow().isoformat()
     attributes_payload["data_source"] = data_source
+
+    try:
+        raw_imei = attributes_payload.get("imei")
+        imei = "".join(char for char in str(raw_imei or "") if char.isdigit())
+
+        if not imei:
+            logger.info("create_post: missing imei in attributes")
+            return error_response(request,
+                                  {
+                                      "code": 422,
+                                      "message": "IMEI is required in attributes for post creation"
+                                  })
+
+        if len(imei) != 15:
+            logger.info("create_post: invalid imei format | imei=%s", raw_imei)
+            return error_response(request,
+                                  {
+                                      "code": 422,
+                                      "message": "IMEI must contain exactly 15 digits"
+                                  })
+
+        attributes_payload["imei"] = imei
+
+        statement = select(Product).where(
+            _attrs_query_expr("imei", imei),
+            Product.active == True,
+        )
+        existing = db.exec(statement).first()
+        if existing:
+            logger.info(
+                "create_post: active post with same IMEI exists | imei=%s | existing_post_id=%s | seller_id=%s",
+                imei,
+                existing.id,
+                existing.seller_id,
+            )
+            return error_response(request,
+                                  {
+                                      "code": 409,
+                                      "message": "Device with this IMEI is already posted and active. Please check the IMEI or contact support."
+                                  })
+
+        logger.info("create_post: imei check passed | imei=%s", imei)
+
+    except HTTPException:
+        return error_response(request, 
+                              {
+                                  "code": 422,
+                                  "message": "Invalid IMEI provided in attributes"
+                              })
+    except Exception as exc:
+        logger.exception("create_post: imei validation failed | error=%r", exc)
+        return error_response(request,
+                              {
+                                  "code": 422,
+                                  "message": "Invalid IMEI provided in attributes"
+                              })
 
     product = create_product_creating(
         db=db,

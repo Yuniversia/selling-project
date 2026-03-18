@@ -62,6 +62,7 @@
         const API_V1 = "/api/v1";
         const AUTH_API = `${API_V1}/auth`;
         const POSTS_API = `${API_V1}/posts`;  // Nginx routing: /api/v1/posts/...
+        const ORDERS_API = `${API_V1}/orders`;
         const CHAT_API = `${API_V1}/chat`;
         const IMEI_API = `${API_V1}/imei`;
         console.log('🔧 API Configuration:');
@@ -1255,7 +1256,7 @@
             }
             
             try {
-                const response = await fetch(`${POSTS_API}/orders/create`, {
+                const response = await fetch(`${ORDERS_API}/`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -1314,7 +1315,7 @@
             errorDiv.style.display = 'none';
 
             try {
-                const response = await fetch(`${POSTS_API}/orders/pay?order_id=${currentOrderId}`, {
+                const response = await fetch(`${ORDERS_API}/${currentOrderId}/payments`, {
                     method: 'POST',
                     credentials: 'include'
                 });

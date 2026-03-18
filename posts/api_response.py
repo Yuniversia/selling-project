@@ -13,3 +13,10 @@ def ok_response(request: Request, data: Any) -> dict:
         "data": data,
         "request_id": request_id_from(request),
     }
+
+def error_response(request: Request, data: Any) -> dict:
+    return {
+        "status": "error",
+        "data": data,
+        "request_id": request_id_from(request),
+    }

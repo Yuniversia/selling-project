@@ -38,7 +38,7 @@ except ImportError:
         email: str = Field(index=True)
         phone: Optional[str] = None
 
-bought_router = APIRouter(prefix="/api/v1/bought", tags=["Bought Items"])
+bought_router = APIRouter(prefix="/api/v1/purchases", tags=["Purchases"])
 
 
 @bought_router.post("/", status_code=status.HTTP_201_CREATED, response_model=BoughtItemPublic)
@@ -173,7 +173,7 @@ async def create_purchase(
         )
 
 
-@bought_router.get("/my-purchases", response_model=list[BoughtItemPublic])
+@bought_router.get("/me", response_model=list[BoughtItemPublic])
 async def get_my_purchases(
     access_token: str = Cookie(None),
     db: Session = Depends(get_session)
