@@ -1,18 +1,45 @@
 # notification_router.py - API роутеры для notification service
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Cookie, status
 from sqlmodel import Session, select
 from typing import Optional
+from datetime import datetime
+from jose import jwt
+import logging
 
 from database import get_session
+from configs import configs
 from models import (
     SendNotificationRequest, SendNotificationResponse,
     NotificationHistoryResponse, NotificationLog,
     NotificationType, NotificationChannel, OrderNotificationData
 )
-from notification_service import NotificationService
+from notification_service import NotificationService, SendBerryService
 
 notification_router = APIRouter(prefix="/api/v1/notifications", tags=["Notifications"])
+logger = logging.getLogger("notification.router")
+
+
+def _decode_user(access_token: Optional[str]) -> dict:
+    if not access_token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Требуется авторизация")
+
+    try:
+        payload = jwt.decode(access_token, configs.secret_key, algorithms=[configs.token_algoritm])
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Недействительный токен")
+
+    if not payload.get("user_id"):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Некорректный токен")
+
+    return payload
+
+
+def _check_admin(access_token: Optional[str]) -> dict:
+    payload = _decode_user(access_token)
+    if payload.get("user_type", "regular") not in ["admin", "support"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Доступ запрещен")
+    return payload
 
 
 @notification_router.post("/send", response_model=SendNotificationResponse)
@@ -174,4 +201,23 @@ async def health_check():
         "status": "healthy",
         "service": "notification-service",
         "version": "1.0.0"
+    }
+
+
+@notification_router.get("/balance")
+async def get_notifications_balance(
+    access_token: Optional[str] = Cookie(None),
+):
+    _check_admin(access_token)
+
+    service = SendBerryService()
+    success, data, error = service.get_balance()
+    if not success or not data:
+        logger.error(f"Notifications balance failed: {error}")
+        raise HTTPException(status_code=503, detail=error or "Failed to fetch notifications balance")
+
+    data["last_synced"] = datetime.utcnow().isoformat()
+    return {
+        "status": "success",
+        "data": data,
     }

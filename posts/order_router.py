@@ -1,7 +1,7 @@
 # order_router.py - Роутер для системы покупки и доставки
 
 import logging
-from fastapi import APIRouter, Depends, HTTPException, Request, Cookie
+from fastapi import APIRouter, Depends, HTTPException, Request, Cookie, Query
 from fastapi.responses import RedirectResponse
 from sqlmodel import Session, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -18,7 +18,7 @@ from models_v2 import (
     Order, OrderCreate, OrderResponse,
     Product, DeliveryMethod, OrderStatus, User,
     OrderReview, OrderIssue, OrderPageReviewCreate,
-    OrderIssueCreate, OrderIssueStatus
+    OrderIssueCreate, OrderIssueStatus, PostReport
 )
 from configs import Configs
 
@@ -758,6 +758,7 @@ async def leave_tracking_review(
 @order_router.post("/shipments/{tracking_number}/issues")
 async def create_tracking_issue(
     tracking_number: str,
+    request: Request,
     issue_data: OrderIssueCreate,
     db: Session = Depends(get_session)
 ):
@@ -779,6 +780,36 @@ async def create_tracking_issue(
     db.add(issue)
     db.commit()
     db.refresh(issue)
+
+    # Синхронизируем с общей лентой жалоб для админ-панели (/api/v1/reports)
+    try:
+        reporter_id = None
+        access_token = request.cookies.get("access_token")
+        if access_token:
+            try:
+                reporter_id = jwt.decode(access_token, Configs.secret_key, algorithms=[Configs.token_algoritm]).get("user_id")
+            except Exception:
+                reporter_id = None
+
+        reporter_ip = request.headers.get("X-Forwarded-For", "").split(",")[0].strip() if request.headers.get("X-Forwarded-For") else (request.client.host if request.client else "unknown")
+        short_reason = (issue_data.reason or "").strip()[:50]
+        details_prefix = f"[tracking:{tracking_number}] [type:{issue_data.issue_type.value}]"
+
+        report = PostReport(
+            post_id=order.post_id,
+            reporter_id=reporter_id,
+            reporter_ip=reporter_ip,
+            reason=short_reason or "Issue from order page",
+            details=f"{details_prefix}\n{issue_data.description}",
+            status="pending",
+        )
+        db.add(report)
+        db.commit()
+    except Exception as sync_error:
+        logger.warning(
+            f"Order issue->PostReport sync failed | tracking={tracking_number} | order_id={order.id} | "
+            f"error_type={safe_exception_name(sync_error)}"
+        )
 
     return {
         "success": True,
@@ -1078,6 +1109,38 @@ async def get_my_sales(
         safe_sales.append(order_response)
     
     return {"sales": safe_sales}
+
+
+@order_router.get("")
+async def get_admin_orders_today_stats(
+    start_at: datetime = Query(..., description="Начало периода в ISO формате UTC"),
+    end_at: datetime = Query(..., description="Конец периода в ISO формате UTC"),
+    access_token: str = Cookie(None),
+    db: Session = Depends(get_session)
+):
+    """Статистика заказов за период через start_at/end_at, только для admin/support."""
+    user = get_current_user(access_token)
+    if user.get("user_type", "regular") not in ["admin", "support"]:
+        raise HTTPException(status_code=403, detail="Недостаточно прав")
+
+    if end_at <= start_at:
+        raise HTTPException(status_code=422, detail="end_at должен быть больше start_at")
+
+    today_orders = db.exec(
+        select(Order).where(
+            Order.created_at >= start_at,
+            Order.created_at < end_at,
+        )
+    ).all()
+
+    return {
+        "status": "success",
+        "data": {
+            "new_orders": len(today_orders),
+            "start_at": start_at.isoformat(),
+            "end_at": end_at.isoformat(),
+        }
+    }
 
 
 @order_router.get("/{order_id}")

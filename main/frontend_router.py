@@ -312,6 +312,47 @@ def set_language(lang: str, request: Request):
     )
     return response
 
+@frontend_router.get("/admin", name="admin_dashboard")
+def admin_dashboard(request: Request):
+    """
+    Защищенная админ-панель - только для пользователей с user_type='admin'.
+    Полностью скрыта от поисковых систем и обычных пользователей.
+    """
+    from fastapi.responses import Response
+    
+    user = get_user_from_token(request)
+    
+    # Проверяем аутентификацию
+    if not user:
+        # Перенаправляем на главную с сообщением об ошибке
+        return templates.TemplateResponse(
+            "404.html",
+            get_template_context(request, "403 - Доступ запрещен"),
+            status_code=403
+        )
+    
+    # Проверяем что пользователь администратор
+    if user.get("user_type", "regular") != "admin":
+        # Не показываем страницу, возвращаем 403
+        return templates.TemplateResponse(
+            "404.html",
+            get_template_context(request, "403 - Доступ запрещен"),
+            status_code=403
+        )
+    
+    context = get_template_context(request, "Администратор")
+    response = templates.TemplateResponse(
+        "admin.html",
+        context,
+        status_code=200
+    )
+    # Отключаем кеширование и прячем от поисковых систем
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    response.headers["X-Robots-Tag"] = "noindex, nofollow"
+    return response
+
 @frontend_router.get("/404", name="not_found")
 def not_found_page(request: Request):
     """Отдает кастомную 404 страницу."""

@@ -99,6 +99,30 @@ def create_db_and_tables():
 
         try:
             with engine.begin() as connection:
+                connection.exec_driver_sql(
+                    """
+                    DELETE FROM postreport pr
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM products p WHERE p.id = pr.post_id
+                    )
+                    """
+                )
+                connection.exec_driver_sql(
+                    'ALTER TABLE postreport DROP CONSTRAINT IF EXISTS postreport_post_id_fkey'
+                )
+                connection.exec_driver_sql(
+                    """
+                    ALTER TABLE postreport
+                    ADD CONSTRAINT postreport_post_id_fkey
+                    FOREIGN KEY (post_id) REFERENCES products(id) ON DELETE CASCADE
+                    """
+                )
+            logger.info('PostReport FK check: postreport_post_id_fkey -> products(id)')
+        except Exception as exc:
+            logger.warning(f"PostReport FK check skipped/failed: {type(exc).__name__}")
+
+        try:
+            with engine.begin() as connection:
                 # buyer_id должен поддерживать анонимные заказы и не зависеть от user-таблиц
                 connection.exec_driver_sql(
                     'ALTER TABLE IF EXISTS posts_db."order" ALTER COLUMN buyer_id DROP NOT NULL'

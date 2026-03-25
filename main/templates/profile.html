@@ -1019,7 +1019,7 @@
         // Загрузка количества ожидающих жалоб
         async function loadPendingReportsCount() {
             try {
-                const response = await fetch(`${POSTS_API}/admin/reports?status_filter=pending`, {
+                const response = await fetch(`/api/v1/reports?status=pending`, {
                     credentials: 'include'
                 });
                 
@@ -1047,7 +1047,7 @@
         // Загрузка всех жалоб
         async function loadReports() {
             try {
-                const response = await fetch(`${POSTS_API}/admin/reports?limit=200`, {
+                const response = await fetch(`/api/v1/reports?limit=200`, {
                     credentials: 'include'
                 });
                 
@@ -1260,7 +1260,7 @@
             
             try {
                 // PATCH для частичного обновления согласно REST стандарту
-                const response = await fetch(`${POSTS_API}/admin/reports/${currentReportId}`, {
+                const response = await fetch(`/api/v1/reports/${currentReportId}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',

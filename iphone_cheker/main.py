@@ -1,11 +1,12 @@
-from urllib import request
-from fastapi import FastAPI, HTTPException, Depends, Query, Body
+from fastapi import FastAPI, HTTPException, Depends, Query, Body, Cookie, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session
 import sys
 import os
 import logging
 from typing import Optional
+import httpx
+from jose import jwt
 
 # Добавляем путь к модулю iphone_cheker
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -27,6 +28,65 @@ app = FastAPI(
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _decode_user(access_token: Optional[str]) -> dict:
+    if not access_token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Требуется авторизация")
+
+    try:
+        payload = jwt.decode(access_token, Configs.SECRET_KEY, algorithms=[Configs.TOKEN_ALGORITHM])
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Недействительный токен")
+
+    if not payload.get("user_id"):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Некорректный токен")
+
+    return payload
+
+
+def _check_admin(access_token: Optional[str]) -> dict:
+    payload = _decode_user(access_token)
+    if payload.get("user_type", "regular") not in ["admin", "support"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Доступ запрещен")
+    return payload
+
+
+async def _fetch_imeicheck_balance() -> dict:
+    if not Configs.IMEICHECK_NET_API_KEY:
+        raise HTTPException(status_code=503, detail="IMEIcheck API key is not configured")
+
+    url = "https://api.imeicheck.net/v1/account"
+    headers = {
+        "Authorization": f"Bearer {Configs.IMEICHECK_NET_API_KEY}",
+        "Accept": "application/json",
+        "Accept-Language": "en",
+        "Content-Type": "application/json",
+    }
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        try:
+            response = await client.get(url, headers=headers)
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail=f"Failed to fetch IMEI balance: {exc}")
+
+    if response.status_code >= 400:
+        raise HTTPException(status_code=503, detail=f"Failed to fetch IMEI balance: HTTP {response.status_code}")
+
+    payload = response.json()
+    balance_raw = payload.get("balance") if isinstance(payload, dict) else None
+    if balance_raw is None:
+        raise HTTPException(status_code=503, detail="Failed to fetch IMEI balance: balance is missing")
+
+    try:
+        balance = float(str(balance_raw).replace(",", "."))
+    except ValueError:
+        raise HTTPException(status_code=503, detail="Failed to fetch IMEI balance: invalid balance format")
+
+    return {
+        "provider": "imeicheck.net",
+        "balance": balance,
+        "currency": "USD",
+    }
 
 
 class HealthcheckAccessFilter(logging.Filter):
@@ -197,6 +257,17 @@ async def get_stats(db: Session = Depends(get_session)):
             "imei_org": sum(1 for log in logs if log.source == "imei.org")
         },
         "test_mode_checks": sum(1 for log in logs if log.test_mode)
+    }
+
+
+@app.get("/api/balance")
+async def get_imei_balance(access_token: Optional[str] = Cookie(None)):
+    """Баланс IMEI-провайдера. Доступ только admin/support."""
+    _check_admin(access_token)
+    data = await _fetch_imeicheck_balance()
+    return {
+        "status": "success",
+        "data": data,
     }
 
 

@@ -3,7 +3,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Cookie, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
+from fastapi import APIRouter, Body, Cookie, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
 import httpx
 from jose import jwt
 from sqlalchemy.exc import SQLAlchemyError
@@ -56,6 +56,39 @@ def _get_client_ip(request: Request) -> str:
 
 def _attrs_query_expr(key: str, value: Any):
     return Product.attributes.op("->>")(key) == str(value)
+
+
+def _is_admin_payload(payload: Optional[Dict[str, Any]]) -> bool:
+    if not payload:
+        return False
+    return payload.get("user_type", "regular") in ["admin", "support"]
+
+
+def _is_resolved_status(status_value: str) -> bool:
+    return status_value in {"approved", "resolved", "rejected", "closed"}
+
+
+def _report_sort_key(report: PostReport):
+    return (1 if _is_resolved_status(report.status) else 0, report.created_at)
+
+
+def _serialize_report(db: Session, report: PostReport) -> Dict[str, Any]:
+    post = get_post(db, report.post_id)
+    attrs = post.attributes if post else {}
+    return {
+        "id": report.id,
+        "post_id": report.post_id,
+        "post_model": attrs.get("model", "Удалено") if attrs else "Удалено",
+        "post_active": post.active if post else False,
+        "reporter_id": report.reporter_id,
+        "reporter_ip": report.reporter_ip,
+        "reason": report.reason,
+        "details": report.details,
+        "status": report.status,
+        "created_at": report.created_at.isoformat(),
+        "reviewed_at": report.reviewed_at.isoformat() if report.reviewed_at else None,
+        "reviewed_by": report.reviewed_by,
+    }
 
 
 @api_router.post("/posts", status_code=status.HTTP_202_ACCEPTED)
@@ -326,7 +359,7 @@ async def get_direct_upload_url(request: Request):
 
 
 
-@api_router.post("/report", status_code=status.HTTP_201_CREATED)
+@api_router.post("/reports", status_code=status.HTTP_201_CREATED)
 def create_report(
     request: Request,
     report_data: ReportCreate,
@@ -364,72 +397,93 @@ def create_report(
     })
 
 
-@api_router.get("/report/check/{post_id}")
-def check_report(
-    request: Request,
-    post_id: int,
-    access_token: str = Cookie(None),
-    db: Session = Depends(get_session),
-):
-    reporter_id = None
-    if access_token:
-        try:
-            reporter_id = jwt.decode(access_token, Configs.secret_key, algorithms=[Configs.token_algoritm]).get("user_id")
-        except Exception:
-            reporter_id = None
-
-    q = select(PostReport).where(PostReport.post_id == post_id)
-    if reporter_id:
-        q = q.where(PostReport.reporter_id == reporter_id)
-    else:
-        q = q.where(PostReport.reporter_ip == _get_client_ip(request))
-
-    return ok_response(request, {"has_reported": db.exec(q).first() is not None})
-
-
-@api_router.get("/admin/reports")
-def list_admin_reports(
+@api_router.get("/reports")
+def list_reports(
     request: Request,
     status_filter: Optional[str] = Query(None),
+    status_value: Optional[str] = Query(None, alias="status"),
+    reason: Optional[str] = Query(None),
+    post_id: Optional[int] = Query(None),
     limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     skip: int = Query(0, ge=0),
     access_token: str = Cookie(None),
     db: Session = Depends(get_session),
 ):
-    _check_admin(access_token)
-    q = select(PostReport)
-    if status_filter:
-        q = q.where(PostReport.status == status_filter)
-    q = q.order_by(PostReport.created_at.desc()).offset(skip).limit(limit)
+    payload = None
+    if access_token:
+        try:
+            payload = jwt.decode(access_token, Configs.secret_key, algorithms=[Configs.token_algoritm])
+        except Exception:
+            payload = None
 
-    reports = []
-    for report in db.exec(q).all():
-        post = get_post(db, report.post_id)
-        attrs = post.attributes if post else {}
-        reports.append({
-            "id": report.id,
-            "post_id": report.post_id,
-            "post_model": attrs.get("model", "Удалено") if attrs else "Удалено",
-            "post_active": post.active if post else False,
-            "reporter_id": report.reporter_id,
-            "reporter_ip": report.reporter_ip,
-            "reason": report.reason,
-            "details": report.details,
-            "status": report.status,
-            "created_at": report.created_at.isoformat(),
-            "reviewed_at": report.reviewed_at.isoformat() if report.reviewed_at else None,
-            "reviewed_by": report.reviewed_by,
-        })
+    is_admin = _is_admin_payload(payload)
 
-    return ok_response(request, reports)
+    if not is_admin:
+        if post_id is None:
+            raise HTTPException(status_code=403, detail="Доступ запрещен")
+
+        reporter_id = payload.get("user_id") if payload else None
+        check_query = select(PostReport).where(PostReport.post_id == post_id)
+        if reporter_id:
+            check_query = check_query.where(PostReport.reporter_id == reporter_id)
+        else:
+            check_query = check_query.where(PostReport.reporter_ip == _get_client_ip(request))
+
+        user_reports = db.exec(check_query).all()
+        return ok_response(
+            request,
+            [
+                {
+                    "id": report.id,
+                    "post_id": report.post_id,
+                    "status": report.status,
+                    "created_at": report.created_at.isoformat(),
+                }
+                for report in user_reports
+            ],
+        )
+
+    effective_status = status_value or status_filter
+    effective_offset = offset if offset > 0 else skip
+
+    query = select(PostReport)
+    if effective_status:
+        query = query.where(PostReport.status == effective_status)
+    if reason:
+        query = query.where(PostReport.reason == reason)
+    if post_id is not None:
+        query = query.where(PostReport.post_id == post_id)
+
+    reports = db.exec(query).all()
+    reports.sort(key=_report_sort_key)
+    reports = reports[effective_offset: effective_offset + limit]
+
+    return ok_response(request, [_serialize_report(db, report) for report in reports])
 
 
-@api_router.put("/admin/reports/{report_id}")
-def update_admin_report(
+@api_router.get("/reports/{report_id}")
+def get_report(
     request: Request,
     report_id: int,
-    new_status: str = Query(...),
-    action: Optional[str] = Query(None),
+    access_token: str = Cookie(None),
+    db: Session = Depends(get_session),
+):
+    payload = _decode_user(access_token)
+    if not _is_admin_payload(payload):
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+
+    report = db.get(PostReport, report_id)
+    if not report:
+        raise HTTPException(status_code=404, detail="Жалоба не найдена")
+    return ok_response(request, _serialize_report(db, report))
+
+
+@api_router.patch("/reports/{report_id}")
+def update_report(
+    request: Request,
+    report_id: int,
+    payload: Dict[str, Any] = Body(default_factory=dict),
     access_token: str = Cookie(None),
     db: Session = Depends(get_session),
 ):
@@ -438,6 +492,11 @@ def update_admin_report(
     if not report:
         raise HTTPException(status_code=404, detail="Жалоба не найдена")
 
+    new_status = str(payload.get("status", "")).strip()
+    if not new_status:
+        raise HTTPException(status_code=422, detail="Поле status обязательно")
+
+    action = payload.get("action")
     report.status = new_status
     report.reviewed_at = datetime.utcnow()
     report.reviewed_by = user["user_id"]
@@ -450,4 +509,22 @@ def update_admin_report(
 
     db.add(report)
     db.commit()
-    return ok_response(request, {"report_id": report_id, "new_status": new_status})
+    db.refresh(report)
+    return ok_response(request, _serialize_report(db, report))
+
+
+@api_router.put("/reports/{report_id}")
+def replace_report(
+    request: Request,
+    report_id: int,
+    payload: Dict[str, Any] = Body(default_factory=dict),
+    access_token: str = Cookie(None),
+    db: Session = Depends(get_session),
+):
+    return update_report(
+        request=request,
+        report_id=report_id,
+        payload=payload,
+        access_token=access_token,
+        db=db,
+    )

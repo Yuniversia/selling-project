@@ -724,6 +724,110 @@ TRANSLATIONS = {
         # Terms of Service
         "terms_of_service": "Правила использования",
         "all_rights_reserved": "Все права защищены",
+        
+        # ADMIN PANEL TRANSLATIONS
+        "admin_panel": "Администраторская панель",
+        "admin_dashboard": "Главная панель",
+        "admin_reports": "Жалобы",
+        "admin_chats": "Чаты",
+        "admin_messages": "Сообщения",
+        "admin_moderation": "Модерация",
+        "admin_statistics": "Статистика",
+        
+        # Dashboard Stats
+        "stat_visits_today": "Посещений сегодня",
+        "stat_avg_time": "Среднее время на сайте",
+        "stat_ctr": "CTR объявлений",
+        "stat_orders": "Новых заказов",
+        "stat_new_reports": "Новые жалобы",
+        "stat_unread": "Непрочитанные сообщения",
+        "stat_unique_visitors": "Уникальных посетителей",
+        "stat_completed_deals": "Завершенных сделок",
+        "stat_active_listings": "Активных объявлений",
+        "stat_registered_users": "Зарегистрировано пользователей",
+        "stat_avg_check": "Средний чек",
+        "stat_conversion": "Конверсия в покупку",
+        
+        # Services Balance
+        "services_balance": "Баланс сервисов",
+        "service_imei_check": "IMEI Check Сервис",
+        "service_imei_desc": "Проверка iPhone по базам",
+        "service_sms": "SMS Сервис",
+        "service_sms_desc": "Отправка СМС уведомлений",
+        "service_storage": "Cloudflare R2 Storage",
+        "service_storage_desc": "Хранилище файлов",
+        "service_stripe": "Stripe платежи",
+        "service_stripe_desc": "Обработка транзакций",
+        
+        # Reports Management
+        "reports_management": "Управление жалобами",
+        "report_filter_status": "Статус:",
+        "report_filter_reason": "Причина:",
+        "report_filter_post_id": "ID объявления...",
+        "report_table_id": "ID",
+        "report_table_listing": "Объявление",
+        "report_table_reason": "Причина",
+        "report_table_sender": "Отправитель",
+        "report_table_status": "Статус",
+        "report_table_date": "Дата",
+        "report_table_actions": "Действия",
+        "report_status_pending": "На рассмотрении",
+        "report_status_approved": "Одобрено",
+        "report_status_rejected": "Отклонено",
+        "report_view_btn": "Просмотр",
+        "report_approve_btn": "✓ Одобрить",
+        "report_reject_btn": "✗ Отклонить",
+        "report_modal_title": "Детали жалобы",
+        "report_modal_listing": "Объявление:",
+        "report_modal_reason": "Причина:",
+        "report_modal_description": "Описание:",
+        "report_modal_sender": "Отправитель:",
+        "report_approved_msg": "Жалоба одобрена. Инициирован возврат денег.",
+        "report_rejected_msg": "Жалоба отклонена.",
+        
+        # Chats
+        "chats_title": "Чаты продавцов и покупателей",
+        "chats_list_header": "Список чатов",
+        "chat_select_message": "Выберите чат для просмотра переписки",
+        "chat_input_placeholder": "Введите сообщение...",
+        "chat_send_btn": "Отправить",
+        "chat_no_chats": "Нет чатов",
+        "chat_no_messages": "Нет сообщений",
+        
+        # Messages
+        "messages_title": "Сообщения от клиентов",
+        "message_table_from": "От",
+        "message_table_subject": "Тема",
+        "message_table_message": "Сообщение",
+        "message_table_status": "Статус",
+        "message_table_date": "Дата",
+        "message_status_unread": "Новое",
+        "message_status_read": "Прочитано",
+        "message_open_btn": "Открыть",
+        "message_no_messages": "Нет сообщений",
+        
+        # Moderation
+        "moderation_title": "Модерация объявлений",
+        "moderation_table_title": "Название",
+        "moderation_table_seller": "Продавец",
+        "moderation_table_price": "Цена",
+        "moderation_in_development": "Функция в разработке",
+        "moderation_integration_planned": "Интеграция с posts-service планируется",
+        
+        # Statistics
+        "statistics_title": "Детальная статистика",
+        "statistics_note": "Подробная статистика загружается из различных источников:",
+        "statistics_note_1": "Analytics из Google Analytics",
+        "statistics_note_2": "Данные транзакций из Stripe",
+        "statistics_note_3": "Активность пользователей из базы данных auth-service",
+        "statistics_note_4": "Метрики объявлений из posts-service",
+        
+        # General Admin
+        "admin_logout": "Выход",
+        "admin_confirm_logout": "Вы уверены, что хотите выйти?",
+        "admin_access_denied": "Доступ запрещен",
+        "admin_unauthorized": "Требуется авторизация",
+        "admin_admin_role": "Admin",
     },
     
     "lv": {

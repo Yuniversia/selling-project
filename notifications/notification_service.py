@@ -136,6 +136,57 @@ class SendBerryService:
             logger.error(f"❌ SMS send exception: {e}")
             return False, None, str(e)
 
+    def get_balance(self) -> Tuple[bool, Optional[dict], Optional[str]]:
+        """Получение реального баланса SendBerry через POST /STATUS/BALANCE."""
+        if not self.api_key or not self.api_name or not self.api_password:
+            return False, None, "SendBerry credentials not configured"
+
+        params = {
+            "key": self.api_key,
+            "name": self.api_name,
+            "password": self.api_password,
+            "response": "JSON",
+        }
+
+        try:
+            response = requests.post(
+                "https://api.sendberry.com/STATUS/BALANCE",
+                data=params,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                timeout=20,
+            )
+        except requests.RequestException as exc:
+            logger.error(f"❌ SendBerry balance request failed: {exc}")
+            return False, None, str(exc)
+
+        if response.status_code >= 400:
+            logger.error(f"❌ SendBerry balance HTTP {response.status_code}: {response.text[:300]}")
+            return False, None, f"HTTP {response.status_code}"
+
+        try:
+            payload = response.json()
+        except Exception:
+            logger.error(f"❌ SendBerry balance invalid JSON: {response.text[:300]}")
+            return False, None, "Invalid JSON response"
+
+        if not isinstance(payload, dict) or payload.get("balance") is None:
+            logger.error(f"❌ SendBerry balance missing field 'balance': {payload}")
+            return False, None, "Balance is missing in response"
+
+        try:
+            balance = float(payload.get("balance"))
+            credit_limit = float(payload.get("credit_limit", 0))
+        except (TypeError, ValueError):
+            logger.error(f"❌ SendBerry balance has invalid numeric format: {payload}")
+            return False, None, "Invalid balance format"
+
+        return True, {
+            "provider": "sendberry",
+            "balance": balance,
+            "credit_limit": credit_limit,
+            "currency": "EUR",
+        }, None
+
 
 class NotificationService:
     """Сервис для управления уведомлениями"""

@@ -1407,13 +1407,14 @@
         document.getElementById('reportBtn').addEventListener('click', async () => {
             // Проверяем, не отправлял ли пользователь уже жалобу
             try {
-                const response = await fetch(`${POSTS_API}/report/check/${postId}`, {
+                const response = await fetch(`/api/v1/reports?post_id=${postId}`, {
                     credentials: 'include'
                 });
                 
                 if (response.ok) {
                     const data = await response.json();
-                    if ((data.data || data).has_reported) {
+                    const reports = data.data || data || [];
+                    if (Array.isArray(reports) && reports.length > 0) {
                         showAlert('Вы уже отправили жалобу на это объявление', 'warning');
                         return;
                     }
@@ -1470,7 +1471,7 @@
             };
             
             try {
-                const response = await fetch(`${POSTS_API}/report`, {
+                const response = await fetch(`/api/v1/reports`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
