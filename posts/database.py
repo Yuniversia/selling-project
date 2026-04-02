@@ -125,7 +125,7 @@ def create_db_and_tables():
             with engine.begin() as connection:
                 # buyer_id должен поддерживать анонимные заказы и не зависеть от user-таблиц
                 connection.exec_driver_sql(
-                    'ALTER TABLE IF EXISTS posts_db."order" ALTER COLUMN buyer_id DROP NOT NULL'
+                    'ALTER TABLE IF EXISTS "order" ALTER COLUMN buyer_id DROP NOT NULL'
                 )
                 connection.exec_driver_sql(
                     """
@@ -140,13 +140,13 @@ def create_db_and_tables():
                             JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
                             JOIN pg_attribute att ON att.attrelid = rel.oid
                             WHERE con.contype = 'f'
-                              AND nsp.nspname = 'posts_db'
+                              AND nsp.nspname = 'public'
                               AND rel.relname = 'order'
                               AND att.attname = 'buyer_id'
                               AND att.attnum = ANY (con.conkey)
                         LOOP
                             EXECUTE format(
-                                'ALTER TABLE posts_db."order" DROP CONSTRAINT IF EXISTS %%I',
+                                'ALTER TABLE "order" DROP CONSTRAINT IF EXISTS %%I',
                                 constraint_name
                             );
                         END LOOP;
@@ -156,6 +156,33 @@ def create_db_and_tables():
             logger.info('Order buyer_id policy applied: nullable + no FK constraints')
         except Exception as exc:
             logger.warning(f"Order buyer_id policy apply skipped/failed: {type(exc).__name__}")
+        
+        # === ФАЗА 2: Добавляем новые столбцы для системы доставки и скидок ===
+        try:
+            with engine.begin() as connection:
+                # Таблица "order" находится в public схеме (не в posts_db)
+                # Добавляем столбцы для доставки (если их еще нет)
+                connection.exec_driver_sql(
+                    'ALTER TABLE public."order" ADD COLUMN IF NOT EXISTS delivery_cost NUMERIC(10, 2) DEFAULT 0'
+                )
+                connection.exec_driver_sql(
+                    'ALTER TABLE public."order" ADD COLUMN IF NOT EXISTS selected_locker_id VARCHAR(100)'
+                )
+                connection.exec_driver_sql(
+                    'ALTER TABLE public."order" ADD COLUMN IF NOT EXISTS selected_locker_name VARCHAR(255)'
+                )
+                connection.exec_driver_sql(
+                    'ALTER TABLE public."order" ADD COLUMN IF NOT EXISTS order_confirmed_at TIMESTAMP'
+                )
+                connection.exec_driver_sql(
+                    'ALTER TABLE public."order" ADD COLUMN IF NOT EXISTS discount_offered NUMERIC(10, 2)'
+                )
+                connection.exec_driver_sql(
+                    'ALTER TABLE public."order" ADD COLUMN IF NOT EXISTS discount_status VARCHAR(50)'
+                )
+            logger.info('Order delivery/discount columns added: success')
+        except Exception as exc:
+            logger.warning(f"Order delivery/discount columns add failed: {type(exc).__name__}: {exc}")
 
 # Функция для получения сессии базы данных
 def get_session() -> Generator[Session, None, None]:

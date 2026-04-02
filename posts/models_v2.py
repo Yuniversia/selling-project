@@ -78,6 +78,19 @@ class ProductPublic(BaseModel):
     class Config:
         from_attributes = True
 
+    @field_validator('attributes')
+    @classmethod
+    def mask_imei_in_attributes(cls, v: Dict[str, Any]) -> Dict[str, Any]:
+        # Проверяем, есть ли imei в словаре attributes
+        if v and "imei" in v:
+            imei = str(v["imei"])
+            if len(imei) > 5:
+                # Создаем копию словаря, чтобы не менять исходный объект из БД
+                new_attrs = v.copy()
+                new_attrs["imei"] = f"{'*' * (len(imei) - 5)}{imei[-5:]}"
+                return new_attrs
+        return v
+
 
 class PostUpdateData(BaseModel):
     status: Optional[ProductStatus] = None
@@ -141,12 +154,27 @@ class DeliveryMethod(str, Enum):
 
 
 class OrderStatus(str, Enum):
+    """
+    Order lifecycle for both pickup and courier delivery:
+    
+    Pickup flow: PENDING_PAYMENT → PAID → READY_FOR_PICKUP → PICKED_UP → CONFIRMED
+    Courier flow: PENDING_PAYMENT → PAID → IN_TRANSIT → READY_FOR_PICKUP → PICKED_UP → CONFIRMED
+    
+    - PENDING_PAYMENT: Awaiting buyer payment
+    - PAID: Payment received, order processing
+    - IN_TRANSIT: Package in transit (courier only)
+    - READY_FOR_PICKUP: At pickup point (locker) or ready at seller location
+    - PICKED_UP: Customer has collected the package (webhook auto-sets this)
+    - CONFIRMED: Customer confirmed receipt and condition (final status, can leave review)
+    - CANCELLED: Order cancelled
+    - REFUNDED: Payment refunded
+    """
     PENDING_PAYMENT = "pending_payment"
     PAID = "paid"
-    PROCESSING = "processing"
-    SHIPPED = "shipped"
-    DELIVERED = "delivered"
-    COMPLETED = "completed"
+    IN_TRANSIT = "in_transit"  # For courier (DPD/Omniva) only - package in transit
+    READY_FOR_PICKUP = "ready_for_pickup"  # At locker point or seller location
+    PICKED_UP = "picked_up"  # Customer has collected the package (webhook auto-sets this)
+    CONFIRMED = "confirmed"  # Customer confirmed receipt and condition (final)
     CANCELLED = "cancelled"
     REFUNDED = "refunded"
 
@@ -161,6 +189,10 @@ class Order(SQLModel, table=True):
     price: float = Field(description="Цена товара на момент покупки")
 
     delivery_method: str = Field(max_length=20)
+    # === ФАЗА 2-5: Новые поля доставки и оплаты ===
+    delivery_cost: float = Field(default=0, ge=0, description="Стоимость доставки")
+    selected_locker_id: Optional[str] = Field(default=None, max_length=100)
+    selected_locker_name: Optional[str] = Field(default=None, max_length=255)
 
     buyer_first_name: str = Field(max_length=100)
     buyer_last_name: str = Field(max_length=100)
@@ -176,6 +208,13 @@ class Order(SQLModel, table=True):
     tracking_number: Optional[str] = Field(default=None, max_length=100)
 
     status: str = Field(default=OrderStatus.PENDING_PAYMENT.value, max_length=20, index=True)
+
+    # === ФАЗА 4: Подтверждение состояния ===
+    order_confirmed_at: Optional[datetime] = Field(default=None, description="Когда покупатель подтвердил состояние")
+    
+    # === ФАЗА 5: Скидки ===
+    discount_offered: Optional[float] = Field(default=None, ge=0, description="Скидка предложенная продавцом")
+    discount_status: Optional[str] = Field(default=None, max_length=50, description="pending/accepted/rejected")
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
     paid_at: Optional[datetime] = Field(default=None)
@@ -197,6 +236,11 @@ class OrderCreate(BaseModel):
     last_name: str = PydanticField(..., min_length=2, max_length=100)
     email: str = PydanticField(..., description="Email для отправки кода")
     phone: str = PydanticField(..., min_length=8, max_length=20)
+    # === ФАЗА 2: Новые поля ===
+    delivery_cost: float = PydanticField(default=0, ge=0)
+    selected_locker_id: Optional[str] = PydanticField(None, max_length=100)
+    selected_locker_name: Optional[str] = PydanticField(None, max_length=255)
+    # Старые поля (для совместимости)
     delivery_address: Optional[str] = PydanticField(None, max_length=500)
     delivery_city: Optional[str] = PydanticField(None, max_length=100)
     delivery_zip: Optional[str] = PydanticField(None, max_length=20)

@@ -37,6 +37,12 @@ class DeliveryConfigs:
     OMNIVA_API_KEY: Optional[str] = os.getenv("OMNIVA_API_KEY")
     DPD_API_KEY: Optional[str] = os.getenv("DPD_API_KEY")
     DPD_API_SECRET: Optional[str] = os.getenv("DPD_API_SECRET")
+    DPD_TEST_MODE: bool = os.getenv("DPD_TEST_MODE", "true").lower() == "true"
+    DPD_INNER_SYSTEM_SIMULATION: bool = os.getenv("DPD_INNER_SYSTEM_SIMULATION", "true").lower() == "true"
+
+    DPD_REAL_API_BASE_URL: str = os.getenv("DPD_REAL_API_BASE_URL", "https://eserviss.dpd.lv/api/v1")
+    DPD_TEST_API_BASE_URL: str = os.getenv("DPD_TEST_API_BASE_URL", "https://sandbox-eserviss.dpd.lv/api/v1")
+    OMNIVA_TEST_API_BASE_URL: str = os.getenv("OMNIVA_TEST_API_BASE_URL", "https://test-omx.omniva.eu/api/v01/omx")
     
     # Simulation settings
     USE_SIMULATION_MODE: bool = os.getenv("USE_SIMULATION_MODE", "true").lower() == "true"
@@ -44,6 +50,18 @@ class DeliveryConfigs:
     # Delivery timing (в часах)
     TRANSIT_TIME_HOURS: int = int(os.getenv("TRANSIT_TIME_HOURS", "24"))  # 24 часа в пути
     PICKUP_WAIT_DAYS: int = int(os.getenv("PICKUP_WAIT_DAYS", "7"))  # 7 дней хранение
+
+    @classmethod
+    def is_dpd_simulation_enabled(cls) -> bool:
+        return cls.DPD_TEST_MODE and cls.DPD_INNER_SYSTEM_SIMULATION
+
+    @classmethod
+    def get_dpd_mode(cls) -> str:
+        if cls.DPD_TEST_MODE and cls.DPD_INNER_SYSTEM_SIMULATION:
+            return "simulation"
+        if cls.DPD_INNER_SYSTEM_SIMULATION:
+            return "omniva_test_proxy"
+        return "real"
     
     @classmethod
     def get_database_url(cls) -> str:

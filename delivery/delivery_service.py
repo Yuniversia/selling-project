@@ -5,14 +5,16 @@ import string
 import httpx
 import logging
 from datetime import datetime, timedelta
-from typing import Optional, Tuple
+from typing import Optional
 from sqlmodel import Session, select
 
 from models import (
     Delivery, DeliveryStatusHistory, DeliveryStatus, 
-    DeliveryProvider, DeliveryCreate, DeliveryStatusUpdate
+    DeliveryProvider, DeliveryCreate, DeliveryStatusUpdate,
+    PickupPoint
 )
 from configs import configs
+from providers.factory import DeliveryProviderFactory
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -24,6 +26,47 @@ class DeliveryService:
     
     def __init__(self, db: Session):
         self.db = db
+        self.provider_factory = DeliveryProviderFactory()
+
+    @staticmethod
+    def _normalize_provider(provider: str) -> str:
+        return (provider or "").strip().lower()
+
+    def get_pickup_points(
+        self,
+        *,
+        provider: Optional[str] = None,
+        country_code: Optional[str] = None,
+        city: Optional[str] = None,
+        limit: int = 200
+    ) -> list[PickupPoint]:
+        query = select(PickupPoint).where(PickupPoint.is_active == True)
+
+        if provider:
+            query = query.where(PickupPoint.provider == self._normalize_provider(provider))
+
+        if country_code:
+            query = query.where(PickupPoint.country_code == country_code.strip().upper())
+
+        if city:
+            query = query.where(PickupPoint.city == city.strip())
+
+        query = query.order_by(PickupPoint.city, PickupPoint.name).limit(limit)
+        return self.db.exec(query).all()
+
+    def resolve_pickup_point(self, *, provider: str, system_point_id: str) -> Optional[PickupPoint]:
+        return self.db.exec(
+            select(PickupPoint)
+            .where(PickupPoint.provider == self._normalize_provider(provider))
+            .where(PickupPoint.system_point_id == system_point_id)
+            .where(PickupPoint.is_active == True)
+        ).first()
+
+    def _dispatch_provider_integration(self, delivery_data: DeliveryCreate) -> Optional[str]:
+        client = self.provider_factory.get(delivery_data.provider.value)
+        if not client:
+            return None
+        return client.create_shipment(delivery_data)
     
     @staticmethod
     def generate_tracking_number(provider: str) -> str:
@@ -53,6 +96,27 @@ class DeliveryService:
         if existing:
             raise ValueError(f"Delivery for order {delivery_data.order_id} already exists")
         
+        if delivery_data.pickup_point_id and delivery_data.provider in [DeliveryProvider.DPD, DeliveryProvider.OMNIVA]:
+            pickup_point = self.resolve_pickup_point(
+                provider=delivery_data.provider.value,
+                system_point_id=delivery_data.pickup_point_id
+            )
+            if not pickup_point:
+                raise ValueError(
+                    f"Pickup point {delivery_data.pickup_point_id} is not available for provider {delivery_data.provider.value}"
+                )
+            delivery_data.pickup_point_name = pickup_point.name
+            delivery_data.pickup_point_address = pickup_point.address
+            delivery_data.delivery_city = pickup_point.city
+            delivery_data.delivery_zip = pickup_point.postal_code
+            delivery_data.delivery_country = pickup_point.country_code
+            if not delivery_data.delivery_address:
+                delivery_data.delivery_address = pickup_point.address
+
+        integration_mode = None
+        if delivery_data.provider in [DeliveryProvider.DPD, DeliveryProvider.OMNIVA]:
+            integration_mode = self._dispatch_provider_integration(delivery_data)
+
         # Генерируем трекинг-номер
         tracking_number = self.generate_tracking_number(delivery_data.provider.value)
         
@@ -78,7 +142,10 @@ class DeliveryService:
             sender_name=delivery_data.sender_name,
             sender_phone=delivery_data.sender_phone,
             estimated_delivery_date=estimated_delivery,
-            notes=delivery_data.notes
+            notes=(
+                f"{delivery_data.notes or ''}"
+                + (f" | dpd_mode={integration_mode}" if integration_mode else "")
+            ).strip()
         )
         
         self.db.add(delivery)

@@ -53,7 +53,11 @@
             js_sw_push_received: "{{ t.js_sw_push_received }}",
             js_sw_notification_click: "{{ t.js_sw_notification_click }}",
             js_sw_notification_closed: "{{ t.js_sw_notification_closed }}",
-            js_sw_open: "{{ t.js_sw_open }}"
+            js_sw_open: "{{ t.js_sw_open }}",
+            payment_pay: "{{ t.payment_pay }}",
+            // Purchase modal translations
+            free: "{{ t.free }}",
+            loading_lockers: "{{ t.loading_lockers }}"
         };
     </script>
     <script src="/templates/static/chat.js?v=46" defer></script>
@@ -192,30 +196,55 @@
                 
                 <!-- Шаг 1: Выбор способа доставки -->
                 <div id="step1" class="purchase-step">
-                    <h3 style="margin-bottom: 16px;">{{ t.delivery_method }}</h3>
-                    <div style="display: grid; gap: 12px;">
-                        <label class="delivery-option">
-                            <input type="radio" name="deliveryMethod" value="pickup" checked>
+                    <h3 style="margin-bottom: 16px;">📦 {{ t.delivery_method_title }}</h3>
+                    <div style="display: grid; gap: 12px;" id="deliveryOptionsContainer">
+                        <!-- ФАЗА 2: Опция личной встречи (если продавец согласился) -->
+                        <label class="delivery-option" id="pickupPersonalOption" style="display: none;">
+                            <input type="radio" name="deliveryMethod" value="pickup" class="delivery-input">
                             <div class="delivery-card">
-                                <div class="delivery-title">🚶 {{ t.pickup }}</div>
-                                <div class="delivery-desc">{{ t.pickup_desc }}</div>
+                                <div class="delivery-title">🚶 {{ t.pickup_personal }}</div>
+                                <div class="delivery-desc" id="pickupPersonalAddress"></div>
+                                <div style="color: #34c759; font-weight: 600; margin-top: 8px;">{{ t.free }}</div>
                             </div>
                         </label>
+
+                        <!-- DPD Parcel Locker -->
                         <label class="delivery-option">
-                            <input type="radio" name="deliveryMethod" value="dpd">
+                            <input type="radio" name="deliveryMethod" value="dpd" class="delivery-input">
                             <div class="delivery-card">
-                                <div class="delivery-title">📦 DPD Pickup</div>
-                                <div class="delivery-desc">{{ t.delivery_desc }}</div>
+                                <div class="delivery-title">📦 {{ t.dpd_locker }}</div>
+                                <div class="delivery-desc" id="dpdAddress">{{ t.select_locker }}</div>
+                                <div style="color: var(--color-primary); font-weight: 600; margin-top: 8px;" id="dpdPrice"></div>
                             </div>
                         </label>
+
+                        <!-- Omniva Locker -->
                         <label class="delivery-option">
-                            <input type="radio" name="deliveryMethod" value="omniva">
+                            <input type="radio" name="deliveryMethod" value="omniva" class="delivery-input">
                             <div class="delivery-card">
-                                <div class="delivery-title">📮 Omniva</div>
-                                <div class="delivery-desc">{{ t.delivery_desc }}</div>
+                                <div class="delivery-title">📮 {{ t.omniva_locker }}</div>
+                                <div class="delivery-desc" id="omnivaAddress">{{ t.select_locker }}</div>
+                                <div style="color: var(--color-primary); font-weight: 600; margin-top: 8px;" id="omnivaPrice"></div>
                             </div>
                         </label>
                     </div>
+
+                    <!-- Итоговая цена -->
+                    <div style="background: #f9f9f9; padding: 16px; border-radius: 12px; margin: 20px 0;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                            <span style="color: var(--color-text-light);">{{ t.item_price_label }}:</span>
+                            <span id="pricePhoneStep1" style="font-weight: 500;">0 €</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                            <span style="color: var(--color-text-light);">{{ t.delivery_cost_label }}:</span>
+                            <span id="priceDeliveryStep1" style="font-weight: 500; color: var(--color-primary);">{{ t.free }}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding-top: 12px; border-top: 1px solid var(--color-border);">
+                            <span style="font-weight: 600;">{{ t.total_to_pay }}:</span>
+                            <span id="priceTotalStep1" style="font-weight: 600; font-size: 18px; color: var(--color-primary);">0 €</span>
+                        </div>
+                    </div>
+
                     <button type="button" class="btn btn-primary" style="width: 100%; margin-top: 20px;" onclick="goToStep2()">{{ t.next }}</button>
                 </div>
 
@@ -244,38 +273,41 @@
                             <small style="color: var(--color-text-light);">{{ t.phone_hint }}</small>
                         </div>
 
-                        <!-- Адрес доставки (показывается только для DPD/Omniva) -->
-                        <div id="deliveryAddressFields" style="display: none;">
-                            <h4 style="margin: 24px 0 16px;">{{ t.delivery_address_title }}</h4>
+                        <!-- Выбор паковомата -->
+                        <div id="parcelLockerSelection" style="display: none; margin: 20px 0;">
+                            <h4 style="margin-bottom: 12px;">{{ t.select_pickup_point }}</h4>
                             <div class="form-group">
-                                <label class="label">{{ t.address }} *</label>
-                                <input type="text" id="deliveryAddress" class="input" placeholder="{{ t.address_placeholder }}">
+                                <label class="label">{{ t.locker_label }}</label>
+                                <select id="parcelLockerSelect" class="input">
+                                    <option value="">Выберите пакомат</option>
+                                </select>
                             </div>
-                            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px;">
-                                <div class="form-group">
-                                    <label class="label">{{ t.city }} *</label>
-                                    <input type="text" id="deliveryCity" class="input" placeholder="{{ t.city_placeholder }}">
-                                </div>
-                                <div class="form-group">
-                                    <label class="label">{{ t.postal_code }} *</label>
-                                    <input type="text" id="deliveryZip" class="input" placeholder="{{ t.zip_placeholder }}">
-                                </div>
+                            <div id="selectedLockerInfo" style="background: #f0f8ff; padding: 12px; border-radius: 8px; margin-top: 12px; display: none;">
+                                <p style="margin: 0; font-size: 14px; color: var(--color-text-light);">
+                                    <strong>{{ t.selected_locker_info }}:</strong> <span id="selectedLockerName"></span>
+                                </p>
                             </div>
-                            <div class="form-group">
-                                <label class="label">{{ t.country }} *</label>
-                                <input type="text" id="deliveryCountry" class="input" value="Latvia" readonly>
-                            </div>
+                            
+                            <!-- Скрытые поля для отправки полного адреса доставки на backend -->
+                            <input type="hidden" id="deliveryAddress" name="delivery_address" value="">
+                            <input type="hidden" id="deliveryCity" name="delivery_city" value="">
+                            <input type="hidden" id="deliveryZip" name="delivery_zip" value="">
+                            <input type="hidden" id="deliveryCountry" name="delivery_country" value="Latvia">
                         </div>
 
                         <div id="purchaseError" style="color: #ff3b30; margin: 16px 0; padding: 12px; background: #ffebee; border-radius: 8px; display: none;"></div>
                         
-                        <div style="background: var(--color-surface); padding: 16px; border-radius: 12px; margin: 20px 0;">
+                        <div style="background: var(--color-surface); padding: 16px; border-radius: 12px; margin: 20px 0; display: none;">
                             <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                                <span style="color: var(--color-text-light);">{{ t.item_price }}:</span>
+                                <span style="color: var(--color-text-light);">{{ t.item_price_label }}:</span>
                                 <span id="orderPrice" style="font-weight: 500;">0 €</span>
                             </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                                <span style="color: var(--color-text-light);">{{ t.delivery_cost_label }}:</span>
+                                <span id="orderDeliveryCost" style="font-weight: 500;">{{ t.free }}</span>
+                            </div>
                             <div style="display: flex; justify-content: space-between; padding-top: 12px; border-top: 1px solid var(--color-border);">
-                                <span style="font-weight: 600;">{{ t.total }}:</span>
+                                <span style="font-weight: 600;">{{ t.total_label }}:</span>
                                 <span id="orderTotal" style="font-weight: 600; font-size: 18px; color: var(--color-primary);">0 €</span>
                             </div>
                         </div>
@@ -292,13 +324,46 @@
                     <div style="text-align: center; padding: 40px 20px;">
                         <div style="font-size: 48px; margin-bottom: 20px;">💳</div>
                         <h3 style="margin-bottom: 12px;">{{ t.payment_title }}</h3>
-                        <p style="color: var(--color-text-light); margin-bottom: 8px;">{{ t.amount_to_pay }}:</p>
-                        <p style="font-size: 32px; font-weight: 600; color: var(--color-primary); margin-bottom: 24px;" id="paymentAmount">0 €</p>
-                        <p style="color: var(--color-text-light); font-size: 14px; margin-bottom: 32px;">
-                            {{ t.payment_demo_text|safe }}
-                        </p>
+                        
+                        <!-- === Информация о доставке перед оплатой === -->
+                        <div id="deliveryInfoStep3" style="background: #f5f5f5; padding: 16px; border-radius: 12px; margin-bottom: 24px; text-align: left;">
+                            <h4 style="margin: 0 0 12px; text-align: center;">📦 {{ t.delivery_info_title }}</h4>
+                            
+                            <!-- Информация о паковомате -->
+                            <div id="lockerInfoStep3" style="display: none;">
+                                <p style="margin: 8px 0; font-size: 14px; color: var(--color-text-light);">
+                                    <strong>{{ t.locker_label }}:</strong> <span id="lockerNameStep3"></span>
+                                </p>
+                                <p style="margin: 8px 0; font-size: 14px; color: var(--color-text-light);">
+                                    <strong>{{ t.address_info }}:</strong> <span id="lockerAddressStep3"></span>
+                                </p>
+                                <p style="margin: 8px 0; font-size: 14px; color: var(--color-text-light);">
+                                    <strong>{{ t.postal_code }}:</strong> <span id="lockerZipStep3"></span>
+                                </p>
+                                <p id="lockerCostStep3" style="margin: 8px 0; font-size: 14px; color: var(--color-primary); font-weight: 600;">
+                                    <strong>{{ t.delivery_cost_label }}:</strong> <span id="lockerCostValue">€2.99</span>
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <!-- === Итоговая сумма === -->
+                        <div style="background: var(--color-surface); padding: 16px; border-radius: 12px; margin-bottom: 24px;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px;">
+                                <span style="color: var(--color-text-light);">{{ t.item_price_label }}:</span>
+                                <span id="step3ItemPrice" style="font-weight: 500;">0 €</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px;">
+                                <span style="color: var(--color-text-light);">{{ t.delivery_cost_label }}:</span>
+                                <span id="step3DeliveryCost" style="font-weight: 500;">{{ t.free }}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding-top: 12px; border-top: 1px solid var(--color-border); font-weight: 600;">
+                                <span>{{ t.total_to_pay }}:</span>
+                                <span id="paymentAmount" style="font-size: 18px; color: var(--color-primary);">0 €</span>
+                            </div>
+                        </div>
+                        
                         <button type="button" class="btn btn-primary" style="width: 100%;" onclick="processPayment()" id="payBtn">
-                            {{ t.pay_demo }}
+                            {{ t.payment_pay }}
                         </button>
                     </div>
                 </div>
@@ -357,50 +422,6 @@
                 to { opacity: 1; transform: translateY(0); }
             }
 
-            /* Стили для кнопки детальной информации */
-            #showDetailedInfoBtn {
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                color: white;
-                border: none;
-                transition: all 0.3s ease;
-                font-weight: 500;
-            }
-
-            #showDetailedInfoBtn:hover {
-                transform: translateY(-2px);
-                box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-            }
-
-            #showDetailedInfoBtn:disabled {
-                opacity: 0.6;
-                cursor: not-allowed;
-                transform: none;
-            }
-
-            /* Стили для блока детальной информации */
-            #detailedInfoBlock {
-                animation: slideDown 0.4s ease;
-            }
-
-            @keyframes slideDown {
-                from {
-                    opacity: 0;
-                    transform: translateY(-10px);
-                }
-                to {
-                    opacity: 1;
-                    transform: translateY(0);
-                }
-            }
-
-            #detailedInfoBlock .spec-row {
-                padding: 10px 0;
-                border-bottom: 1px solid #e0e0e0;
-            }
-
-            #detailedInfoBlock .spec-row:last-of-type {
-                border-bottom: none;
-            }
         </style>
 
         <!-- Alert Modal -->
@@ -467,8 +488,22 @@
             </div>
 
             <div class="info-container">
-                <div style="font-size: 13px; color: var(--color-text-light); margin-bottom: 8px;" id="breadcrumb">iPhone</div>
-                <h1 id="productTitle">Загружается...</h1>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;">
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-size: 13px; color: var(--color-text-light); margin-bottom: 8px;" id="breadcrumb">iPhone</div>
+                        <h1 id="productTitle">Загружается...</h1>
+                    </div>
+                    {% if user and (user.user_type == 'admin' or user.user_type == 'support') %}
+                    <div id="adminMenuContainer" style="position: relative;">
+                        <button id="adminMenuBtn" class="btn btn-outline" style="width: 44px; height: 44px; padding: 0; font-size: 24px; line-height: 1; border-radius: 12px;">⋯</button>
+                        <div id="adminMenuDropdown" style="display: none; position: absolute; right: 0; top: 50px; min-width: 190px; background: #fff; border: 1px solid var(--color-border); border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.08); z-index: 10; padding: 8px;">
+                            <button id="adminDeactivateAction" class="btn btn-outline" style="width: 100%; margin-bottom: 8px; color: #ff3b30;">{{ t.deactivate or 'Деактивировать' }}</button>
+                            <button id="adminActivateAction" class="btn btn-outline" style="width: 100%; margin-bottom: 8px; color: #34c759; display: none;">{{ t.activate or 'Активировать' }}</button>
+                            <button id="adminEditAction" class="btn btn-outline" style="width: 100%;">{{ t.edit or 'Редактировать' }}</button>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
                 <div id="viewsInfo" style="font-size: 13px; color: var(--color-text-light); margin-bottom: 15px; display: none;">
                     👁️ {{ t.views_count }}: <span id="viewCount">0</span> | 
                     <span id="statusBadge" style="color: #4CAF50;">✓ {{ t.status_active }}</span>
@@ -499,6 +534,14 @@
                     <button id="BuyButon" style="width: 100%; padding-top: 20px; padding-bottom: 20px;"  class="btn btn-primary">{{ t.buy_now }}</button>
                 </div>
 
+                {% if user %}
+                <div id="sellerClosePostWrap" style="margin-top: 12px; display: none;">
+                    <button id="sellerClosePostBtn" class="btn btn-outline" style="width: 100%; padding-top: 18px; padding-bottom: 18px; font-size: 16px; font-weight: 600;">
+                        {{ t.close_listing_btn or 'Закрыть объявление' }}
+                    </button>
+                </div>
+                {% endif %}
+
                 <!-- Кнопка жалобы (ненавязчивая) -->
                 <div style="margin-top: 15px; text-align: center;">
                     <button id="reportBtn" class="btn-report" style="background: none; border: none; color: #999; font-size: 13px; cursor: pointer; padding: 8px 16px; border-radius: 6px; transition: all 0.2s;">
@@ -510,28 +553,6 @@
                         {{ t.report_listing }}
                     </button>
                 </div>
-
-                <!-- Админ-панель (только для admin/support) -->
-                {% if user and (user.user_type == 'admin' or user.user_type == 'support') %}
-                <div id="adminControls" style="margin-top: 20px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px;">
-                    <div style="color: white; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2">
-                            <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"></path>
-                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-                        </svg>
-                        {{ t.moderator_panel }}
-                    </div>
-                    <div style="display: flex; gap: 8px;">
-                        <button id="deactivatePostBtn" class="btn btn-outline" style="flex: 1; background: white; color: #ff3b30; border: none; font-weight: 600;">
-                            {{ t.deactivate }}
-                        </button>
-                        <button id="activatePostBtn" class="btn btn-outline" style="flex: 1; background: white; color: #34c759; border: none; font-weight: 600; display: none;">
-                            {{ t.activate }}
-                        </button>
-                    </div>
-                </div>
-                {% endif %}
-
 
                 <div class="specs-list" id="specsList">
                     <div class="spec-row">
@@ -546,9 +567,17 @@
                         <span class="spec-label">{{ t.color_label }}</span>
                         <span class="spec-value" id="specColor">—</span>
                     </div>
-                    <div class="spec-row" id="activatedRow">
+                    <div class="spec-row">
                         <span class="spec-label">{{ t.condition_label }}</span>
                         <span class="spec-value" id="specCondition">—</span>
+                    </div>
+                    <div class="spec-row">
+                        <span class="spec-label">{{ t.fmi_status }}</span>
+                        <span class="spec-value" id="specFMI">—</span>
+                    </div>
+                    <div class="spec-row">
+                        <span class="spec-label">{{ t.simlock }}</span>
+                        <span class="spec-value" id="specSimlock">—</span>
                     </div>
                     <div class="spec-row">
                         <span class="spec-label">{{ t.battery_health }}</span>
@@ -558,45 +587,10 @@
                         <span class="spec-label">IMEI</span>
                         <span class="spec-value" id="specIMEI">—</span>
                     </div>
-                    <div class="spec-row" id="fmiRow" style="display: none;">
-                        <span class="spec-label">{{ t.fmi_status }}</span>
-                        <span class="spec-value" id="specFMI">—</span>
-                    </div>
-                    <div class="spec-row" id="icloudRow" style="display: none;">
-                        <span class="spec-label">{{ t.icloud_lock }}</span>
-                        <span class="spec-value" id="specICloud">—</span>
-                    </div>
-                    <div class="spec-row" id="simlockRow" style="display: none;">
-                        <span class="spec-label">{{ t.simlock }}</span>
-                        <span class="spec-value" id="specSimlock">—</span>
-                    </div>
-                    <div class="spec-row" id="activatedRow">
+                    <div class="spec-row">
                         <span class="spec-label">{{ t.activated }}</span>
                         <span class="spec-value" id="specActivated">—</span>
                     </div>
-                </div>
-
-                <!-- Кнопка для показа детальной информации -->
-                <button id="showDetailedInfoBtn" class="btn btn-secondary" style="width: 100%; margin-top: 12px; padding: 12px; font-size: 14px;">
-                    🔒 {{ t.show_detailed_info or 'Показать детальную информацию' }}
-                </button>
-
-                <!-- Скрытый блок с детальной информацией -->
-                <div id="detailedInfoBlock" style="display: none; margin-top: 16px; background: #f8f9fa; padding: 20px; border-radius: 12px; border: 1px solid var(--color-border);">
-                    <h4 style="margin-bottom: 12px; font-size: 15px; color: var(--color-text);">📊 {{ t.detailed_specs or 'Детальные характеристики' }}</h4>
-                    <div class="spec-row">
-                        <span class="spec-label">{{ t.fmi_status }}</span>
-                        <span class="spec-value" id="detailedFMI">—</span>
-                    </div>
-                    <div class="spec-row">
-                        <span class="spec-label">{{ t.icloud_lock }}</span>
-                        <span class="spec-value" id="detailedICloud">—</span>
-                    </div>
-                    <div class="spec-row">
-                        <span class="spec-label">{{ t.simlock }}</span>
-                        <span class="spec-value" id="detailedSimlock">—</span>
-                    </div>
-                    <p style="font-size: 12px; color: #666; margin-top: 12px; margin-bottom: 0;">✅ {{ t.info_unlocked or 'Информация разблокирована' }}</p>
                 </div>
 
                 <div style="background: #fff; padding: 20px; border-radius: 16px; border: 1px solid var(--color-border);">
@@ -624,7 +618,12 @@
         // Получаем ID поста из URL параметров
         const urlParams = new URLSearchParams(window.location.search);
         const postId = urlParams.get('id');
+        const CURRENT_USER_ID = "{{ user.user_id if user else '' }}";
+        const CURRENT_USER_TYPE = "{{ user.user_type if user else '' }}";
+        const IS_ADMIN_OR_SUPPORT = CURRENT_USER_TYPE === 'admin' || CURRENT_USER_TYPE === 'support';
         let currentImages = [];
+        let currentImageIndex = 0;
+        let suppressOpenModalUntil = 0;
 
         let currentPostData = null; // Хранение данных поста глобально
 
@@ -683,6 +682,14 @@
         }
 
         function updateProductDisplay(postData) {
+            function maskImei(imei) {
+                if (!imei) return '—';
+                const digits = String(imei).replace(/\D/g, '');
+                if (!digits) return '—';
+                const tail = digits.slice(-5);
+                return `•••••${tail}`;
+            }
+
             // Функция для форматирования памяти
             function formatMemory(memoryGB) {
                 if (!memoryGB) return '—';
@@ -740,14 +747,13 @@
                 }
             }
 
-            // Заполняем спеки
+            // Заполняем спеки (без Serial - это чувствительные данные)
             const specs = {
                 'specModel': attrs.model || postData.title || '—',
                 'specMemory': formatMemory(attrs.memory),
                 'specColor': attrs.color || '—',
                 'specBattery': attrs.batery ? `${attrs.batery}%` : '—',
-                'specIMEI': attrs.imei || '—',
-                'specSerial': attrs.serial || '—'
+                'specIMEI': maskImei(attrs.imei)
             };
 
             // Обновляем видимые спеки
@@ -762,30 +768,21 @@
             if (attrs.fmi !== null && attrs.fmi !== undefined) {
                 const fmiText = attrs.fmi ? '{{ t.fmi_lost }}' : '{{ t.fmi_clean }}';
                 document.getElementById('specFMI').textContent = fmiText;
-                document.getElementById('detailedFMI').textContent = fmiText;
-            }
-
-            if (attrs.icloud_pair !== null && attrs.icloud_pair !== undefined) {
-                const icloudText = attrs.icloud_pair ? '{{ t.icloud_locked }}' : '{{ t.icloud_unlocked }}';
-                document.getElementById('specICloud').textContent = icloudText;
-                document.getElementById('detailedICloud').textContent = icloudText;
             }
 
             if (attrs.simlock !== null && attrs.simlock !== undefined) {
                 const simlockText = attrs.simlock ? '{{ t.simlock_yes }}' : '{{ t.simlock_no }}';
                 document.getElementById('specSimlock').textContent = simlockText;
-                document.getElementById('detailedSimlock').textContent = simlockText;
             }
 
             if (attrs.activated !== null && attrs.activated !== undefined) {
                 document.getElementById('specActivated').textContent = attrs.activated ? '{{ t.device_activated }}' : '{{ t.device_not_activated }}';
             }
 
-            // Инициализация кнопки показа детальной информации
-            initDetailedInfoButton();
-
             document.getElementById("BuyButon").innerHTML = `{{ t.buy_button }} ${postData.price || '0'} eur`;
             document.getElementById('specCondition').textContent = translateCondition(attrs.condition);
+
+            updateSellerControls(postData);
 
             // Обновляем комплектацию
             document.getElementById('cb_original_box').checked = attrs.has_original_box || false;
@@ -804,6 +801,32 @@
             }
         }
 
+        function updateSellerControls(postData) {
+            const wrap = document.getElementById('sellerClosePostWrap');
+            const closeBtn = document.getElementById('sellerClosePostBtn');
+            if (!wrap || !closeBtn || !CURRENT_USER_ID) return;
+
+            const isSeller = String(CURRENT_USER_ID) === String(postData?.seller_id || '');
+            if (!isSeller) {
+                wrap.style.display = 'none';
+                return;
+            }
+
+            wrap.style.display = 'block';
+
+            if (!postData.active) {
+                closeBtn.disabled = true;
+                closeBtn.style.opacity = '0.6';
+                closeBtn.style.cursor = 'not-allowed';
+                closeBtn.textContent = '{{ t.status_inactive }}';
+            } else {
+                closeBtn.disabled = false;
+                closeBtn.style.opacity = '1';
+                closeBtn.style.cursor = 'pointer';
+                closeBtn.textContent = '{{ t.close_listing_btn or "Закрыть объявление" }}';
+            }
+        }
+
         function renderGallery() {
             if (currentImages.length === 0) {
                 document.getElementById('mainProductImage').style.display = 'none';
@@ -811,9 +834,21 @@
                 return;
             }
 
-            // Показываем первую фотографию
+            const setActiveImage = (index) => {
+                if (!currentImages.length) return;
+                currentImageIndex = (index + currentImages.length) % currentImages.length;
+                const mainImage = document.getElementById('mainProductImage');
+                mainImage.src = currentImages[currentImageIndex];
+                document.querySelectorAll('.thumb').forEach((thumb, thumbIndex) => {
+                    if (thumbIndex === currentImageIndex) {
+                        thumb.classList.add('active');
+                    } else {
+                        thumb.classList.remove('active');
+                    }
+                });
+            };
+
             const mainImage = document.getElementById('mainProductImage');
-            mainImage.src = currentImages[0];
             mainImage.style.display = 'block';
             document.getElementById('placeholderImage').style.display = 'none';
 
@@ -830,16 +865,13 @@
                 thumb.dataset.index = index;
 
                 thumb.addEventListener('click', () => {
-                    // Обновляем активный класс
-                    document.querySelectorAll('.thumb').forEach(t => t.classList.remove('active'));
-                    thumb.classList.add('active');
-
-                    // Только обновляем главное фото, БЕЗ открытия модального окна
-                    document.getElementById('mainProductImage').src = imageUrl;
+                    setActiveImage(index);
                 });
 
                 thumbsContainer.appendChild(thumb);
             });
+
+            setActiveImage(0);
         }
 
         async function loadAuthorInfo(authorId) {
@@ -932,6 +964,32 @@
             imageCounter.textContent = `${currentModalIndex + 1} / ${currentImages.length}`;
         }
 
+        // Свайпы в полноэкранной модалке на мобильных
+        let modalTouchStartX = 0;
+        let modalTouchStartY = 0;
+
+        modalImage.addEventListener('touchstart', (e) => {
+            if (!currentImages.length) return;
+            modalTouchStartX = e.changedTouches[0].clientX;
+            modalTouchStartY = e.changedTouches[0].clientY;
+        }, { passive: true });
+
+        modalImage.addEventListener('touchend', (e) => {
+            if (!currentImages.length) return;
+            const endX = e.changedTouches[0].clientX;
+            const endY = e.changedTouches[0].clientY;
+            const deltaX = endX - modalTouchStartX;
+            const deltaY = endY - modalTouchStartY;
+
+            if (Math.abs(deltaX) > 40 && Math.abs(deltaX) > Math.abs(deltaY)) {
+                if (deltaX < 0) {
+                    showNextImage();
+                } else {
+                    showPrevImage();
+                }
+            }
+        }, { passive: true });
+
         closeModalBtn.addEventListener('click', closeImageModal);
         prevImageBtn.addEventListener('click', showPrevImage);
         nextImageBtn.addEventListener('click', showNextImage);
@@ -955,19 +1013,59 @@
         // Добавляем клик на главное изображение для открытия модального окна
         document.getElementById('mainProductImage').addEventListener('click', () => {
             if (currentImages.length === 0) return;
-            const activeThumb = document.querySelector('.thumb.active');
-            const activeIndex = activeThumb ? parseInt(activeThumb.dataset.index) : 0;
-            openImageModal(currentImages[activeIndex], activeIndex);
+            if (Date.now() < suppressOpenModalUntil) return;
+            openImageModal(currentImages[currentImageIndex], currentImageIndex);
         });
 
         // Добавляем клик на контейнер главного изображения (если кликнули на placeholder)
         document.querySelector('.main-image').addEventListener('click', () => {
             if (currentImages.length > 0) {
-                const activeThumb = document.querySelector('.thumb.active');
-                const activeIndex = activeThumb ? parseInt(activeThumb.dataset.index) : 0;
-                openImageModal(currentImages[activeIndex], activeIndex);
+                if (Date.now() < suppressOpenModalUntil) return;
+                openImageModal(currentImages[currentImageIndex], currentImageIndex);
             }
         });
+
+        // Свайпы для мобильной карусели (главное фото)
+        const mainImageContainer = document.querySelector('.main-image');
+        let touchStartX = 0;
+        let touchStartY = 0;
+
+        function shiftMainImage(delta) {
+            if (!currentImages.length) return;
+            currentImageIndex = (currentImageIndex + delta + currentImages.length) % currentImages.length;
+            const mainImage = document.getElementById('mainProductImage');
+            mainImage.src = currentImages[currentImageIndex];
+            document.querySelectorAll('.thumb').forEach((thumb, thumbIndex) => {
+                if (thumbIndex === currentImageIndex) {
+                    thumb.classList.add('active');
+                } else {
+                    thumb.classList.remove('active');
+                }
+            });
+        }
+
+        mainImageContainer.addEventListener('touchstart', (e) => {
+            if (!currentImages.length) return;
+            touchStartX = e.changedTouches[0].clientX;
+            touchStartY = e.changedTouches[0].clientY;
+        }, { passive: true });
+
+        mainImageContainer.addEventListener('touchend', (e) => {
+            if (!currentImages.length) return;
+            const endX = e.changedTouches[0].clientX;
+            const endY = e.changedTouches[0].clientY;
+            const deltaX = endX - touchStartX;
+            const deltaY = endY - touchStartY;
+
+            if (Math.abs(deltaX) > 40 && Math.abs(deltaX) > Math.abs(deltaY)) {
+                suppressOpenModalUntil = Date.now() + 350;
+                if (deltaX < 0) {
+                    shiftMainImage(1);
+                } else {
+                    shiftMainImage(-1);
+                }
+            }
+        }, { passive: true });
 
         // Скролл миниатюр колёсиком мыши
         const thumbsScrollContainer = document.getElementById('thumbnailsContainer');
@@ -1011,86 +1109,56 @@
             thumbsScrollContainer.scrollLeft = scrollLeft - walk;
         });
 
-        // Модальные окна для покупки и контакта
-        let currentAuthorData = null;
-        let detailedInfoUnlocked = false; // Флаг оплаты доступа к детальной информации
+        // === ФАЗА 2: ПЕРЕМЕННЫЕ И КОНСТАНТЫ ДОСТАВКИ ===
+        let DELIVERY_COSTS = {
+            pickup: 0,     // Бесплатно
+            dpd: 2.99,              // €2.99 (default)
+            omniva: 1.99            // €1.99 (default)
+        };
+        let currentDeliveryMethod = 'dpd';  // Default to DPD instead of pickup
+        let currentDeliveryCost = 0;
 
-        // Функция инициализации кнопки показа детальной информации
-        function initDetailedInfoButton() {
-            const showDetailedInfoBtn = document.getElementById('showDetailedInfoBtn');
-            const detailedInfoBlock = document.getElementById('detailedInfoBlock');
-            
-            if (!showDetailedInfoBtn || !detailedInfoBlock) return;
-
-            showDetailedInfoBtn.addEventListener('click', async () => {
-                // Если информация уже разблокирована, просто показываем/скрываем
-                if (detailedInfoUnlocked) {
-                    if (detailedInfoBlock.style.display === 'none') {
-                        detailedInfoBlock.style.display = 'block';
-                        showDetailedInfoBtn.innerHTML = '🔓 {{ t.hide_detailed_info }}';
-                    } else {
-                        detailedInfoBlock.style.display = 'none';
-                        showDetailedInfoBtn.innerHTML = '🔓 {{ t.show_detailed_info }}';
+        // === ЗАГРУЗКА СТОИМОСТЕЙ ДОСТАВКИ ИЗ КОНФИГУРАЦИИ ===
+        async function loadDeliveryCosts() {
+            try {
+                // Загружаем с main-service (того же сервиса, что отдает product.html)
+                const response = await fetch(`/api/v1/delivery-costs`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
                     }
-                    return;
-                }
-
-                // Если ещё не оплачено - показываем модальное окно оплаты
-                const confirmed = confirm(
-                    '{{ t.detailed_info_payment_prompt }}'
-                );
-
-                if (!confirmed) return;
-
-                // Имитация процесса оплаты (здесь нужно интегрировать реальный платёжный шлюз)
-                showDetailedInfoBtn.disabled = true;
-                showDetailedInfoBtn.innerHTML = '⏳ {{ t.processing }}';
-
-                try {
-                    // TODO: Здесь должен быть реальный запрос к платёжному API
-                    // Пример: const paymentResult = await processPayment(2.00);
-                    
-                    // Симуляция задержки оплаты
-                    await new Promise(resolve => setTimeout(resolve, 1500));
-
-                    // После успешной оплаты
-                    detailedInfoUnlocked = true;
-                    detailedInfoBlock.style.display = 'block';
-                    showDetailedInfoBtn.innerHTML = '🔓 {{ t.hide_detailed_info }}';
-                    showDetailedInfoBtn.disabled = false;
-
-                    // Можно сохранить статус оплаты в localStorage
-                    const productId = new URLSearchParams(window.location.search).get('id');
-                    if (productId) {
-                        localStorage.setItem(`detailed_info_unlocked_${productId}`, 'true');
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.data) {
+                        DELIVERY_COSTS = {
+                            pickup: result.data.pickup || 0,
+                            dpd: result.data.dpd || 2.99,
+                            omniva: result.data.omniva || 1.99
+                        };
+                        console.log('[Product] 📦 Delivery costs loaded:', DELIVERY_COSTS);
                     }
-
-                    showAlert('{{ t.payment_success }}', 'success');
-
-                } catch (error) {
-                    console.error('Ошибка оплаты:', error);
-                    showAlert('{{ t.payment_error }}', 'error');
-                    showDetailedInfoBtn.disabled = false;
-                    showDetailedInfoBtn.innerHTML = '🔒 {{ t.show_detailed_info }}';
+                } else {
+                    console.warn('[Product] ⚠️ Failed to load delivery costs, using defaults');
                 }
-            });
-
-            // Проверяем, была ли уже оплата для этого продукта
-            const productId = new URLSearchParams(window.location.search).get('id');
-            if (productId && localStorage.getItem(`detailed_info_unlocked_${productId}`) === 'true') {
-                detailedInfoUnlocked = true;
-                showDetailedInfoBtn.innerHTML = '🔓 {{ t.show_detailed_info }}';
+            } catch (error) {
+                console.warn('[Product] ⚠️ Error loading delivery costs:', error);
+                // Use default values if fetch fails
             }
         }
 
-        async function openPurchaseModal() {
-            // Получаем текущую цену из элемента на странице
-            const priceElement = document.querySelector('.price');
-            if (priceElement) {
-                const priceText = priceElement.textContent.replace(/[^\d.]/g, '');
-                currentPostPrice = parseFloat(priceText) || 0;
-            }
+        // Загружаем стоимости доставки при загрузке страницы
+        loadDeliveryCosts();
 
+        async function openPurchaseModal() {
+            // Получаем цену из загруженных данных поста
+            currentPostPrice = parseFloat(currentPostData?.price) || 0;
+            console.log('[Product] 💰 Item price loaded:', currentPostPrice);
+
+            // === ФАЗА 2: Инициализация Step 1 ===
+            initializeStep1();
+            
             // Сброс к первому шагу
             currentStep = 1;
             currentOrderId = null;
@@ -1108,6 +1176,62 @@
             
             // Автозаполнение из профиля если пользователь авторизован
             loadUserProfileData();
+        }
+
+        // === ФАЗА 2: ИНИЦИАЛИЗАЦИЯ STEP 1 ===
+        function initializeStep1() {
+            const pickupPersonalOption = document.getElementById('pickupPersonalOption');
+            const deliveryInputs = document.querySelectorAll('input.delivery-input');
+            
+            // Показываем/скрываем опцию личной встречи если продавец согласился
+            // SECURITY: Адрес встречи НЕ передается на фронтенд до создания заказа
+            if (currentPostData?.attributes?.personal_pickup) {
+                pickupPersonalOption.style.display = 'block';
+                // Адрес придет только после создания заказа из API
+                document.getElementById('pickupPersonalAddress').textContent = '';
+                
+                // По умолчанию выбираем личную встречу
+                pickupPersonalOption.querySelector('input').checked = true;
+                currentDeliveryMethod = 'pickup';
+            } else {
+                pickupPersonalOption.style.display = 'none';
+                // Если нет личной встречи, выбираем DPD
+                document.querySelector('input[value="dpd"]').checked = true;
+                currentDeliveryMethod = 'dpd';
+            }
+            
+            // Обновляем цены в Step 1
+            updatePricesInStep1();
+            
+            // Добавляем обработчики выбора способа доставки
+            deliveryInputs.forEach(input => {
+                input.removeEventListener('change', handleDeliveryMethodChange);
+                input.addEventListener('change', handleDeliveryMethodChange);
+            });
+        }
+
+        // === ФАЗА 2: ОБРАБОТКА СМЕНЫ СПОСОБА ДОСТАВКИ ===
+        function handleDeliveryMethodChange(e) {
+            currentDeliveryMethod = e.target.value;
+            updatePricesInStep1();
+        }
+
+        // === ФАЗА 2: ОБНОВЛЕНИЕ ЦЕН В STEP 1 ===
+        function updatePricesInStep1() {
+            const deliveryCost = DELIVERY_COSTS[currentDeliveryMethod] || 0;
+            currentDeliveryCost = deliveryCost;
+            
+            const totalPrice = currentPostPrice + deliveryCost;
+            console.log('[Product] 💰 Price calculation:', { currentPostPrice, deliveryCost, totalPrice, method: currentDeliveryMethod });
+            
+            // Обновляем основные цены
+            document.getElementById('pricePhoneStep1').textContent = `${currentPostPrice.toFixed(2)} €`;
+            document.getElementById('priceDeliveryStep1').textContent = deliveryCost > 0 ? `€${deliveryCost.toFixed(2)}` : (window.i18n?.free || 'Бесплатно');
+            document.getElementById('priceTotalStep1').textContent = `${totalPrice.toFixed(2)} €`;
+            
+            // Обновляем отображение цен для каждого способа доставки
+            document.getElementById('dpdPrice').textContent = `${DELIVERY_COSTS.dpd?.toFixed(2) || '0.00'} €`;
+            document.getElementById('omnivaPrice').textContent = `${DELIVERY_COSTS.omniva?.toFixed(2) || '0.00'} €`;
         }
 
         function closePurchaseModal() {
@@ -1164,34 +1288,102 @@
         }
 
         function goToStep2() {
-            const deliveryMethod = document.querySelector('input[name="deliveryMethod"]:checked').value;
+            // === ФАЗА 2: Новая логика Step 2 ===
+            const deliveryMethod = currentDeliveryMethod;
             
-            // Показываем/скрываем поля адреса
-            const addressFields = document.getElementById('deliveryAddressFields');
-            if (deliveryMethod === 'pickup') {
-                addressFields.style.display = 'none';
-                // Убираем required
-                ['deliveryAddress', 'deliveryCity', 'deliveryZip'].forEach(id => {
-                    const field = document.getElementById(id);
-                    if (field) field.removeAttribute('required');
-                });
+            
+            // Показываем/скрываем выбор паковомата
+            const parcelLockerSelection = document.getElementById('parcelLockerSelection');
+            if (deliveryMethod !== 'pickup') {
+                parcelLockerSelection.style.display = 'block';
+                // Загружаем список паковоматов (заглушка)
+                loadParcelLockers(deliveryMethod);
             } else {
-                addressFields.style.display = 'block';
-                // Добавляем required
-                ['deliveryAddress', 'deliveryCity', 'deliveryZip'].forEach(id => {
-                    const field = document.getElementById(id);
-                    if (field) field.setAttribute('required', 'required');
-                });
+                parcelLockerSelection.style.display = 'none';
             }
             
-            // Обновляем отображение цены
-            document.getElementById('orderPrice').textContent = currentPostPrice + ' €';
-            document.getElementById('orderTotal').textContent = currentPostPrice + ' €';
+            // Обновляем итоговую цену на Step 2
+            updatePricesInStep2();
             
-            // Переход на шаг 2
             document.getElementById('step1').style.display = 'none';
             document.getElementById('step2').style.display = 'block';
             currentStep = 2;
+        }
+
+        // === ФАЗА 2: ЗАГРУЗКА СПИСКА ПАКОВОМАТОВ ===
+        async function loadParcelLockers(provider) {
+            const select = document.getElementById('parcelLockerSelect');
+            select.innerHTML = `<option value="">${window.i18n?.loading_lockers || 'Загружаем...'}</option>`;
+
+            try {
+                const response = await fetch(`/api/v1/delivery/pickup-points?provider=${encodeURIComponent(provider)}&country_code=LV&limit=200`, {
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const lockers = await response.json();
+                select.innerHTML = '';
+
+                const defaultOption = document.createElement('option');
+                defaultOption.value = '';
+                defaultOption.textContent = window.i18n?.select_locker || 'Выберите пакомат';
+                select.appendChild(defaultOption);
+
+                lockers.forEach(locker => {
+                    const option = document.createElement('option');
+                    option.value = locker.system_point_id;
+                    option.textContent = `${locker.name} (${locker.city}, ${locker.postal_code})`;
+                    option.dataset.address = locker.address;
+                    option.dataset.city = locker.city;
+                    option.dataset.zip = locker.postal_code;
+                    option.dataset.country = locker.country_code || 'LV';
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('[Product] Failed to load pickup points:', error);
+                select.innerHTML = '<option value="">Не удалось загрузить пакоматы</option>';
+            }
+
+            // Обработчик выбора
+            select.removeEventListener('change', handleLockerChange);
+            select.addEventListener('change', handleLockerChange);
+        }
+
+        function handleLockerChange(e) {
+            const selectedOption = e.target.options[e.target.selectedIndex];
+            const selectedText = selectedOption?.text;
+            const selectedLockerInfo = document.getElementById('selectedLockerInfo');
+            
+            if (e.target.value) {
+                selectedLockerInfo.style.display = 'block';
+                document.getElementById('selectedLockerName').textContent = selectedText;
+                
+                // Сохраняем полные данные адреса в скрытые поля
+                document.getElementById('deliveryAddress').value = selectedOption.dataset.address || '';
+                document.getElementById('deliveryCity').value = selectedOption.dataset.city || '';
+                document.getElementById('deliveryZip').value = selectedOption.dataset.zip || '';
+                document.getElementById('deliveryCountry').value = selectedOption.dataset.country || 'Latvia';
+            } else {
+                selectedLockerInfo.style.display = 'none';
+                // Очищаем скрытые поля
+                document.getElementById('deliveryAddress').value = '';
+                document.getElementById('deliveryCity').value = '';
+                document.getElementById('deliveryZip').value = '';
+                document.getElementById('deliveryCountry').value = 'Latvia';
+            }
+        }
+
+        // === ФАЗА 2: ОБНОВЛЕНИЕ ЦЕН В STEP 2 ===
+        function updatePricesInStep2() {
+            const totalPrice = currentPostPrice + currentDeliveryCost;
+            
+            document.getElementById('orderPrice').textContent = `${currentPostPrice.toFixed(2)} €`;
+            document.getElementById('orderDeliveryCost').textContent = 
+                currentDeliveryCost > 0 ? `${currentDeliveryCost.toFixed(2)} €` : (window.i18n?.free || 'Бесплатно');
+            document.getElementById('orderTotal').textContent = `${totalPrice.toFixed(2)} €`;
         }
 
         // Обработка отправки формы (создание заказа)
@@ -1205,16 +1397,8 @@
             submitBtn.textContent = 'Создание заказа...';
             errorDiv.style.display = 'none';
             
-            // Безопасное получение метода доставки
-            const deliveryMethodElement = document.querySelector('input[name="deliveryMethod"]:checked');
-            if (!deliveryMethodElement) {
-                errorDiv.textContent = 'Выберите способ доставки';
-                errorDiv.style.display = 'block';
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Продолжить к оплате';
-                return;
-            }
-            const deliveryMethod = deliveryMethodElement.value;
+            // === ФАЗА 2: Используем currentDeliveryMethod вместо получения из input ===
+            const deliveryMethod = currentDeliveryMethod;
             
             // Проверка обязательных полей
             const firstNameEl = document.getElementById('buyerFirstName');
@@ -1225,34 +1409,47 @@
             if (!firstNameEl || !lastNameEl || !emailEl || !phoneEl) {
                 errorDiv.textContent = 'Не найдены поля формы';
                 errorDiv.style.display = 'block';
+                showToast('Не найдены поля формы', 'error');
                 submitBtn.disabled = false;
-                submitBtn.textContent = 'Продолжить к оплате';
+                submitBtn.textContent = '{{ t.proceed_to_payment }}';
                 return;
+            }
+            
+            // === ФАЗА 2: ВАЛИДАЦИЯ ПАКОВОМАТА ===
+            let selectedLocker = null;
+            if (deliveryMethod !== 'pickup') {
+                const lockerSelect = document.getElementById('parcelLockerSelect');
+                if (!lockerSelect?.value) {
+                    errorDiv.textContent = 'Выберите пункт выдачи';
+                    errorDiv.style.display = 'block';
+                    showToast('Выберите пункт выдачи', 'error');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = '{{ t.proceed_to_payment }}';
+                    return;
+                }
+                selectedLocker = lockerSelect.value;
             }
             
             // Собираем данные (названия полей должны совпадать с OrderCreate в backend)
             const orderData = {
                 post_id: parseInt(postId),
                 delivery_method: deliveryMethod,
+                delivery_cost: currentDeliveryCost,  // === ФАЗА 2: Добавляем стоимость доставки ===
                 first_name: firstNameEl.value.trim(),
                 last_name: lastNameEl.value.trim(),
                 email: emailEl.value.trim(),
                 phone: phoneEl.value.trim()
             };
             
-            // Добавляем адрес если нужен
-            if (deliveryMethod !== 'pickup') {
-                const addressField = document.getElementById('deliveryAddress');
-                const cityField = document.getElementById('deliveryCity');
-                const zipField = document.getElementById('deliveryZip');
-                const countryField = document.getElementById('deliveryCountry');
-                
-                if (addressField && cityField && zipField && countryField) {
-                    orderData.delivery_address = addressField.value.trim();
-                    orderData.delivery_city = cityField.value.trim();
-                    orderData.delivery_zip = zipField.value.trim();
-                    orderData.delivery_country = countryField.value.trim();
-                }
+            // === ФАЗА 2: Добавляем информацию о паковомате если нужна ===
+            if (selectedLocker) {
+                orderData.selected_locker_id = selectedLocker;
+                orderData.selected_locker_name = document.getElementById('selectedLockerName').textContent;
+                // Добавляем полный адрес доставки для backend валидации
+                orderData.delivery_address = document.getElementById('deliveryAddress').value;
+                orderData.delivery_city = document.getElementById('deliveryCity').value;
+                orderData.delivery_zip = document.getElementById('deliveryZip').value;
+                orderData.delivery_country = document.getElementById('deliveryCountry').value;
             }
             
             try {
@@ -1270,10 +1467,28 @@
                     const order = orderPayload.data || orderPayload;
                     currentOrderId = order.id;
                     
+                    // === Заполняем информацию о доставке в Step 3 (только для паковоматов) ===
+                    if (deliveryMethod === 'pickup') {
+                        // Для личной встречи информация показывается в order-tracking.html, а не тут
+                        document.getElementById('lockerInfoStep3').style.display = 'none';
+                    } else {
+                        document.getElementById('lockerInfoStep3').style.display = 'block';
+                        document.getElementById('lockerNameStep3').textContent = document.getElementById('selectedLockerName').textContent;
+                        document.getElementById('lockerAddressStep3').textContent = document.getElementById('deliveryAddress').value;
+                        document.getElementById('lockerZipStep3').textContent = document.getElementById('deliveryZip').value;
+                        document.getElementById('lockerCostValue').textContent = 
+                            `€${currentDeliveryCost.toFixed(2)}`;
+                    }
+                    
+                    // Заполняем итоговую сумму в Step 3
+                    document.getElementById('step3ItemPrice').textContent = `${currentPostPrice.toFixed(2)} €`;
+                    document.getElementById('step3DeliveryCost').textContent = 
+                        currentDeliveryCost > 0 ? `€${currentDeliveryCost.toFixed(2)}` : (window.i18n?.free || 'Бесплатно');
+                    document.getElementById('paymentAmount').textContent = (currentPostPrice + currentDeliveryCost).toFixed(2) + ' €';
+                    
                     // Переход к оплате
                     document.getElementById('step2').style.display = 'none';
                     document.getElementById('step3').style.display = 'block';
-                    document.getElementById('paymentAmount').textContent = order.price + ' €';
                     currentStep = 3;
                     
                 } else {
@@ -1288,15 +1503,17 @@
                     
                     errorDiv.textContent = errorMessage;
                     errorDiv.style.display = 'block';
+                    showToast(errorMessage, 'error');
                 }
                 
             } catch (error) {
                 console.error('Ошибка:', error);
                 errorDiv.textContent = 'Ошибка подключения к серверу';
                 errorDiv.style.display = 'block';
+                showToast('Ошибка подключения к серверу', 'error');
             } finally {
                 submitBtn.disabled = false;
-                submitBtn.textContent = 'Продолжить к оплате';
+                submitBtn.textContent = '{{ t.proceed_to_payment }}';
             }
         });
 
@@ -1304,6 +1521,7 @@
         async function processPayment() {
             if (!currentOrderId) {
                 showAlert('Заказ не найден', 'error');
+                showToast('Заказ не найден', 'error');
                 return;
             }
 
@@ -1343,22 +1561,48 @@
 
                 } else {
                     const errPayload = await response.json();
-                    errorDiv.textContent = extractError(errPayload, 'Ошибка при оплате');
+                    const errorMessage = extractError(errPayload, 'Ошибка при оплате');
+                    errorDiv.textContent = errorMessage;
                     errorDiv.style.display = 'block';
+                    showToast(errorMessage, 'error');
                 }
 
             } catch (error) {
                 console.error('Ошибка:', error);
                 errorDiv.textContent = 'Ошибка подключения к серверу';
                 errorDiv.style.display = 'block';
+                showToast('Ошибка подключения к серверу', 'error');
             } finally {
                 payBtn.disabled = false;
-                payBtn.textContent = 'Оплатить (TEST)';
+                payBtn.textContent = window.i18n.payment_pay || 'Оплатить';
             }
         }
 
         // Обработчики кнопок
         document.getElementById('BuyButon').addEventListener('click', openPurchaseModal);
+        document.getElementById('sellerClosePostBtn')?.addEventListener('click', async () => {
+            if (!confirm('{{ t.js_confirm_deactivate or "Вы уверены, что хотите закрыть объявление?" }}')) return;
+
+            try {
+                const response = await fetch(`${POSTS_API}/${postId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ active: false })
+                });
+
+                if (response.ok) {
+                    showAlert('{{ t.js_post_deactivated or "Объявление закрыто" }}', 'success');
+                    setTimeout(() => location.reload(), 900);
+                } else {
+                    const errPayload = await response.json();
+                    showAlert(extractError(errPayload, '{{ t.deactivate_error or "Не удалось закрыть объявление" }}'), 'error');
+                }
+            } catch (error) {
+                console.error('Ошибка при закрытии объявления:', error);
+                showAlert('{{ t.connection_error }}', 'error');
+            }
+        });
         
         // Обработчик кнопки чата
         document.getElementById('openChatBtn').addEventListener('click', async () => {
@@ -1370,7 +1614,7 @@
             try {
                 // Получаем ID продавца из кешированных данных
                 const response = await cachedFetch(
-                    `${POSTS_API}/posts/${postId}`,
+                    `${POSTS_API}/${postId}`,
                     {},
                     10 * 60 * 1000
                 );
@@ -1512,76 +1756,102 @@
         });
 
         // === АДМИНСКАЯ ПАНЕЛЬ ===
-        {% if user and (user.user_type == 'admin' or user.user_type == 'support') %}
-        
         function updateAdminControls() {
-            // Показываем нужную кнопку в зависимости от статуса поста
-            if (currentPostData && currentPostData.active) {
-                document.getElementById('deactivatePostBtn').style.display = 'block';
-                document.getElementById('activatePostBtn').style.display = 'none';
-            } else if (currentPostData) {
-                document.getElementById('deactivatePostBtn').style.display = 'none';
-                document.getElementById('activatePostBtn').style.display = 'block';
+            if (!IS_ADMIN_OR_SUPPORT) return;
+            const deactivateAction = document.getElementById('adminDeactivateAction');
+            const activateAction = document.getElementById('adminActivateAction');
+            if (!deactivateAction || !activateAction || !currentPostData) return;
+
+            if (currentPostData.active) {
+                deactivateAction.style.display = 'block';
+                deactivateAction.disabled = false;
+                deactivateAction.style.opacity = '1';
+                deactivateAction.style.cursor = 'pointer';
+                activateAction.style.display = 'none';
+            } else {
+                deactivateAction.style.display = 'none';
+                activateAction.style.display = 'block';
+                activateAction.disabled = false;
             }
         }
 
-        // Обработчик кнопки деактивации
-        document.getElementById('deactivatePostBtn')?.addEventListener('click', async () => {
-            if (!confirm('Вы уверены, что хотите деактивировать это объявление?')) return;
-            
-            try {
-                const response = await fetch(`${POSTS_API}/posts/${postId}`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({ active: false })
-                });
-                
-                if (response.ok) {
-                    showAlert('Объявление успешно деактивировано', 'success');
-                    setTimeout(() => location.reload(), 1000);
-                } else {
-                    const errPayload = await response.json();
-                    showAlert('Ошибка: ' + (errPayload?.error?.message || errPayload?.detail || 'Не удалось деактивировать'), 'error');
-                }
-            } catch (error) {
-                console.error('Ошибка:', error);
-                showAlert('Ошибка подключения', 'error');
-            }
-        });
+        if (IS_ADMIN_OR_SUPPORT) {
+            document.getElementById('adminMenuBtn')?.addEventListener('click', (event) => {
+                event.stopPropagation();
+                const dropdown = document.getElementById('adminMenuDropdown');
+                if (!dropdown) return;
+                dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+            });
 
-        // Обработчик кнопки активации
-        document.getElementById('activatePostBtn')?.addEventListener('click', async () => {
-            if (!confirm('Активировать это объявление?')) return;
-            
-            try {
-                const response = await fetch(`${POSTS_API}/posts/${postId}`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({ active: true })
-                });
-                
-                if (response.ok) {
-                    showAlert('Объявление успешно активировано', 'success');
-                    setTimeout(() => location.reload(), 1000);
-                } else {
-                    const errPayload = await response.json();
-                    showAlert('Ошибка: ' + (errPayload?.error?.message || errPayload?.detail || 'Не удалось активировать'), 'error');
+            document.addEventListener('click', (event) => {
+                const menuContainer = document.getElementById('adminMenuContainer');
+                const dropdown = document.getElementById('adminMenuDropdown');
+                if (!menuContainer || !dropdown) return;
+                if (!menuContainer.contains(event.target)) {
+                    dropdown.style.display = 'none';
                 }
-            } catch (error) {
-                console.error('Ошибка:', error);
-                showAlert('Ошибка подключения', 'error');
-            }
-        });
-        
-        {% else %}
-        
-        function updateAdminControls() {
-            // Пользователь не админ - ничего не делаем
+            });
+
+            document.getElementById('adminEditAction')?.addEventListener('click', () => {
+                showAlert('{{ t.edit_not_available or "Редактирование скоро будет доступно" }}', 'info');
+                const dropdown = document.getElementById('adminMenuDropdown');
+                if (dropdown) dropdown.style.display = 'none';
+            });
+
+            document.getElementById('adminDeactivateAction')?.addEventListener('click', async () => {
+                if (!confirm('Вы уверены, что хотите деактивировать это объявление?')) return;
+
+                try {
+                    const response = await fetch(`${POSTS_API}/${postId}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ active: false })
+                    });
+
+                    if (response.ok) {
+                        showAlert('Объявление успешно деактивировано', 'success');
+                        setTimeout(() => location.reload(), 1000);
+                    } else {
+                        const errPayload = await response.json();
+                        showAlert('Ошибка: ' + (errPayload?.error?.message || errPayload?.detail || 'Не удалось деактивировать'), 'error');
+                    }
+                } catch (error) {
+                    console.error('Ошибка:', error);
+                    showAlert('Ошибка подключения', 'error');
+                } finally {
+                    const dropdown = document.getElementById('adminMenuDropdown');
+                    if (dropdown) dropdown.style.display = 'none';
+                }
+            });
+
+            document.getElementById('adminActivateAction')?.addEventListener('click', async () => {
+                if (!confirm('Активировать это объявление?')) return;
+
+                try {
+                    const response = await fetch(`${POSTS_API}/${postId}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ active: true })
+                    });
+
+                    if (response.ok) {
+                        showAlert('Объявление успешно активировано', 'success');
+                        setTimeout(() => location.reload(), 1000);
+                    } else {
+                        const errPayload = await response.json();
+                        showAlert('Ошибка: ' + (errPayload?.error?.message || errPayload?.detail || 'Не удалось активировать'), 'error');
+                    }
+                } catch (error) {
+                    console.error('Ошибка:', error);
+                    showAlert('Ошибка подключения', 'error');
+                } finally {
+                    const dropdown = document.getElementById('adminMenuDropdown');
+                    if (dropdown) dropdown.style.display = 'none';
+                }
+            });
         }
-        
-        {% endif %}
 
         // === УНИВЕРСАЛЬНОЕ МОДАЛЬНОЕ ОКНО ДЛЯ СООБЩЕНИЙ ===
         function showAlert(message, type = 'info', title = '') {
@@ -1626,6 +1896,49 @@
                 }
             };
             document.addEventListener('keydown', escHandler);
+        }
+
+        function showToast(message, type = 'error') {
+            let container = document.getElementById('toastContainer');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'toastContainer';
+                container.style.position = 'fixed';
+                container.style.top = '20px';
+                container.style.right = '20px';
+                container.style.zIndex = '11000';
+                container.style.display = 'flex';
+                container.style.flexDirection = 'column';
+                container.style.gap = '8px';
+                container.style.maxWidth = '340px';
+                document.body.appendChild(container);
+            }
+
+            const toast = document.createElement('div');
+            toast.textContent = message;
+            toast.style.padding = '12px 14px';
+            toast.style.borderRadius = '10px';
+            toast.style.color = '#fff';
+            toast.style.fontSize = '14px';
+            toast.style.lineHeight = '1.4';
+            toast.style.boxShadow = '0 8px 20px rgba(0, 0, 0, 0.15)';
+            toast.style.background = type === 'success' ? '#34c759' : '#ff3b30';
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateY(-6px)';
+            toast.style.transition = 'all 0.2s ease';
+
+            container.appendChild(toast);
+
+            requestAnimationFrame(() => {
+                toast.style.opacity = '1';
+                toast.style.transform = 'translateY(0)';
+            });
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(-6px)';
+                setTimeout(() => toast.remove(), 200);
+            }, 3000);
         }
 
         // Загружаем данные при загрузке страницы

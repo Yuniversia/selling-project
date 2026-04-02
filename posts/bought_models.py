@@ -30,7 +30,21 @@ class BoughtItem(SQLModel, table=True):
     buyer_surname: str = Field(max_length=150)
     buyer_phone: str = Field(max_length=20)
     buyer_email: str = Field(max_length=150)
-    delivery_address: str = Field(max_length=500)
+    
+    # Способ доставки
+    delivery_method: str = Field(max_length=50)  # "personal_pickup", "dpd", "omniva"
+    
+    # === ФАЗА 2: Новые поля доставки ===
+    delivery_cost: float = Field(default=0, ge=0)  # Стоимость доставки
+    selected_locker_id: Optional[str] = Field(default=None, max_length=100)  # ID выбранного паковомата
+    selected_locker_name: Optional[str] = Field(default=None, max_length=255)  # Название паковомата
+    
+    # === ФАЗА 4: Подтверждение состояния ===
+    order_confirmed_at: Optional[datetime] = Field(default=None)  # Когда покупатель подтвердил состояние
+    
+    # === ФАЗА 5: Скидки и возвраты ===
+    discount_offered: Optional[float] = Field(default=None, ge=0)  # Сумма скидки предложенной продавцом
+    discount_status: Optional[str] = Field(default=None, max_length=50)  # "pending", "accepted", "rejected"
     
     # Статус заказа
     status: str = Field(default=OrderStatus.AWAITING_SHIPMENT, max_length=50)
@@ -46,7 +60,11 @@ class BoughtItemCreate(BaseModel):
     buyer_surname: Optional[str] = None
     buyer_phone: Optional[str] = None
     buyer_email: Optional[str] = None
-    delivery_address: str
+    delivery_method: str
+    # === ФАЗА 2: Новые поля ===
+    delivery_cost: float = 0
+    selected_locker_id: Optional[str] = None
+    selected_locker_name: Optional[str] = None
 
 # Схема для ответа
 class BoughtItemPublic(BaseModel):
@@ -57,7 +75,14 @@ class BoughtItemPublic(BaseModel):
     buyer_surname: str
     buyer_phone: str
     buyer_email: str
-    delivery_address: str
+    delivery_method: str
+    # === ФАЗА 2: Новые поля ===
+    delivery_cost: float = 0
+    selected_locker_id: Optional[str] = None
+    selected_locker_name: Optional[str] = None
+    order_confirmed_at: Optional[datetime] = None
+    discount_offered: Optional[float] = None
+    discount_status: Optional[str] = None
     status: str
     created_at: datetime
     updated_at: datetime

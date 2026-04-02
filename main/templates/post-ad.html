@@ -457,6 +457,36 @@
                     </select>
                 </div>
 
+                <!-- ФАЗА 1: Опция личной встречи -->
+                <div class="form-group">
+                    <label class="check-item" style="margin-bottom: 16px;">
+                        <input type="checkbox" id="personalPickupCheckbox" name="personal_pickup">
+                        Возможна личная встреча (Self pickup)
+                    </label>
+                </div>
+
+                <!-- Conditional fields для личной встречи -->
+                <div id="personalPickupFields" style="display: none; border: 1px solid var(--color-border); border-radius: 12px; padding: 16px; margin-bottom: 16px; background: #f9f9f9;">
+                    <div class="form-group">
+                        <label class="label">Адрес встречи</label>
+                        <input type="text" id="seller-meeting-address" class="input" placeholder="Например: Рига, ул. Айзпута 23" maxlength="255">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="label">Способ связи</label>
+                        <div class="checkbox-group" style="display: flex; gap: 16px;">
+                            <label class="check-item">
+                                <input type="radio" name="seller-contact-preference" value="email" checked>
+                                Email
+                            </label>
+                            <label class="check-item">
+                                <input type="radio" name="seller-contact-preference" value="phone">
+                                Номер телефона
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="form-group">
                     <label class="label">{{ t.price_label }}</label>
                     <input id="price-input" type="number" class="input" style="font-size: 20px; font-weight: bold;" min="0" required>
@@ -620,6 +650,14 @@
         // Автоматически показываем блок iPhone (категория закомментирована)
         iphoneBlock.style.display = 'block';
         commonSpecs.style.display = 'block';
+
+        // === ФАЗА 1: ЛОГИКА ЛИЧНОЙ ВСТРЕЧИ ===
+        const personalPickupCheckbox = document.getElementById('personalPickupCheckbox');
+        const personalPickupFields = document.getElementById('personalPickupFields');
+
+        personalPickupCheckbox?.addEventListener('change', (e) => {
+            personalPickupFields.style.display = e.target.checked ? 'block' : 'none';
+        });
 
         // Расчет итоговой цены с комиссией 5%
         const priceInput = document.getElementById('price-input');
@@ -815,6 +853,17 @@
                 }
                 
                 // ===== ШАГ 3: ПОДГОТОВКА ДАННЫХ ФОРМЫ =====
+                // Валидация личной встречи если включена
+                if (personalPickupCheckbox.checked) {
+                    const meetingAddr = document.getElementById('seller-meeting-address').value.trim();
+                    if (!meetingAddr) {
+                        showToast('Укажите адрес встречи', 'warning', 4000);
+                        progressModal.classList.remove('show');
+                        publishBtn.disabled = false;
+                        return;
+                    }
+                }
+
                 // Рассчитываем конечную цену с комиссией 5%
                 const finalPrice = Math.round(basePrice * 1.05);
                 
@@ -840,6 +889,10 @@
                     has_cable: document.querySelector('input[name="has_cable"]').checked,
                     has_receipt: document.querySelector('input[name="has_receipt"]').checked,
                     has_warranty: document.querySelector('input[name="has_warranty"]').checked,
+                    // ФАЗА 1: Данные личной встречи
+                    personal_pickup: personalPickupCheckbox.checked,
+                    seller_meeting_address: personalPickupCheckbox.checked ? document.getElementById('seller-meeting-address').value : null,
+                    seller_contact_preference: personalPickupCheckbox.checked ? document.querySelector('input[name="seller-contact-preference"]:checked')?.value : null,
                     data_source: {
                         origin: 'imei_checker',
                         verified: false,

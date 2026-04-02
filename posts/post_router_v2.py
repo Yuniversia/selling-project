@@ -252,7 +252,16 @@ def list_posts(
         query = query.order_by(Product.price.desc())
 
     rows = db.exec(query.offset(skip).limit(limit)).all()
-    payload = [ProductPublic.model_validate(row).model_dump(mode="json") for row in rows]
+    payload = []
+    for row in rows:
+        post_data = ProductPublic.model_validate(row).model_dump(mode="json")
+        # Удаляем чувствительные данные из attributes
+        if "attributes" in post_data and isinstance(post_data["attributes"], dict):
+            attrs = post_data["attributes"]
+            keys_to_exclude = ["seller_contact_preference", "seller_meeting_address", "serial"]
+            for key in keys_to_exclude:
+                attrs.pop(key, None)
+        payload.append(post_data)
     return ok_response(request, payload)
 
 
@@ -302,8 +311,20 @@ def get_post_by_id(
                 post_id,
                 exc_info=True,
             )
+        
+    post_data = ProductPublic.model_validate(post).model_dump(mode="json")
 
-    return ok_response(request, ProductPublic.model_validate(post).model_dump(mode="json"))
+    # 2. Модифицируем атрибуты ТОЛЬКО в этом словаре (не трогая объект 'post' из базы)
+    if "attributes" in post_data and isinstance(post_data["attributes"], dict):
+        attrs = post_data["attributes"]
+        
+        # Полностью удаляем ненужные ключи
+        keys_to_exclude = ["seller_contact_preference", "seller_meeting_address", "serial"]
+        for key in keys_to_exclude:
+            attrs.pop(key, None)
+
+    # 3. Отдаем модифицированный словарь
+    return ok_response(request, post_data)
 
 
 @api_router.patch("/posts/{post_id}")

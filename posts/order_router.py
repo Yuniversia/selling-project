@@ -1,6 +1,7 @@
 # order_router.py - Роутер для системы покупки и доставки
 
 import logging
+import os
 from fastapi import APIRouter, Depends, HTTPException, Request, Cookie, Query
 from fastapi.responses import RedirectResponse
 from sqlmodel import Session, select
@@ -133,6 +134,34 @@ async def get_delivery_by_tracking(tracking_number: str) -> Optional[dict]:
         return None
 
 
+async def resolve_pickup_point_for_order(provider: str, system_point_id: str) -> Optional[dict]:
+    """Проверка выбранного пакомата через delivery-service"""
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(
+                f"{Configs.DELIVERY_SERVICE_URL}/api/v1/delivery/pickup-points/resolve",
+                params={
+                    "provider": provider,
+                    "system_point_id": system_point_id,
+                }
+            )
+            if response.status_code != 200:
+                logger.warning(
+                    f"Pickup point resolve failed | provider={provider} | point={system_point_id} | HTTP {response.status_code}"
+                )
+                return None
+
+            payload = response.json()
+            if not payload.get("found"):
+                return None
+            return payload.get("pickup_point")
+    except Exception as e:
+        logger.error(
+            f"Pickup point resolve error | provider={provider} | point={system_point_id} | error_type={safe_exception_name(e)}"
+        )
+        return None
+
+
 def get_current_user(access_token: str) -> dict:
     """Извлечение пользователя из JWT токена"""
     if not access_token:
@@ -229,6 +258,37 @@ async def finalize_order_after_successful_payment(
     else:
         logger.info(f"Delivery skipped | order_id={order.id} | method={order.delivery_method}")
 
+    # === ФАЗА 3: УВЕДОМЛЕНИЕ ПРОДАВЦУ ДЛЯ PERSONAL_PICKUP ===
+    if order.delivery_method == "personal_pickup":
+        try:
+            post = db.get(Product, order.post_id)
+            seller = db.get(User, order.seller_id)
+            
+            # Получаем данные о встрече из атрибутов товара
+            meeting_address = post.attributes.get("seller_meeting_address", "Адрес не указан") if post and post.attributes else "Адрес не указан"
+            contact_preference = post.attributes.get("seller_contact_preference", "email") if post and post.attributes else "email"
+            
+            seller_notification_data = {
+                "order_id": order.id,
+                "seller_id": order.seller_id,
+                "seller_email": seller.email if seller else None,
+                "seller_phone": seller.phone if seller else None,
+                "buyer_name": f"{order.buyer_first_name} {order.buyer_last_name}",
+                "buyer_email": order.buyer_email,
+                "buyer_phone": order.buyer_phone,
+                "meeting_address": meeting_address,
+                "contact_preference": contact_preference,
+                "product_name": product_name(post),
+            }
+            
+            # Отправляем специальное уведомление для личной встречи
+            await send_notification_async("pickup-notification", seller_notification_data)
+            logger.info(f"Pickup notification sent | order_id={order.id} | seller_id={order.seller_id}")
+        except Exception as e:
+            logger.warning(
+                f"Pickup notification failed | order_id={order.id} | error_type={safe_exception_name(e)}"
+            )
+
     if not order.tracking_number:
         order.tracking_number = f"ORD{order.id}"
         db.commit()
@@ -305,10 +365,43 @@ async def create_order(
     if post.price is None:
         raise HTTPException(status_code=400, detail="Цена товара не указана")
     
+    # === БЕЗОПАСНОСТЬ: Валидация стоимости доставки ===
+    # Никогда не доверяем цене с фронтенда - проверяем по конфигурации
+    expected_delivery_cost = {
+        DeliveryMethod.PICKUP.value: Configs.DELIVERY_COST_PICKUP,
+        DeliveryMethod.DPD.value: Configs.DELIVERY_COST_DPD,
+        DeliveryMethod.OMNIVA.value: Configs.DELIVERY_COST_OMNIVA,
+    }
+    
+    delivery_method_value = order_data.delivery_method.value if isinstance(order_data.delivery_method, DeliveryMethod) else order_data.delivery_method
+    correct_delivery_cost = expected_delivery_cost.get(delivery_method_value)
+    
+    if correct_delivery_cost is None:
+        raise HTTPException(status_code=400, detail="Неизвестный способ доставки")
+    
+    # Проверяем, что отправленная цена доставки совпадает с ожидаемой (допуск 0.01€ на погрешность округления)
+    if abs(float(order_data.delivery_cost or 0) - float(correct_delivery_cost)) > 0.01:
+        logger.warning(
+            f"Delivery cost mismatch | post_id={order_data.post_id} | buyer_id={buyer_id or 'anonymous'} | "
+            f"received={order_data.delivery_cost} | expected={correct_delivery_cost} | method={delivery_method_value}"
+        )
+        raise HTTPException(
+            status_code=400, 
+            detail="Стоимость доставки не совпадает с актуальной. Перезагрузите страницу и попробуйте снова"
+        )
+    
+    # === КОНЕЦ ВАЛИДАЦИИ ===
+    
     # Проверяем, что покупатель не продавец (только для авторизованных)
     if buyer_id and post.seller_id == buyer_id:
         raise HTTPException(status_code=400, detail="Нельзя купить собственный товар")
     
+    normalized_delivery_address = order_data.delivery_address
+    normalized_delivery_city = order_data.delivery_city
+    normalized_delivery_zip = order_data.delivery_zip
+    normalized_delivery_country = order_data.delivery_country
+    normalized_locker_name = order_data.selected_locker_name
+
     # Проверяем адрес доставки
     if order_data.delivery_method in [DeliveryMethod.DPD, DeliveryMethod.OMNIVA]:
         if not all([
@@ -320,6 +413,28 @@ async def create_order(
                 status_code=400,
                 detail="Для доставки необходимо указать полный адрес"
             )
+
+        if not order_data.selected_locker_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Для доставки через пакомат необходимо выбрать пункт выдачи"
+            )
+
+        resolved_pickup_point = await resolve_pickup_point_for_order(
+            provider=order_data.delivery_method.value,
+            system_point_id=order_data.selected_locker_id,
+        )
+        if not resolved_pickup_point:
+            raise HTTPException(
+                status_code=400,
+                detail="Выбранный пункт выдачи не найден или не принадлежит выбранной службе доставки"
+            )
+
+        normalized_locker_name = resolved_pickup_point.get("name")
+        normalized_delivery_address = resolved_pickup_point.get("address") or order_data.delivery_address
+        normalized_delivery_city = resolved_pickup_point.get("city") or order_data.delivery_city
+        normalized_delivery_zip = resolved_pickup_point.get("postal_code") or order_data.delivery_zip
+        normalized_delivery_country = resolved_pickup_point.get("country_code") or order_data.delivery_country
     
     # Проверяем все обязательные данные ПЕРЕД созданием заказа
     if not all([
@@ -342,14 +457,18 @@ async def create_order(
             seller_id=post.seller_id,
             price=post.price,
             delivery_method=order_data.delivery_method.value,
+            # === ФАЗА 2: Новые поля доставки ===
+            delivery_cost=order_data.delivery_cost,
+            selected_locker_id=order_data.selected_locker_id,
+            selected_locker_name=normalized_locker_name,
             buyer_first_name=order_data.first_name,
             buyer_last_name=order_data.last_name,
             buyer_email=order_data.email,
             buyer_phone=order_data.phone,
-            delivery_address=order_data.delivery_address,
-            delivery_city=order_data.delivery_city,
-            delivery_zip=order_data.delivery_zip,
-            delivery_country=order_data.delivery_country,
+            delivery_address=normalized_delivery_address,
+            delivery_city=normalized_delivery_city,
+            delivery_zip=normalized_delivery_zip,
+            delivery_country=normalized_delivery_country,
             status=OrderStatus.PENDING_PAYMENT.value
             # confirmation_code генерируется только при mark_as_delivered
         )
@@ -367,11 +486,13 @@ async def create_order(
             db.rollback()
             raise HTTPException(status_code=500, detail="Ошибка сохранения заказа в базу данных")
         
-        # БЕЗОПАСНОСТЬ: НЕ логируем персональные данные (имя, email, телефон)
+        # БЕЗОПАСНОСТЬ: Логируем важные данные платежа (без PII)
         logger.info(
             f"Order created | id={order.id} | "
             f"buyer_id={order.buyer_id or 'anonymous'} | seller_id={order.seller_id} | "
-            f"post_id={order.post_id} | price=€{order.price} | status={order.status}"
+            f"post_id={order.post_id} | price=€{order.price} | delivery_cost=€{order.delivery_cost} | "
+            f"total=€{float(order.price) + float(order.delivery_cost)} | "
+            f"delivery_method={order.delivery_method} | status={order.status}"
         )
         
         # Отправляем уведомления продавцу и покупателю
@@ -489,8 +610,36 @@ async def process_payment(
     if order.status != OrderStatus.PENDING_PAYMENT.value:
         raise HTTPException(status_code=400, detail="Заказ уже оплачен или отменен")
     
+    # === БЕЗОПАСНОСТЬ: Повторная валидация стоимости доставки перед платежом ===
+    expected_delivery_cost = {
+        DeliveryMethod.PICKUP.value: Configs.DELIVERY_COST_PICKUP,
+        DeliveryMethod.DPD.value: Configs.DELIVERY_COST_DPD,
+        DeliveryMethod.OMNIVA.value: Configs.DELIVERY_COST_OMNIVA,
+    }
+    
+    correct_delivery_cost = expected_delivery_cost.get(order.delivery_method)
+    if correct_delivery_cost is None:
+        logger.error(
+            f"Payment failed - invalid delivery method | order_id={order.id} | "
+            f"delivery_method={order.delivery_method}"
+        )
+        raise HTTPException(status_code=400, detail="Некорректный способ доставки")
+    
+    # Проверяем, что delivery_cost в заказе совпадает с конфигурацией
+    if abs(float(order.delivery_cost or 0) - float(correct_delivery_cost)) > 0.01:
+        logger.warning(
+            f"Payment rejected - delivery cost mismatch | order_id={order.id} | "
+            f"stored={order.delivery_cost} | expected={correct_delivery_cost} | "
+            f"method={order.delivery_method}"
+        )
+        raise HTTPException(status_code=400, detail="Стоимость доставки изменилась. Пожалуйста, создайте новый заказ")
+    
+    # === КОНЕЦ ВАЛИДАЦИИ ===
+    
     # Stripe hosted checkout redirect
-    amount_cents = int(round(float(order.price) * 100))
+    # Сумма для оплаты включает цену товара + стоимость доставки
+    total_price = float(order.price) + float(order.delivery_cost or 0)
+    amount_cents = int(round(total_price * 100))
     request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
     success_url = (
         f"{Configs.FRONTEND_URL.rstrip('/')}/api/v1/orders/{order.id}/payments/success"
@@ -514,6 +663,12 @@ async def process_payment(
             "delivery_method": order.delivery_method,
         },
     }
+    
+    logger.info(
+        f"Payment initiated | order_id={order.id} | post_id={order.post_id} | "
+        f"item_price=€{order.price} | delivery_cost=€{order.delivery_cost} | "
+        f"total=€{total_price:.2f} | delivery_method={order.delivery_method}"
+    )
 
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
@@ -659,16 +814,90 @@ async def get_order_page_by_tracking(
     status_stage_map = {
         OrderStatus.PENDING_PAYMENT.value: "payment_pending",
         OrderStatus.PAID.value: "paid",
-        OrderStatus.PROCESSING.value: "processing",
-        OrderStatus.SHIPPED.value: "in_transit",
-        OrderStatus.DELIVERED.value: "delivered",
-        OrderStatus.COMPLETED.value: "received",
+        OrderStatus.IN_TRANSIT.value: "in_transit",
+        OrderStatus.READY_FOR_PICKUP.value: "ready_for_pickup",
+        OrderStatus.PICKED_UP.value: "picked_up",
+        OrderStatus.CONFIRMED.value: "confirmed",
         OrderStatus.CANCELLED.value: "cancelled",
         OrderStatus.REFUNDED.value: "refunded"
     }
 
-    effective_status = delivery_data.get("status") if delivery_data else order.status
+    # Используем order.status как источник истины (это обновляется мгновенно при подтверждении)
+    # delivery.status может быть асинхронно синхронизирован
+    
+    # === КОНСИСТЕНТНОСТЬ: Проверяем и синхронизируем расходящиеся статусы ===
+    # ВАЖНО: Синхронизируем ТОЛЬКО если order еще не подтвержден!
+    # Идея: delivery -> order (одностороннее)
+    # Не перезаписываем if order.status == CONFIRMED
+    if delivery_data:
+        delivery_status = delivery_data.get("status")
+        order_status = order.status
+        
+        if delivery_status and delivery_status != order_status:
+            logger.warning(
+                f"Status mismatch | tracking={tracking_number} | order_status={order_status} | delivery_status={delivery_status}"
+            )
+            
+            # Если доставка уже прошла в статус picked_up, но order еще не обновлен (и еще не подтвержден), обновляем order
+            # ВАЖНО: Не перезаписываем если order уже был подтвержден (status == CONFIRMED)
+            if delivery_status == "picked_up" and order_status not in [OrderStatus.PICKED_UP.value, OrderStatus.CONFIRMED.value]:
+                logger.info(
+                    f"Auto-syncing order status | tracking={tracking_number} | from {order_status} to picked_up"
+                )
+                order.status = OrderStatus.PICKED_UP.value
+                order.delivered_at = datetime.utcnow()
+                db.add(order)
+                db.commit()
+                db.refresh(order)
+    
+    # ВАЖНО: Если пользователь подтвердил заказ (order_confirmed_at != None),
+    # то effective_status = CONFIRMED, даже если order.status в БД еще не обновился!
+    # Это критично для правильного расчета actions в frontend
+    effective_status = OrderStatus.CONFIRMED.value if order.order_confirmed_at is not None else order.status
 
+    # SECURITY: Передаем данные продавца о встречи и контактах ТОЛЬКО если заказ еще не забран (not picked_up)
+    seller_meeting_address = None
+    seller_contact_preference = None
+    seller_phone = None
+    seller_email = None
+    
+    # SECURITY: Отправляем контакты ТОЛЬКО если:
+    # 1. Это личная встреча (pickup)
+    # 2. Заказ еще НЕ забран (picked_up)
+    # 3. Заказ еще НЕ подтвержден (confirmed)
+    if (order.delivery_method == "pickup" and 
+        effective_status != "picked_up" and 
+        effective_status != "confirmed"):
+        # Получаем данные продавца из attributes поста
+        if post and post.attributes:
+            seller_meeting_address = post.attributes.get("seller_meeting_address")
+            seller_contact_preference = post.attributes.get("seller_contact_preference")
+            seller_phone = post.attributes.get("seller_phone")
+            seller_email = post.attributes.get("seller_email")
+
+    # === ДИНАМИЧЕСКАЯ ЛОГИКА: Видимость форм зависит от статуса ===
+    is_pickup = order.delivery_method == "pickup"
+    is_delivery = order.delivery_method in ["dpd", "omniva"]
+    order_confirmed = order.order_confirmed_at is not None
+    
+    # PICKUP: жалоба ДО подтверждения (status=PAID и заказ не подтвержден)
+    can_open_issue_pickup = effective_status == OrderStatus.PAID.value and not order_confirmed
+    
+    # DPD/OMNIVA: жалоба ТОЛЬКО когда забран (status=PICKED_UP и заказ не подтвержден)
+    can_open_issue_delivery = effective_status == OrderStatus.PICKED_UP.value and not order_confirmed
+    
+    # Выбираем правильное значение в зависимости от способа доставки
+    if is_pickup:
+        can_open_issue = can_open_issue_pickup
+    elif is_delivery:
+        can_open_issue = can_open_issue_delivery
+    else:
+        can_open_issue = False
+    
+    # Отзыв: ТОЛЬКО если заказ подтвержден И еще нет отзыва
+    # (order.review_rating = None гарантирует один отзыв)
+    can_leave_review = order_confirmed and order.review_rating is None
+    
     return {
         "order": {
             "order_id": order.id,
@@ -682,7 +911,14 @@ async def get_order_page_by_tracking(
             "paid_at": order.paid_at,
             "shipped_at": order.shipped_at,
             "delivered_at": order.delivered_at,
-            "completed_at": order.completed_at
+            "completed_at": order.completed_at,
+            "order_confirmed_at": order.order_confirmed_at,  # ✅ ДОБАВЛЕНО: Критично для frontend!
+            "review_rating": order.review_rating,            # ✅ ДОБАВЛЕНО: Для проверки один раз
+            # SECURITY: Продавец информация о встречи
+            "seller_meeting_address": seller_meeting_address,
+            "seller_contact_preference": seller_contact_preference,
+            "seller_phone": seller_phone,
+            "seller_email": seller_email
         },
         "delivery": delivery_data,
         "review": {
@@ -704,8 +940,8 @@ async def get_order_page_by_tracking(
             for issue in issues
         ],
         "actions": {
-            "can_leave_review": True,
-            "can_open_issue": True
+            "can_leave_review": can_leave_review,      # ✅ ДИНАМИЧЕСКОЕ: зависит от статуса
+            "can_open_issue": can_open_issue           # ✅ ДИНАМИЧЕСКОЕ: зависит от статуса и метода
         }
     }
 
@@ -716,12 +952,31 @@ async def leave_tracking_review(
     review_data: OrderPageReviewCreate,
     db: Session = Depends(get_session)
 ):
-    """Оставить/обновить единый отзыв по tracking_number."""
+    """Оставить единый отзыв по tracking_number.
+    
+    Требования:
+    - Заказ должен быть в статусе CONFIRMED
+    - Отзыв может быть оставлен только один раз (review_rating must be NULL)
+    """
     order = db.exec(
         select(Order).where(Order.tracking_number == tracking_number)
     ).first()
     if not order:
         raise HTTPException(status_code=404, detail="Заказ не найден")
+    
+    # === БИЗНЕС-ПРАВИЛО: Отзыв только при статусе CONFIRMED ===
+    if order.status != OrderStatus.CONFIRMED.value:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Отзыв можно оставлять только когда статус 'confirmed'. Текущий статус: {order.status}"
+        )
+    
+    # === БИЗНЕС-ПРАВИЛО: Один отзыв на мандат ===
+    if order.review_rating is not None:
+        raise HTTPException(
+            status_code=400,
+            detail="Вы уже оставили отзыв для этого заказа. Один отзыв на сделку."
+        )
 
     # Используем существующий функционал отзывов на заказе
     order.review_rating = review_data.rating
@@ -762,12 +1017,59 @@ async def create_tracking_issue(
     issue_data: OrderIssueCreate,
     db: Session = Depends(get_session)
 ):
-    """Создать жалобу/заявку на возврат по tracking_number."""
+    """Создать жалобу/заявку на возврат по tracking_number.
+    
+    === БИЗНЕС-ПРАВИЛА ПО СПОСОБУ ДОСТАВКИ ===
+    
+    1. PICKUP (личная встреча):
+       - Жалобу можно подать ДО подтверждения (status=PAID и order_confirmed_at is NULL)
+       - После подтверждения жалобы поддаваться не могут
+    
+    2. DPD/OMNIVA (курьерская доставка):
+       - Жалобу можно подать ТОЛЬКО когда заказ уже забран (status=PICKED_UP)
+       - После подтверждения жалобы поддаваться не могут
+    """
     order = db.exec(
         select(Order).where(Order.tracking_number == tracking_number)
     ).first()
     if not order:
         raise HTTPException(status_code=404, detail="Заказ не найден")
+    
+    # === БИЗНЕС-ПРАВИЛО: Жалобы по способу доставки ===
+    is_pickup = order.delivery_method == "pickup"
+    is_delivery = order.delivery_method in ["dpd", "omniva"]
+    
+    if is_pickup:
+        # PICKUP: жалоба ДО подтверждения (status=PAID)
+        if order.status != OrderStatus.PAID.value:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Для личной встречи жалобу можно подать только до подтверждения заказа (статус должен быть 'paid'). Текущий статус: {order.status}"
+            )
+        if order.order_confirmed_at is not None:
+            raise HTTPException(
+                status_code=400,
+                detail="Вы уже подтвердили состояние заказа. Жалобы больше не поддаются."
+            )
+    
+    elif is_delivery:
+        # DPD/OMNIVA: жалоба ТОЛЬКО когда уже забран (status=PICKED_UP)
+        if order.status != OrderStatus.PICKED_UP.value:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Жалобу можно подать только когда заказ забран с паромата (статус 'picked_up'). Текущий статус: {order.status}"
+            )
+        if order.order_confirmed_at is not None:
+            raise HTTPException(
+                status_code=400,
+                detail="Вы уже подтвердили состояние заказа. Жалобы больше не поддаются."
+            )
+    
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Жалобы поддерживаются только для личной встречи (pickup) и курьерских доставок (DPD/Omniva)"
+        )
 
     issue = OrderIssue(
         order_id=order.id,
@@ -856,8 +1158,8 @@ async def mark_as_shipped(
     if order.status != OrderStatus.PAID.value:
         raise HTTPException(status_code=400, detail="Заказ ещё не оплачен")
     
-    # Обновляем статус
-    order.status = OrderStatus.SHIPPED.value
+    # Обновляем статус на IN_TRANSIT (в пути для доставки или готов для pickup)
+    order.status = OrderStatus.IN_TRANSIT.value
     order.shipped_at = datetime.utcnow()
     
     db.commit()
@@ -920,7 +1222,7 @@ async def leave_review(
     """
     Покупатель оставляет отзыв на уже доставленный/завершенный заказ
     
-    Заказ должен быть в статусе COMPLETED или DELIVERED
+    Заказ должен быть в статусе CONFIRMED
     Не меняет статус заказа - только сохраняет отзыв
     """
     if not access_token:
@@ -944,9 +1246,9 @@ async def leave_review(
     if order.buyer_id != user["user_id"]:
         raise HTTPException(status_code=403, detail="Только покупатель может оставить отзыв")
     
-    # Покупатель может оставить отзыв если заказ DELIVERED или COMPLETED
-    if order.status not in [OrderStatus.DELIVERED.value, OrderStatus.COMPLETED.value]:
-        raise HTTPException(status_code=400, detail="Товар ещё не доставлен")
+    # Покупатель может оставить отзыв если заказ CONFIRMED
+    if order.status != OrderStatus.CONFIRMED.value:
+        raise HTTPException(status_code=400, detail="Товар ещё не доставлен или состояние не подтверждено")
     
     if order.review_rating is not None:
         raise HTTPException(status_code=400, detail="Вы уже оставили отзыв на этот заказ")
@@ -1180,10 +1482,10 @@ async def delivery_received_webhook(
     Webhook от delivery-service: уведомление о том, что доставка получена покупателем
     
     Автоматически:
-    1. Обновляет статус заказа на COMPLETED (не DELIVERED, сразу завершаем)
-    2. Обновляет статистику продавца (sells_count, rating)
-    3. Скрывает чаты связанные с заказом
-    4. Отправляет уведомление покупателю с ссылкой на отзыв
+    1. Обновляет статус заказа на PICKED_UP (получен с пакомата)
+    2. Ждет, пока покупатель вручную подтвердит состояние (CONFIRMED)
+    3. После подтверждения пользователь может оставить отзыв
+    4. Отправляет уведомление покупателю с ссылкой на подтверждение и отзыв
     """
     order_id = request.get("order_id")
     tracking_number = request.get("tracking_number")
@@ -1201,39 +1503,41 @@ async def delivery_received_webhook(
         logger.warning(f"Delivery received | order_id={order_id} not found")
         raise HTTPException(status_code=404, detail="Заказ не найден")
     
-    # Идемпотентность: если уже завершён, просто подтверждаем
-    if order.status == OrderStatus.COMPLETED.value:
+    # Идемпотентность: если уже подтвержден, просто возвращаем
+    if order.status == OrderStatus.CONFIRMED.value:
+        logger.info(
+            f"Delivery received webhook | order already confirmed | order_id={order_id} | tracking={tracking_number}"
+        )
         return {
             "success": True,
-            "message": "Заказ уже завершён",
+            "message": "Заказ уже был подтвержден покупателем",
             "order_id": order.id,
             "status": order.status,
         }
 
-    # Проверяем текущий статус
+    # Проверяем текущий статус - должен быть в процессе доставки или готов к получению
     if order.status not in [
         OrderStatus.PAID.value,
-        OrderStatus.SHIPPED.value,
-        OrderStatus.PROCESSING.value,
-        OrderStatus.DELIVERED.value,
+        OrderStatus.IN_TRANSIT.value,
+        OrderStatus.READY_FOR_PICKUP.value,
     ]:
-        logger.warning(f"Delivery received | order_id={order_id} | unexpected status={order.status}")
+        logger.warning(
+            f"Delivery received webhook | unexpected status | order_id={order_id} | tracking={tracking_number} | current_status={order.status}"
+        )
         return {
             "success": False,
-            "message": f"Заказ имеет статус {order.status}, ожидался paid/shipped/processing/delivered"
+            "message": f"Заказ имеет статус {order.status}, ожидался paid/in_transit/ready_for_pickup"
         }
     
-    # Обновляем статус на COMPLETED (автоматическое подтверждение получения)
-    order.status = OrderStatus.COMPLETED.value
+    # Обновляем статус на PICKED_UP (автоматическое обновление при получении с пакомата)
+    order.status = OrderStatus.PICKED_UP.value
     order.delivered_at = datetime.utcnow()
-    order.completed_at = datetime.utcnow()
-    order.confirmed_by_buyer = True  # Автоматическое подтверждение
     
     db.add(order)
     db.commit()
     db.refresh(order)
     
-    logger.info(f"Order auto-completed | order_id={order_id}")
+    logger.info(f"Order picked up | order_id={order_id} | status={order.status}")
     
     # Обновляем статистику продавца (автоматически, как при подтверждении)
     try:
@@ -1330,3 +1634,281 @@ async def delivery_received_webhook(
         "delivered_at": order.delivered_at,
         "completed_at": order.completed_at
     }
+
+
+# === ФАЗА 4: ENDPOINT ДЛЯ ПОДТВЕРЖДЕНИЯ СОСТОЯНИЯ (PICKUP) ===
+@order_router.post("/shipments/{tracking_number}/confirm-condition")
+async def confirm_order_condition(
+    tracking_number: str,
+    request: Request,
+    access_token: str = Cookie(None),
+    db: Session = Depends(get_session)
+):
+    """
+    Подтверждение покупателем состояния товара при личной встрече (pickup).
+    После подтверждения заказ не может быть возвращен по причине несоответствия состояния.
+    
+    ✓ Работает для авторизованных пользователей (через JWT токен)
+    ✓ Работает для анонимных покупателей (только по tracking_number)
+    
+    Для анонимного: просто POST на /shipments/{tracking_number}/confirm-condition
+    Для авторизованного: JWT должен принадлежать покупателю заказа
+    """
+    buyer_id = None
+    
+    # Пытаемся получить buyer_id из JWT (если авторизован)
+    if access_token:
+        try:
+            payload = jwt.decode(access_token, Configs.secret_key, algorithms=[Configs.token_algoritm])
+            buyer_id = payload.get("user_id")
+        except Exception:
+            # Токен невалидный, но это не критично для анонимного заказа
+            pass
+    
+    try:
+        # Находим заказ по tracking_number
+        stmt = select(Order).where(Order.tracking_number == tracking_number)
+        order = db.exec(stmt).first()
+        
+        if not order:
+            raise HTTPException(status_code=404, detail="Заказ не найден")
+        
+        # Проверяем что это либо личная встреча (pickup), либо доставка
+        is_pickup = order.delivery_method == "pickup"
+        is_delivery = order.delivery_method in ["dpd", "omniva"]
+        
+        if not (is_pickup or is_delivery):
+            raise HTTPException(
+                status_code=400,
+                detail="Подтверждение состояния доступно только для личных встреч (pickup) и доставок (courier)"
+            )
+        
+        # Если пользователь авторизован - проверяем что это его заказ
+        if buyer_id:
+            if order.buyer_id != buyer_id:
+                raise HTTPException(status_code=403, detail="Только покупатель может подтвердить состояние")
+        # Если не авторизован - проверяем что заказ анонимный
+        elif order.buyer_id is not None:
+            raise HTTPException(
+                status_code=403, 
+                detail="Авторизованные покупатели должны подтвердить заказ в аккаунте"
+            )
+        
+        # === КОНСИСТЕНТНОСТЬ: Синхронизируем статусы перед проверкой ===
+        # ВАЖНО: Синхронизируем ТОЛЬКО если order еще не подтвержден!
+        # Не меняем if order.status == CONFIRMED (user уже подтвердил)
+        if is_delivery:
+            # Получаем актуальный статус из delivery service
+            try:
+                delivery_data = await get_delivery_by_tracking(tracking_number)
+                if delivery_data:
+                    delivery_status = delivery_data.get("status")
+                    # ВАЖНО: Не перезаписываем if order уже был подтвержден (status == CONFIRMED)
+                    if delivery_status == "picked_up" and order.status not in [OrderStatus.PICKED_UP.value, OrderStatus.CONFIRMED.value]:
+                        logger.info(
+                            f"Auto-syncing order status from delivery | tracking={tracking_number} | from {order.status} to picked_up"
+                        )
+                        order.status = OrderStatus.PICKED_UP.value
+                        order.delivered_at = datetime.utcnow()
+                        db.add(order)
+                        db.commit()
+                        db.refresh(order)
+            except Exception as e:
+                logger.warning(f"Failed to sync status from delivery | tracking={tracking_number} | error={str(e)}")
+                # Продолжаем с текущим статусом order
+        
+        # === БИЗНЕС-ПРАВИЛА: Подтверждение по способу доставки ===
+        # 
+        # PICKUP (личная встреча):
+        #   - Может подтвердить при статусе PAID (товар передан/получен)
+        #   - После подтверждения больше жалобы не поддаются
+        #
+        # DPD/OMNIVA (курьерская доставка):
+        #   - Может подтвердить при статусе PICKED_UP (забран с паромата)
+        #   - После подтверждения может оставить отзыв
+        
+        # Идемпотентность: если уже подтвержден, просто возвращаем успех
+        if order.status == OrderStatus.CONFIRMED.value:
+            logger.info(f"Order already confirmed | order_id={order.id} | tracking={tracking_number}")
+            return {
+                "status": "success",
+                "message": "Заказ уже был подтвержден",
+                "order_id": order.id,
+                "confirmed_at": order.order_confirmed_at
+            }
+        
+        # Проверяем статус в зависимости от способа доставки
+        if is_pickup:
+            # PICKUP: может подтвердить при PAID
+            if order.status != OrderStatus.PAID.value:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Для личной встречи заказ можно подтвердить только когда статус 'paid'. Текущий статус: {order.status}"
+                )
+        else:  # is_delivery
+            # DPD/OMNIVA: может подтвердить только при PICKED_UP
+            if order.status != OrderStatus.PICKED_UP.value:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Заказ можно подтвердить только когда он забран с паромата (статус 'picked_up'). Текущий статус: {order.status}"
+                )
+        
+        # Обновляем заказ
+        order.order_confirmed_at = datetime.utcnow()
+        order.confirmed_by_buyer = True
+        order.status = "confirmed"  # Новый статус - подтверждено
+        
+        db.add(order)
+        db.commit()
+        db.refresh(order)
+        
+        logger.info(f"Order condition confirmed | order_id={order.id} | tracking={tracking_number} | buyer={'auth:' + str(buyer_id) if buyer_id else 'anonymous'}")
+        
+        return {
+            "status": "success",
+            "message": "Состояние подтверждено",
+            "order_id": order.id,
+            "confirmed_at": order.order_confirmed_at
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error confirming condition | tracking={tracking_number} | error={str(e)}")
+        raise HTTPException(status_code=500, detail="Ошибка при подтверждении состояния")
+
+
+# === ФАЗА 5: ENDPOINT ДЛЯ ПРЕДЛОЖЕНИЯ СКИДКИ (ОПЦИОНАЛЬНО) ===
+@order_router.post("/{order_id}/offer-discount")
+async def offer_discount(
+    order_id: int,
+    discount_amount: float,
+    request: Request,
+    access_token: str = Cookie(None),
+    db: Session = Depends(get_session)
+):
+    """
+    Продавец предлагает скидку покупателю в случае обнаружения дефектов.
+    Требует JWT токен продавца в cookies.
+    """
+    if not access_token:
+        raise HTTPException(status_code=401, detail="Требуется авторизация")
+    
+    if discount_amount <= 0:
+        raise HTTPException(status_code=400, detail="Скидка должна быть больше 0")
+    
+    try:
+        payload = jwt.decode(access_token, Configs.secret_key, algorithms=[Configs.token_algoritm])
+        seller_id = payload.get("user_id")
+        if not seller_id:
+            raise HTTPException(status_code=401, detail="Некорректный токен")
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Недействительный токен: {str(e)}")
+    
+    try:
+        stmt = select(Order).where(Order.id == order_id)
+        order = db.exec(stmt).first()
+        
+        if not order:
+            raise HTTPException(status_code=404, detail="Заказ не найден")
+        
+        # Проверяем что это продавец
+        if order.seller_id != seller_id:
+            raise HTTPException(status_code=403, detail="Только продавец может предложить скидку")
+        
+        # Проверяем что заказ в нужном статусе
+        if order.status not in ["paid", "confirmed"]:
+            raise HTTPException(status_code=400, detail="Скидка может быть предложена только после оплаты")
+        
+        # Проверяем что скидка не превышает цену
+        if discount_amount > order.price:
+            raise HTTPException(status_code=400, detail="Скидка не может превышать цену товара")
+        
+        # Предлагаем скидку
+        order.discount_offered = discount_amount
+        order.discount_status = "pending"
+        
+        db.add(order)
+        db.commit()
+        db.refresh(order)
+        
+        logger.info(f"Discount offered | order_id={order_id} | amount={discount_amount}")
+        
+        return {
+            "status": "success",
+            "message": "Скидка предложена",
+            "order_id": order.id,
+            "discount_offered": order.discount_offered
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error offering discount | order_id={order_id} | error={str(e)}")
+        raise HTTPException(status_code=500, detail="Ошибка при предложении скидки")
+
+
+# === ФАЗА 5: ENDPOINT ДЛЯ ОТВЕТА НА СКИДКУ ===
+@order_router.patch("/{order_id}/discount-response")
+async def respond_to_discount(
+    order_id: int,
+    accepted: bool,
+    request: Request,
+    access_token: str = Cookie(None),
+    db: Session = Depends(get_session)
+):
+    """
+    Покупатель принимает или отклоняет предложенную скидку.
+    Требует JWT токен покупателя в cookies.
+    """
+    if not access_token:
+        raise HTTPException(status_code=401, detail="Требуется авторизация")
+    
+    try:
+        payload = jwt.decode(access_token, Configs.secret_key, algorithms=[Configs.token_algoritm])
+        buyer_id = payload.get("user_id")
+        if not buyer_id:
+            raise HTTPException(status_code=401, detail="Некорректный токен")
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Недействительный токен: {str(e)}")
+    
+    try:
+        stmt = select(Order).where(Order.id == order_id)
+        order = db.exec(stmt).first()
+        
+        if not order:
+            raise HTTPException(status_code=404, detail="Заказ не найден")
+        
+        # Проверяем что это покупатель
+        if order.buyer_id != buyer_id:
+            raise HTTPException(status_code=403, detail="Только покупатель может ответить на скидку")
+        
+        # Проверяем что скидка была предложена
+        if order.discount_status != "pending":
+            raise HTTPException(status_code=400, detail="Нет активного предложения скидки")
+        
+        # Обновляем статус скидки
+        order.discount_status = "accepted" if accepted else "rejected"
+        
+        db.add(order)
+        db.commit()
+        db.refresh(order)
+        
+        logger.info(
+            f"Discount response | order_id={order_id} | "
+            f"accepted={accepted} | discount_status={order.discount_status}"
+        )
+        
+        return {
+            "status": "success",
+            "message": f"Скидка {'принята' if accepted else 'отклонена'}",
+            "order_id": order.id,
+            "discount_status": order.discount_status
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error responding to discount | order_id={order_id} | error={str(e)}")
+        raise HTTPException(status_code=500, detail="Ошибка при ответе на скидку")
+

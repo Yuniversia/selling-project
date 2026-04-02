@@ -21,10 +21,23 @@
         .form-group label { display: block; margin-bottom: 6px; font-size: 14px; font-weight: 600; }
         .form-group input, .form-group select, .form-group textarea { width: 100%; border: 1px solid #d8d8d8; border-radius: 8px; padding: 10px; font-size: 14px; }
         .actions { display: flex; gap: 10px; }
-        @media (max-width: 700px) { .row { grid-template-columns: 1fr; } }
+        
+        /* Toast notification styles */
+        .toast-container { position: fixed; top: 20px; right: 20px; z-index: 10000; }
+        .toast { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); animation: slideIn 0.3s ease-out; min-width: 300px; }
+        .toast.success { background: #1f7a36; color: white; }
+        .toast.error { background: #b31d28; color: white; }
+        .toast.info { background: #114a9f; color: white; }
+        @keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(400px); opacity: 0; } }
+        .toast.hide { animation: slideOut 0.3s ease-out forwards; }
+        
+        @media (max-width: 700px) { .row { grid-template-columns: 1fr; } .toast { min-width: 280px; } }
     </style>
 </head>
 <body>
+<div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
 <header class="header-fixed">
     <div class="nav-container">
         <a href="/" class="logo">Viedix</a>
@@ -53,8 +66,45 @@
             <div><div id="labelPrice" class="label">Цена</div><div class="value" id="price">—</div></div>
             <div><div id="labelLocation" class="label">Пункт/город</div><div class="value" id="location">—</div></div>
         </div>
+        
+        <!-- === ФАЗА 4: Информация о месте встречи для pickup === -->
+        <div id="pickupAddressCard" style="display: none; background: #e8f5e9; padding: 16px; border-radius: 12px; margin: 16px 0;">
+            <h3 style="margin: 0 0 12px; color: #1b5e20;">🚶 Информация о личной встрече</h3>
+            <div style="color: var(--color-text-light); font-size: 14px; line-height: 1.6;">
+                <p style="margin: 0 0 8px;">
+                    <strong>Адрес встречи:</strong><br>
+                    <span id="pickupAddress" style="color: var(--color-text); font-weight: 500;">—</span>
+                </p>
+                <p style="margin: 8px 0;">
+                    <strong>Способ связи:</strong><br>
+                    <span id="pickupContact" style="color: var(--color-text); font-weight: 500;">—</span>
+                </p>
+            </div>
+        </div>
+        
         <div class="actions" style="margin-top:16px;">
             <a href="#" id="viewProductBtn" class="btn btn-outline" style="display:none;">Посмотреть объявление</a>
+            <!-- ФАЗА 4: Кнопка подтверждения состояния для pickup И DPD/Omniva -->
+            <button type="button" id="confirmConditionBtn" class="btn btn-primary" style="display:none;">
+                ✓ Подтвердить получение
+            </button>
+        </div>
+    </div>
+
+    <!-- ФАЗА 4: Модальное окно подтверждения состояния -->
+    <div id="confirmConditionModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 9999; align-items: center; justify-content: center; padding: 20px;">
+        <div style="background: white; border-radius: 12px; padding: 32px; max-width: 500px; text-align: center;">
+            <h2 style="margin-top: 0; color: var(--color-text);">✓ {{ t.confirmConditionTitle }}</h2>
+            <p style="color: var(--color-text-light); margin: 16px 0;">
+                {{ t.confirmConditionMsg }}
+            </p>
+            <p style="color: var(--color-text-light); font-size: 13px; margin: 16px 0; padding: 12px; background: #fff3cd; border-radius: 8px;">
+                {{ t.confirmConditionWarning }}
+            </p>
+            <div style="display: flex; gap: 12px; justify-content: center;">
+                <button type="button" class="btn btn-outline" onclick="closeConfirmConditionModal()">{{ t.confirmConditionCancel }}</button>
+                <button type="button" class="btn btn-primary" id="confirmConditionSubmitBtn" onclick="submitConfirmCondition()">{{ t.confirmConditionBtn }}</button>
+            </div>
         </div>
     </div>
 
@@ -65,17 +115,31 @@
 
     <div class="card" id="reviewCard" style="display:none;">
         <h2 id="reviewTitle" style="margin-top:0;">Оставить отзыв</h2>
+        
+        <!-- Отображение уже оставленного отзыва -->
+        <div id="reviewDisplay" style="display:none;">
+            <div style="background: #f5f5f5; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                    <span style="font-size: 18px;">⭐</span>
+                    <span id="reviewRatingDisplay" style="font-size: 18px; font-weight: 600;"></span>
+                </div>
+                <p id="reviewTextDisplay" style="margin: 0; color: var(--color-text); line-height: 1.6;"></p>
+                <div style="color: #999; font-size: 12px; margin-top: 12px;" id="reviewDateDisplay"></div>
+            </div>
+        </div>
+        
+        <!-- Форма для оставления отзыва -->
         <form id="reviewForm">
             <div class="form-group">
                 <label id="ratingLabel" for="rating">Оценка (1-5)</label>
                 <select id="rating" required>
-                    <option value="">Выберите</option>
+                    <option value=""></option>
                     <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
                 </select>
             </div>
             <div class="form-group">
                 <label id="reviewTextLabel" for="reviewText">Комментарий</label>
-                <textarea id="reviewText" rows="4" maxlength="1000" placeholder="Опишите впечатления"></textarea>
+                <textarea id="reviewText" rows="4" maxlength="1000"></textarea>
             </div>
             <div class="actions">
                 <button id="saveReviewBtn" type="submit" class="btn btn-primary">Сохранить отзыв</button>
@@ -94,18 +158,18 @@
                 <div class="form-group">
                     <label id="issueTypeLabel" for="issueType">Тип заявки</label>
                     <select id="issueType" required>
-                        <option id="issueTypeComplaintOption" value="complaint">Жалоба</option>
-                        <option id="issueTypeReturnOption" value="return">Возврат</option>
+                        <option id="issueTypeComplaintOption" value="complaint"></option>
+                        <option id="issueTypeReturnOption" value="return"></option>
                     </select>
                 </div>
                 <div class="form-group">
                     <label id="issueReasonLabel" for="issueReason">Причина</label>
-                    <input id="issueReason" type="text" minlength="3" maxlength="255" required placeholder="Короткая причина"/>
+                    <input id="issueReason" type="text" minlength="3" maxlength="255" required />
                 </div>
             </div>
             <div class="form-group">
                 <label id="issueDescriptionLabel" for="issueDescription">Описание</label>
-                <textarea id="issueDescription" rows="4" minlength="10" maxlength="2000" required placeholder="Подробно опишите проблему"></textarea>
+                <textarea id="issueDescription" rows="4" minlength="10" maxlength="2000" required></textarea>
             </div>
             <div class="actions">
                 <button id="createIssueBtn" type="submit" class="btn btn-primary">Создать заявку</button>
@@ -118,6 +182,18 @@
 
 <script>
 (() => {
+    // Переводы из Jinja2 шаблонизатора (из translations.py)
+    const t = {
+        confirmConditionTitle: "{{ t.confirmConditionTitle }}",
+        confirmConditionMsg: "{{ t.confirmConditionMsg }}",
+        confirmConditionWarning: "{{ t.confirmConditionWarning }}",
+        confirmConditionBtn: "{{ t.confirmConditionBtn }}",
+        confirmConditionCancel: "{{ t.confirmConditionCancel }}",
+        confirmConditionLoading: "{{ t.confirmConditionLoading }}",
+        confirmConditionSuccess: "{{ t.confirmConditionSuccess }}",
+        confirmConditionError: "{{ t.confirmConditionError }}",
+    };
+    
     const currentLang = ['ru', 'lv', 'en'].includes('{{ lang }}') ? '{{ lang }}' : 'ru';
 
     const UI_TEXTS = {
@@ -158,6 +234,9 @@
             issueError: 'Ошибка создания заявки',
             issueSuccess: 'Заявка создана.',
             choose: 'Выберите',
+            reviewPlaceholder: 'Опишите впечатления',
+            issueReasonPlaceholder: 'Короткая причина',
+            issueDescriptionPlaceholder: 'Подробно опишите проблему',
             statusChanged: 'Статус изменён с {from} на {to}',
             notes: {
                 'Доставка создана': 'Доставка создана',
@@ -168,21 +247,34 @@
             status: {
                 pending_payment: 'Ожидает оплаты',
                 paid: 'Оплачен',
-                processing: 'В обработке',
-                shipped: 'Отправлен',
                 in_transit: 'В пути',
-                delivered: 'Доставлен',
-                at_pickup_point: 'Готов к выдаче',
+                ready_for_pickup: 'Готов к выдаче',
                 picked_up: 'Получен',
-                completed: 'Завершён',
+                confirmed: 'Подтверждено',
                 cancelled: 'Отменён',
                 refunded: 'Возврат'
-            }
+            },
+            confirmConditionTitle: 'Подтверждение получения',
+            confirmConditionMsg: 'Пожалуйста, подтвердите, что вы полностью проверили состояние товара и согласны с его описанием.',
+            confirmConditionWarning: 'После подтверждения заказ не может быть возвращен или обменен по причине несоответствия состояния.',
+            confirmConditionBtn: 'Я согласен',
+            confirmConditionCancel: 'Назад',
+            confirmConditionLoading: 'Подтверждаю...',
+            confirmConditionSuccess: 'Состояние подтверждено! Заказ теперь не может быть возвращен.',
+            confirmConditionError: 'Ошибка при подтверждении'
         },
         lv: {
             pageTitle: 'Pasūtījuma lapa',
             orderLoading: 'Ielādējam pasūtījuma informāciju...',
             deliveryStatusTitle: 'Piegādes statuss',
+            confirmConditionTitle: 'Saņemšanas apstiprinājums',
+            confirmConditionMsg: 'Lūdzu, apstipriniet, ka esat pilnībā pārbaudījis preces stāvokli un piekrītat tā aprakstam.',
+            confirmConditionWarning: 'Pēc apstiprinājuma pasūtījumu nevar atgriezt vai apmainīt stāvokļa neatbilstības dēļ.',
+            confirmConditionBtn: 'Es piekrītu',
+            confirmConditionCancel: 'Atpakaļ',
+            confirmConditionLoading: 'Apstipriņu...',
+            confirmConditionSuccess: 'Stāvoklis apstiprināts! Pasūtījumu vairs nevar atgriezt.',
+            confirmConditionError: 'Kļūda apstiprinājumā',
             labelTracking: 'Sūtījuma numurs',
             labelOrderNumber: 'Pasūtījuma numurs',
             labelProduct: 'Prece',
@@ -216,6 +308,9 @@
             issueError: 'Pieteikuma izveides kļūda',
             issueSuccess: 'Pieteikums izveidots.',
             choose: 'Izvēlieties',
+            reviewPlaceholder: 'Aprakstiet iespaidu',
+            issueReasonPlaceholder: 'Īss iemesls',
+            issueDescriptionPlaceholder: 'Detalizēti aprakstiet problēmu',
             statusChanged: 'Statuss mainīts no {from} uz {to}',
             notes: {
                 'Доставка создана': 'Piegāde izveidota',
@@ -226,13 +321,10 @@
             status: {
                 pending_payment: 'Gaida apmaksu',
                 paid: 'Apmaksāts',
-                processing: 'Apstrādē',
-                shipped: 'Nosūtīts',
                 in_transit: 'Ceļā',
-                delivered: 'Piegādāts',
-                at_pickup_point: 'Gatavs saņemšanai',
+                ready_for_pickup: 'Gatavs saņemšanai',
                 picked_up: 'Saņemts',
-                completed: 'Pabeigts',
+                confirmed: 'Apstiprināts',
                 cancelled: 'Atcelts',
                 refunded: 'Atmaksa'
             }
@@ -241,6 +333,14 @@
             pageTitle: 'Order page',
             orderLoading: 'Loading order details...',
             deliveryStatusTitle: 'Delivery status',
+            confirmConditionTitle: 'Confirm Receipt',
+            confirmConditionMsg: 'Please confirm that you have fully inspected the item condition and agree with its description.',
+            confirmConditionWarning: 'After confirmation, the order cannot be returned or exchanged due to condition mismatch.',
+            confirmConditionBtn: 'I Agree',
+            confirmConditionCancel: 'Back',
+            confirmConditionLoading: 'Confirming...',
+            confirmConditionSuccess: 'Condition confirmed! Order cannot be returned anymore.',
+            confirmConditionError: 'Error during confirmation',
             labelTracking: 'Tracking number',
             labelOrderNumber: 'Order number',
             labelProduct: 'Product',
@@ -274,6 +374,9 @@
             issueError: 'Request creation error',
             issueSuccess: 'Request created.',
             choose: 'Choose',
+            reviewPlaceholder: 'Describe your impressions',
+            issueReasonPlaceholder: 'Brief reason',
+            issueDescriptionPlaceholder: 'Describe the issue in detail',
             statusChanged: 'Status changed from {from} to {to}',
             notes: {
                 'Доставка создана': 'Delivery created',
@@ -284,13 +387,10 @@
             status: {
                 pending_payment: 'Awaiting payment',
                 paid: 'Paid',
-                processing: 'Processing',
-                shipped: 'Shipped',
                 in_transit: 'In transit',
-                delivered: 'Delivered',
-                at_pickup_point: 'Ready for pickup',
+                ready_for_pickup: 'Ready for pickup',
                 picked_up: 'Picked up',
-                completed: 'Completed',
+                confirmed: 'Confirmed',
                 cancelled: 'Cancelled',
                 refunded: 'Refunded'
             }
@@ -353,11 +453,20 @@
     document.getElementById('issueTypeComplaintOption').textContent = UI.issueTypeComplaint;
     document.getElementById('issueTypeReturnOption').textContent = UI.issueTypeReturn;
     document.getElementById('issueReasonLabel').textContent = UI.issueReasonLabel;
+    
+    // Translate rating select placeholder
+    const ratingPlaceholderOption = document.querySelector('#rating option[value=""]');
+    if (ratingPlaceholderOption) ratingPlaceholderOption.textContent = UI.choose;
+    
+    // Set form placeholders from translations
+    document.getElementById('reviewText').placeholder = UI.reviewPlaceholder;
+    document.getElementById('issueReason').placeholder = UI.issueReasonPlaceholder;
+    document.getElementById('issueDescription').placeholder = UI.issueDescriptionPlaceholder;
+    
     document.getElementById('issueDescriptionLabel').textContent = UI.issueDescriptionLabel;
     document.getElementById('createIssueBtn').textContent = UI.createIssueBtn;
 
-    const ratingPlaceholder = document.querySelector('#rating option[value=""]');
-    if (ratingPlaceholder) ratingPlaceholder.textContent = UI.choose;
+
 
     function formatDate(value) {
         if (!value) return '—';
@@ -369,6 +478,19 @@
         el.loading.style.display = 'none';
         el.error.style.display = 'block';
         el.error.textContent = msg;
+    }
+
+    function showToast(message, type = 'info', duration = 3500) {
+        const container = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.textContent = message;
+        container.appendChild(toast);
+
+        setTimeout(() => {
+            toast.classList.add('hide');
+            setTimeout(() => toast.remove(), 300);
+        }, duration);
     }
 
     function renderIssues(issues) {
@@ -404,6 +526,42 @@
         return note;
     }
 
+    function displayReview(review) {
+        // Показывает уже оставленный отзыв (скрывает форму)
+        if (!review || !review.rating) return;
+        
+        const reviewForm = document.getElementById('reviewForm');
+        const reviewDisplay = document.getElementById('reviewDisplay');
+        
+        // Скрыть форму, показать отзыв
+        reviewForm.style.display = 'none';
+        reviewDisplay.style.display = 'block';
+        
+        // Заполнить данные отзыва
+        document.getElementById('reviewRatingDisplay').textContent = `${review.rating} / 5`;
+        document.getElementById('reviewTextDisplay').textContent = review.review_text || '(без комментария)';
+        
+        // Показать дату если есть
+        if (review.updated_at || review.created_at) {
+            const dateStr = formatDate(review.updated_at || review.created_at);
+            document.getElementById('reviewDateDisplay').textContent = `Оставлен: ${dateStr}`;
+        }
+    }
+
+    function showReviewForm() {
+        // Показывает форму для отзыва (скрывает уже оставленный)
+        const reviewForm = document.getElementById('reviewForm');
+        const reviewDisplay = document.getElementById('reviewDisplay');
+        
+        reviewForm.style.display = 'block';
+        reviewDisplay.style.display = 'none';
+        
+        // Очищаем форму
+        document.getElementById('rating').value = '';
+        document.getElementById('reviewText').value = '';
+        document.getElementById('reviewMsg').textContent = '';
+    }
+
     function fillFormReview(review) {
         if (!review) return;
         const rating = document.getElementById('rating');
@@ -411,6 +569,7 @@
         if (review.rating) rating.value = String(review.rating);
         if (review.review_text) reviewText.value = review.review_text;
     }
+
 
     async function loadOrder() {
         if (!tracking) {
@@ -438,13 +597,52 @@
             el.loading.style.display = 'none';
             el.info.style.display = 'block';
             el.timelineCard.style.display = 'block';
-            // Review and issue forms only available once order has been picked up
-            const effectiveStatusForForms = delivery.status || order.status;
-            const canInteract = effectiveStatusForForms === 'picked_up';
-            el.reviewCard.style.display = canInteract ? 'block' : 'none';
-            el.issueCard.style.display = canInteract ? 'block' : 'none';
+            
+            // === ЛОГИКА ВИДИМОСТИ: Используем actions из backend ===
+            // Backend отправляет правильные значения на основе статуса и способа доставки
+            const canLeaveReview = data.actions.can_leave_review;    // ✅ Из backend
+            const canCreateIssue = data.actions.can_open_issue;       // ✅ Из backend
+            
+            // ✅ Кнопка подтверждения: показываем если есть что подтверждать
+            // PICKUP: при PAID (и не подтверждено)
+            // DPD/OMNIVA: при PICKED_UP (и не подтверждено)
+            const isPersonalPickup = order.delivery_method === 'pickup';
+            const showConfirmBtn = isPersonalPickup
+                ? (order.status === 'paid' && !order.order_confirmed_at)
+                : (order.status === 'picked_up' && !order.order_confirmed_at);
+            
+            el.reviewCard.style.display = canLeaveReview ? 'block' : 'none';
+            el.issueCard.style.display = canCreateIssue ? 'block' : 'none';
+            
+            const confirmConditionBtn = document.getElementById('confirmConditionBtn');
+            confirmConditionBtn.style.display = showConfirmBtn ? 'inline-flex' : 'none';
+            
+            // === Показать адрес встречи для pickup (только если заказ еще не подтвержден) ===
+            const pickupAddressCard = document.getElementById('pickupAddressCard');
+            const isNotConfirmed = order.order_confirmed_at === null;
+            
+            if (isPersonalPickup && order.seller_meeting_address && isNotConfirmed) {
+                pickupAddressCard.style.display = 'block';
+                document.getElementById('pickupAddress').textContent = order.seller_meeting_address || '—';
+                
+                // SECURITY: Контактные данные показываются только если заказ не подтвержден
+                if (order.seller_contact_preference === 'phone' && order.seller_phone) {
+                    document.getElementById('pickupContact').textContent = `📞 ${order.seller_phone}`;
+                } else if (order.seller_contact_preference === 'email' && order.seller_email) {
+                    document.getElementById('pickupContact').textContent = `📧 ${order.seller_email}`;
+                } else {
+                    document.getElementById('pickupContact').textContent = '—';
+                }
+            } else {
+                pickupAddressCard.style.display = 'none';
+            }
+            
+            if (confirmConditionBtn.style.display !== 'none') {
+                confirmConditionBtn.removeEventListener('click', openConfirmConditionModal);
+                confirmConditionBtn.addEventListener('click', openConfirmConditionModal);
+            }
 
-            const effectiveStatus = delivery.status || order.status || 'unknown';
+            const effectiveStatus = order.status || (delivery && delivery.status);
             el.statusText.textContent = STATUS_LABELS[effectiveStatus] || effectiveStatus;
             el.tracking.textContent = order.tracking_number || tracking;
             el.orderId.textContent = order.order_id || '—';
@@ -471,7 +669,24 @@
                 el.timeline.innerHTML = `<div class="muted">${UI.noHistory}</div>`;
             }
 
-            fillFormReview(data.review);
+            // Показываем либо отзыв либо форму в зависимости от статуса и наличия отзыва
+            if (canLeaveReview) {
+                // Статус CONFIRMED - форма видна
+                if (data.review && data.review.rating) {
+                    // Уже есть отзыв - показываем его
+                    displayReview(data.review);
+                } else {
+                    // Нет отзыва - показываем форму
+                    showReviewForm();
+                }
+            } else {
+                // Не CONFIRMED - скрываем обе (форма будет скрыта через el.reviewCard.style.display)
+                // Но по-прежнему загружаем отзыв если он есть для отображения на других страницах
+                if (data.review && data.review.rating) {
+                    displayReview(data.review);
+                }
+            }
+            
             renderIssues(data.issues || []);
         } catch (err) {
             console.error(err);
@@ -543,6 +758,45 @@
         el.issueForm.style.display = isHidden ? 'block' : 'none';
         el.toggleIssueBtn.textContent = isHidden ? UI.toggleClose : UI.toggleOpen;
     });
+
+    // === ФАЗА 4: ФУНКЦИИ ДЛЯ ПОДТВЕРЖДЕНИЯ СОСТОЯНИЯ (глобальные для onclick) ===
+    window.openConfirmConditionModal = function() {
+        document.getElementById('confirmConditionModal').style.display = 'flex';
+    }
+
+    window.closeConfirmConditionModal = function() {
+        document.getElementById('confirmConditionModal').style.display = 'none';
+    }
+
+    window.submitConfirmCondition = async function() {
+        const btn = document.getElementById('confirmConditionSubmitBtn');
+        btn.disabled = true;
+        btn.textContent = t.confirmConditionLoading;
+
+        try {
+            const response = await fetch(`/api/v1/orders/shipments/${encodeURIComponent(tracking)}/confirm-condition`, {
+                method: 'POST',
+                credentials: 'include'
+            });
+            
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.detail || t.confirmConditionError);
+            }
+
+            window.closeConfirmConditionModal();
+            showToast(t.confirmConditionSuccess, 'success', 4000);
+            
+            // Перезагружаем страницу, чтобы обновить статус и показать форму отзыва
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await loadOrder();
+        } catch (err) {
+            showToast('Ошибка: ' + (err.message || err), 'error', 4000);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = t.confirmConditionBtn;  // ✅ Из translations
+        }
+    }
 
     loadOrder();
 })();

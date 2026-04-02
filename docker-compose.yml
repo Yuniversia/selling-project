@@ -349,6 +349,11 @@ services:
       - OMNIVA_API_KEY=${OMNIVA_API_KEY}
       - DPD_API_KEY=${DPD_API_KEY}
       - DPD_API_SECRET=${DPD_API_SECRET}
+      - DPD_TEST_MODE=${DPD_TEST_MODE:-true}
+      - DPD_INNER_SYSTEM_SIMULATION=${DPD_INNER_SYSTEM_SIMULATION:-true}
+      - DPD_REAL_API_BASE_URL=${DPD_REAL_API_BASE_URL:-https://eserviss.dpd.lv/api/v1}
+      - DPD_TEST_API_BASE_URL=${DPD_TEST_API_BASE_URL:-https://sandbox-eserviss.dpd.lv/api/v1}
+      - OMNIVA_TEST_API_BASE_URL=${OMNIVA_TEST_API_BASE_URL:-https://test-omx.omniva.eu/api/v01/omx}
     ports:
       - "7000:7000"
     depends_on:

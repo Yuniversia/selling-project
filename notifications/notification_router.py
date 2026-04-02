@@ -146,6 +146,73 @@ async def notify_order_delivered(
     return await send_notification(request, db)
 
 
+@notification_router.post("/pickup-notification")
+async def notify_pickup(
+    pickup_data: dict,
+    db: Session = Depends(get_session)
+):
+    """
+    Уведомление о личной встрече/pickup
+    
+    Отправляет продавцу SMS с информацией о встрече и покупателе
+    """
+    logger.info(f"Pickup notification | order_id={pickup_data.get('order_id')} | seller_id={pickup_data.get('seller_id')}")
+    
+    service = NotificationService(db)
+    
+    try:
+        seller_phone = pickup_data.get("seller_phone")
+        seller_email = pickup_data.get("seller_email")
+        contact_preference = pickup_data.get("contact_preference", "email").lower()
+        
+        buyer_name = pickup_data.get("buyer_name", "Покупатель")
+        buyer_phone = pickup_data.get("buyer_phone", "не указан")
+        buyer_email = pickup_data.get("buyer_email", "не указан")
+        meeting_address = pickup_data.get("meeting_address", "адрес не указан")
+        product_name = pickup_data.get("product_name", "Товар")
+        order_id = pickup_data.get("order_id", "?")
+        
+        message = f"Заказ #{order_id}: {buyer_name} хочет купить '{product_name}'. Встреча: {meeting_address}. Контакт: {buyer_phone}"
+        
+        notification_ids = []
+        errors = []
+        
+        # Отправляем в зависимости от предпочтения контакта
+        if contact_preference == "phone" and seller_phone:
+            logger.info(f"Sending SMS to seller phone: {seller_phone}")
+            sendberry = SendBerryService()
+            result = sendberry.send_sms(seller_phone, message)
+            if result.get("success"):
+                notification_ids.append(result.get("message_id"))
+            else:
+                errors.append(f"SMS send failed: {result.get('error')}")
+        elif seller_phone:  # Fallback to phone if email fails
+            logger.info(f"Email not available or preferred, sending SMS to: {seller_phone}")
+            sendberry = SendBerryService()
+            result = sendberry.send_sms(seller_phone, message)
+            if result.get("success"):
+                notification_ids.append(result.get("message_id"))
+            else:
+                errors.append(f"SMS send failed: {result.get('error')}")
+        
+        return {
+            "success": len(errors) == 0,
+            "notification_ids": notification_ids,
+            "errors": errors,
+            "message": "Pickup notification processed" if len(errors) == 0 else "Pickup notification sent with errors"
+        }
+    
+    except Exception as e:
+        logger.error(f"Pickup notification error: {str(e)}")
+        return {
+            "success": False,
+            "notification_ids": [],
+            "errors": [str(e)],
+            "message": "Pickup notification failed"
+        }
+
+
+
 @notification_router.get("/history", response_model=list[NotificationHistoryResponse])
 async def get_notification_history(
     order_id: Optional[int] = None,

@@ -68,6 +68,20 @@ app.include_router(api_router)
 app.include_router(bought_router)
 app.include_router(order_router)
 
+# Configuration endpoints
+@app.get("/delivery-costs")
+async def get_delivery_costs():
+    """Получить текущие стоимости доставки из конфигурации"""
+    return {
+        "status": "success",
+        "data": {
+            "pickup": Configs.DELIVERY_COST_PICKUP,
+            "dpd": Configs.DELIVERY_COST_DPD,
+            "omniva": Configs.DELIVERY_COST_OMNIVA
+        },
+        "request_id": ""
+    }
+
 # Health check endpoint для Docker
 @app.get("/health")
 async def health_check():

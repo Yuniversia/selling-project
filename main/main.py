@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from frontend_router import frontend_router
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
+from configs import Configs
 
 # Загружаем конфигурацию
 BACKEND_HOST = os.getenv("BACKEND_HOST", "0.0.0.0")
@@ -35,6 +36,16 @@ app.add_middleware(
 
 # Подключаем роутер для отдачи страниц
 app.include_router(frontend_router)
+
+# API для получения цен доставки
+@app.get("/api/v1/delivery-costs")
+async def get_delivery_costs():
+    """Получить текущие стоимости доставки из конфигурации"""
+    return {
+        "status": "success",
+        "data": Configs.to_dict(),
+        "request_id": ""
+    }
 
 # API для проверки IMEI
 @app.get("/api/check-imei")

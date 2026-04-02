@@ -23,6 +23,9 @@ async def auto_simulate_deliveries():
     while True:
         try:
             await asyncio.sleep(5)  # Проверяем каждые 5 секунд
+
+            if not configs.is_dpd_simulation_enabled():
+                continue
             
             with Session(engine) as db:
                 service = DeliveryService(db)
@@ -30,7 +33,8 @@ async def auto_simulate_deliveries():
                 # Находим доставки в статусе "created" старше 5 секунд
                 deliveries = db.exec(
                     select(Delivery).where(
-                        Delivery.status == DeliveryStatus.CREATED.value
+                        Delivery.status == DeliveryStatus.CREATED.value,
+                        Delivery.provider == "dpd"
                     )
                 ).all()
                 
@@ -49,7 +53,8 @@ async def auto_simulate_deliveries():
                 # Находим доставки в статусе "in_transit" старше 10 секунд
                 deliveries = db.exec(
                     select(Delivery).where(
-                        Delivery.status == DeliveryStatus.IN_TRANSIT.value
+                        Delivery.status == DeliveryStatus.IN_TRANSIT.value,
+                        Delivery.provider == "dpd"
                     )
                 ).all()
                 
@@ -69,7 +74,8 @@ async def auto_simulate_deliveries():
                 # Автоматический переход "at_pickup_point" -> "picked_up" (симуляция получения)
                 deliveries = db.exec(
                     select(Delivery).where(
-                        Delivery.status == DeliveryStatus.AT_PICKUP_POINT.value
+                        Delivery.status == DeliveryStatus.AT_PICKUP_POINT.value,
+                        Delivery.provider == "dpd"
                     )
                 ).all()
                 
@@ -155,7 +161,8 @@ async def root():
         "status": "running",
         "version": "1.0.0",
         "docs": "/delivery/docs",
-        "simulation_mode": configs.USE_SIMULATION_MODE
+        "simulation_mode": configs.USE_SIMULATION_MODE,
+        "dpd_mode": configs.get_dpd_mode()
     }
 
 

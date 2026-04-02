@@ -97,6 +97,23 @@ class DeliveryStatusHistory(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class PickupPoint(SQLModel, table=True):
+    """Справочник пунктов выдачи (пакоматов/пунктов)"""
+    __tablename__ = "pickup_points"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    system_point_id: str = Field(max_length=100, unique=True, index=True)
+    provider: str = Field(max_length=20, index=True)
+    locker_index: str = Field(max_length=50)
+    name: str = Field(max_length=200)
+    city: str = Field(max_length=100, index=True)
+    address: str = Field(max_length=255)
+    postal_code: str = Field(max_length=20, index=True)
+    country_code: str = Field(default="LV", max_length=2, index=True)
+    is_active: bool = Field(default=True, index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 # =============================================================================
 # PYDANTIC MODELS FOR API
 # =============================================================================
@@ -227,3 +244,20 @@ class PickupPointLocation(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     working_hours: Optional[str] = None
+
+
+class PickupPointResponse(BaseModel):
+    id: int
+    system_point_id: str
+    provider: str
+    locker_index: str
+    name: str
+    city: str
+    address: str
+    postal_code: str
+    country_code: str
+
+
+class PickupPointResolveResponse(BaseModel):
+    found: bool
+    pickup_point: Optional[PickupPointResponse] = None

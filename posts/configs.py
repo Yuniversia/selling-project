@@ -50,3 +50,8 @@ class Configs:
 
     # Test payment mode (Stripe test payment_method)
     PAYMENTS_TEST_MODE = os.getenv("PAYMENTS_TEST_MODE", "true").lower() == "true"
+    
+    # Delivery Costs Configuration (in EUR)
+    DELIVERY_COST_PICKUP = float(os.getenv('DELIVERY_COST_PICKUP', '0'))
+    DELIVERY_COST_DPD = float(os.getenv('DELIVERY_COST_DPD', '2.99'))
+    DELIVERY_COST_OMNIVA = float(os.getenv('DELIVERY_COST_OMNIVA', '1.99'))

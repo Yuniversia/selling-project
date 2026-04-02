@@ -9,12 +9,75 @@ from models import (
     Delivery, DeliveryCreate, DeliveryResponse, 
     DeliveryStatusUpdate, DeliveryTrackingResponse,
     OrderTrackingPageResponse,
-    DeliveryStatusHistory
+    DeliveryStatusHistory,
+    PickupPointResponse,
+    PickupPointResolveResponse
 )
 from delivery_service import DeliveryService
 
 
 delivery_router = APIRouter(prefix="/api/v1/delivery", tags=["Delivery"])
+
+
+@delivery_router.get("/pickup-points", response_model=list[PickupPointResponse])
+async def list_pickup_points(
+    provider: Optional[str] = Query(None, description="Провайдер: dpd/omniva"),
+    country_code: Optional[str] = Query(None, description="Код страны: LV/EE/LT"),
+    city: Optional[str] = Query(None, description="Город"),
+    limit: int = Query(200, ge=1, le=500),
+    db: Session = Depends(get_session)
+):
+    """Справочник пунктов выдачи для выбора на фронтенде"""
+    service = DeliveryService(db)
+    points = service.get_pickup_points(
+        provider=provider,
+        country_code=country_code,
+        city=city,
+        limit=limit,
+    )
+
+    return [
+        PickupPointResponse(
+            id=item.id,
+            system_point_id=item.system_point_id,
+            provider=item.provider,
+            locker_index=item.locker_index,
+            name=item.name,
+            city=item.city,
+            address=item.address,
+            postal_code=item.postal_code,
+            country_code=item.country_code,
+        )
+        for item in points
+    ]
+
+
+@delivery_router.get("/pickup-points/resolve", response_model=PickupPointResolveResponse)
+async def resolve_pickup_point(
+    provider: str = Query(..., description="Провайдер: dpd/omniva"),
+    system_point_id: str = Query(..., description="ID точки в системе провайдера"),
+    db: Session = Depends(get_session)
+):
+    """Проверка что пункт выдачи существует и принадлежит конкретному провайдеру"""
+    service = DeliveryService(db)
+    point = service.resolve_pickup_point(provider=provider, system_point_id=system_point_id)
+    if not point:
+        return PickupPointResolveResponse(found=False, pickup_point=None)
+
+    return PickupPointResolveResponse(
+        found=True,
+        pickup_point=PickupPointResponse(
+            id=point.id,
+            system_point_id=point.system_point_id,
+            provider=point.provider,
+            locker_index=point.locker_index,
+            name=point.name,
+            city=point.city,
+            address=point.address,
+            postal_code=point.postal_code,
+            country_code=point.country_code,
+        )
+    )
 
 
 @delivery_router.post("/create", response_model=DeliveryResponse, status_code=201)
@@ -96,12 +159,12 @@ async def order_tracking_page(
     history = service.get_delivery_history(delivery.id)
 
     stage_map = {
-        "created": "created",
+        "created": "paid",
         "in_transit": "in_transit",
         "at_pickup_point": "ready_for_pickup",
-        "picked_up": "received",
+        "picked_up": "picked_up",
         "cancelled": "cancelled",
-        "returned": "returned"
+        "returned": "cancelled"
     }
 
     current_stage = stage_map.get(delivery.status, delivery.status)
