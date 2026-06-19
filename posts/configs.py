@@ -1,7 +1,7 @@
-import os
+﻿import os
 
 def _get_cf_base_url():
-    """Вспомогательная функция для формирования CF_BASE_URL"""
+    """Ð’ÑÐ¿Ð¾Ð¼Ð¾Ð³Ð°Ñ‚ÐµÐ»ÑŒÐ½Ð°Ñ Ñ„ÑƒÐ½ÐºÑ†Ð¸Ñ Ð´Ð»Ñ Ñ„Ð¾Ñ€Ð¼Ð¸Ñ€Ð¾Ð²Ð°Ð½Ð¸Ñ CF_BASE_URL"""
     account_id = os.getenv('CF_ACCOUNT_ID')
     if account_id:
         return f"https://api.cloudflare.com/client/v4/accounts/{account_id}/images/v1"
@@ -23,10 +23,10 @@ class Configs:
     CF_API_TOKEN = os.getenv('CF_API_TOKEN')
     CF_IMAGE_DELIVERY_URL = os.getenv('CF_IMAGE_DELIVERY_URL')
     
-    # CF_BASE_URL формируется динамически
+    # CF_BASE_URL Ñ„Ð¾Ñ€Ð¼Ð¸Ñ€ÑƒÐµÑ‚ÑÑ Ð´Ð¸Ð½Ð°Ð¼Ð¸Ñ‡ÐµÑÐºÐ¸
     CF_BASE_URL = _get_cf_base_url()
     
-    # Posts R2 Configuration (отдельные credentials для posts)
+    # Posts R2 Configuration (Ð¾Ñ‚Ð´ÐµÐ»ÑŒÐ½Ñ‹Ðµ credentials Ð´Ð»Ñ posts)
     POSTS_CF_ACCOUNT_ID = os.getenv('CF_ACCOUNT_ID', CF_ACCOUNT_ID)
     POST_CF_R2_HASH = os.getenv('POST_CF_R2_HASH', CF_ACCOUNT_HASH)
     POSTS_R2_ACCESS_KEY_ID = os.getenv('POST_CF_R2_ACCESS_KEY_ID')
@@ -47,11 +47,19 @@ class Configs:
 
     # Payments Service URL
     PAYMENTS_SERVICE_URL = os.getenv('PAYMENTS_SERVICE_URL', 'http://payments-service:9000')
+    PAYMENT_SERVICE_URL = os.getenv('PAYMENT_SERVICE_URL', PAYMENTS_SERVICE_URL)
+
+    # Disputes auto-accept config (for tests can be lowered to few minutes)
+    DISPUTE_DISCOUNT_AUTO_ACCEPT_MINUTES = int(os.getenv('DISPUTE_DISCOUNT_AUTO_ACCEPT_MINUTES', '2880'))
+    DISPUTE_AUTO_CHECK_INTERVAL_SECONDS = int(os.getenv('DISPUTE_AUTO_CHECK_INTERVAL_SECONDS', '60'))
+
+    # Hours after picked_up before auto-confirming and releasing payment to seller
+    ORDER_AUTO_CONFIRM_HOURS = int(os.getenv('ORDER_AUTO_CONFIRM_HOURS', '24'))
 
     # Test payment mode (Stripe test payment_method)
     PAYMENTS_TEST_MODE = os.getenv("PAYMENTS_TEST_MODE", "true").lower() == "true"
     
     # Delivery Costs Configuration (in EUR)
     DELIVERY_COST_PICKUP = float(os.getenv('DELIVERY_COST_PICKUP', '0'))
-    DELIVERY_COST_DPD = float(os.getenv('DELIVERY_COST_DPD', '2.99'))
-    DELIVERY_COST_OMNIVA = float(os.getenv('DELIVERY_COST_OMNIVA', '1.99'))
+    DELIVERY_COST_DPD = float(os.getenv('DELIVERY_COST_DPD', '4.99'))
+    DELIVERY_COST_OMNIVA = float(os.getenv('DELIVERY_COST_OMNIVA', '4.99'))

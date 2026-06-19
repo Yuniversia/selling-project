@@ -2,26 +2,28 @@
 
 import logging
 import os
-from fastapi import APIRouter, Depends, HTTPException, Request, Cookie, Query
+from fastapi import APIRouter, Depends, HTTPException, Request, Cookie, Query, UploadFile, File, Form
 from fastapi.responses import RedirectResponse
 from sqlmodel import Session, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from typing import Optional
+from typing import Optional, Any, Dict, List
 from jose import jwt
 import secrets
 import string
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 import httpx
 
-from database import get_session
+from database import get_session, engine
 from models_v2 import (
     Order, OrderCreate, OrderResponse,
     Product, DeliveryMethod, OrderStatus, User,
     OrderReview, OrderIssue, OrderPageReviewCreate,
-    OrderIssueCreate, OrderIssueStatus, PostReport
+    OrderIssueCreate, OrderIssueStatus, PostReport,
+    SellerDisputeAction, AdminDisputeVerdict
 )
 from configs import Configs
+from cloudflare_r2 import r2_client
 
 order_router = APIRouter(prefix="/api/v1/orders", tags=["Orders"])
 logger = logging.getLogger("posts.order_router")
@@ -193,6 +195,444 @@ def generate_confirmation_code() -> str:
     return ''.join(secrets.choice(string.digits) for _ in range(6))
 
 
+def _decode_user_optional(access_token: Optional[str]) -> Optional[Dict[str, Any]]:
+    if not access_token:
+        return None
+    try:
+        payload = jwt.decode(access_token, Configs.secret_key, algorithms=[Configs.token_algoritm])
+        user_id = payload.get("user_id")
+        if not user_id:
+            return None
+        return {
+            "user_id": int(user_id),
+            "user_type": payload.get("user_type", "regular"),
+            "username": payload.get("username"),
+        }
+    except Exception:
+        return None
+
+
+def _require_admin_user(access_token: Optional[str]) -> Dict[str, Any]:
+    user = _decode_user_optional(access_token)
+    if not user:
+        raise HTTPException(status_code=401, detail="Требуется авторизация")
+    if user.get("user_type", "regular") not in ["admin", "support"]:
+        raise HTTPException(status_code=403, detail="Доступ только для администраторов")
+    return user
+
+
+def _parse_tracking_from_report_details(details: Optional[str]) -> Optional[str]:
+    if not details:
+        return None
+    marker = "[tracking:"
+    idx = details.find(marker)
+    if idx < 0:
+        return None
+    tail = details[idx + len(marker):]
+    end = tail.find("]")
+    if end < 0:
+        return None
+    return tail[:end].strip() or None
+
+
+def _parse_dispute_id_from_report_details(details: Optional[str]) -> Optional[int]:
+    if not details:
+        return None
+    marker = "[dispute_id:"
+    idx = details.find(marker)
+    if idx < 0:
+        return None
+    tail = details[idx + len(marker):]
+    end = tail.find("]")
+    if end < 0:
+        return None
+    raw = tail[:end].strip()
+    return int(raw) if raw.isdigit() else None
+
+
+async def _upload_dispute_files(order_id: int, files: Optional[List[UploadFile]]) -> List[str]:
+    if not files:
+        return []
+
+    allowed_prefixes = ("image/", "video/")
+    max_file_size = 20 * 1024 * 1024
+    max_files = 6
+
+    if len(files) > max_files:
+        raise HTTPException(status_code=400, detail=f"Можно загрузить не более {max_files} файлов")
+
+    uploaded_urls: List[str] = []
+    for item in files:
+        content_type = (item.content_type or "").lower()
+        if not any(content_type.startswith(prefix) for prefix in allowed_prefixes):
+            raise HTTPException(status_code=400, detail="Разрешены только фото и видео")
+
+        payload = await item.read()
+        if not payload:
+            continue
+        if len(payload) > max_file_size:
+            raise HTTPException(status_code=400, detail="Размер файла не должен превышать 20MB")
+
+        extension = os.path.splitext(item.filename or "")[1].lower()[:10]
+        object_key = f"disputes/order_{order_id}/{uuid.uuid4().hex}{extension}"
+        public_url = await r2_client.upload_file_to_r2(payload, object_key, content_type)
+        uploaded_urls.append(public_url)
+
+    return uploaded_urls
+
+
+def _sync_dispute_report_status(db: Session, dispute: OrderIssue, new_status: str) -> None:
+    report = db.exec(
+        select(PostReport).where(
+            PostReport.details.contains(f"[dispute_id:{dispute.id}]")
+        )
+    ).first()
+    if report:
+        report.status = new_status
+        report.reviewed_at = datetime.utcnow()
+        db.add(report)
+
+
+def _tracking_url(tracking_number: Optional[str]) -> str:
+    return f"{Configs.FRONTEND_URL.rstrip('/')}/order?tracking={tracking_number or ''}"
+
+
+def _build_dispute_notification_data(db: Session, order: Order, dispute: OrderIssue, language: str = "ru") -> Dict[str, Any]:
+    seller = db.get(User, order.seller_id) if order.seller_id else None
+    buyer_name = f"{(order.buyer_first_name or '').strip()} {(order.buyer_last_name or '').strip()}".strip() or "Покупатель"
+    product = db.get(Product, order.post_id) if order.post_id else None
+
+    return {
+        "order_id": order.id,
+        "dispute_id": dispute.id,
+        "tracking_number": dispute.tracking_number or order.tracking_number or "",
+        "seller_name": seller.name if seller and seller.name else (seller.username if seller else "Продавец"),
+        "seller_phone": seller.phone if seller else None,
+        "buyer_name": buyer_name,
+        "buyer_phone": order.buyer_phone,
+        "product_name": product_name(product),
+        "reason": dispute.reason,
+        "seller_response_action": dispute.seller_response_action,
+        "seller_discount_amount": dispute.seller_discount_amount,
+        "tracking_url": _tracking_url(dispute.tracking_number or order.tracking_number),
+        "language": language,
+    }
+
+
+async def _send_dispute_event_notification(
+    db: Session,
+    order: Order,
+    dispute: OrderIssue,
+    event_type: str,
+    *,
+    verdict: Optional[str] = None,
+    language: str = "ru",
+) -> None:
+    try:
+        payload = _build_dispute_notification_data(db, order, dispute, language=language)
+        payload["event_type"] = event_type
+        if verdict:
+            payload["verdict"] = verdict
+        await send_notification_async("dispute-event", payload)
+    except Exception as exc:
+        logger.warning(
+            f"Dispute notification skipped | order_id={order.id} | dispute_id={dispute.id} | event={event_type} | error_type={safe_exception_name(exc)}"
+        )
+
+
+async def _accept_discount_and_close_dispute(
+    db: Session,
+    order: Order,
+    dispute: OrderIssue,
+    *,
+    source: str,
+) -> Dict[str, Any]:
+    now = datetime.utcnow()
+    discount_value = float(dispute.seller_discount_amount or order.discount_offered or 0)
+    if discount_value <= 0:
+        raise HTTPException(status_code=400, detail="Скидка не указана")
+
+    refund_payment_id = None
+    amount_cents = max(1, int(round(discount_value * 100)))
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            payment_response = await client.get(
+                f"{Configs.PAYMENT_SERVICE_URL}/api/v1/payments/order/{order.id}"
+            )
+            if payment_response.status_code == 200:
+                payment_payload = payment_response.json()
+                payment_data = payment_payload.get("data", payment_payload)
+                payment_id = payment_data.get("id")
+                if payment_id:
+                    refund_response = await client.post(
+                        f"{Configs.PAYMENT_SERVICE_URL}/api/v1/payments/{payment_id}/refund",
+                        json={
+                            "amount_cents": amount_cents,
+                            "reason": "requested_by_customer",
+                            "metadata": {
+                                "order_id": order.id,
+                                "dispute_id": dispute.id,
+                                "source": source,
+                            },
+                        },
+                    )
+                    if refund_response.status_code in [200, 202]:
+                        refund_payment_id = int(payment_id)
+                    else:
+                        raise HTTPException(status_code=502, detail="Не удалось выполнить частичный возврат скидки")
+                else:
+                    raise HTTPException(status_code=404, detail="Платёж не найден для возврата скидки")
+            else:
+                raise HTTPException(status_code=404, detail="Платёж не найден для заказа")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.warning(
+            f"Discount refund integration error | dispute_id={dispute.id} | order_id={order.id} | error_type={safe_exception_name(exc)}"
+        )
+        raise HTTPException(status_code=502, detail="Ошибка интеграции refund для скидки")
+
+    order.discount_status = "accepted"
+    order.status = OrderStatus.CONFIRMED.value
+    order.order_confirmed_at = order.order_confirmed_at or now
+    order.confirmed_by_buyer = True
+    order.completed_at = order.completed_at or now
+    db.add(order)
+
+    dispute.refund_payment_id = refund_payment_id
+    dispute.status = OrderIssueStatus.RESOLVED.value
+    dispute.admin_verdict = None
+    dispute.updated_at = now
+    _sync_dispute_report_status(db, dispute, "resolved")
+    db.add(dispute)
+    db.commit()
+    db.refresh(dispute)
+
+    await _send_dispute_event_notification(
+        db,
+        order,
+        dispute,
+        "dispute_discount_closed_seller",
+    )
+
+    return {
+        "discount_amount": discount_value,
+        "refund_payment_id": refund_payment_id,
+        "status": dispute.status,
+    }
+
+
+def _ensure_return_order_for_dispute(db: Session, order: Order, dispute: OrderIssue) -> Order:
+    return_tracking = f"RET-{order.id}-{dispute.id}"
+    existing = db.exec(select(Order).where(Order.tracking_number == return_tracking)).first()
+    if existing:
+        return existing
+
+    return_order = Order(
+        post_id=order.post_id,
+        buyer_id=order.buyer_id,
+        seller_id=order.seller_id,
+        price=0.0,
+        delivery_method=order.delivery_method,
+        delivery_cost=0.0,
+        selected_locker_id=order.selected_locker_id,
+        selected_locker_name=f"return_dispute:{dispute.id}",
+        buyer_first_name=order.buyer_first_name,
+        buyer_last_name=order.buyer_last_name,
+        buyer_email=order.buyer_email,
+        buyer_phone=order.buyer_phone,
+        delivery_address=order.delivery_address,
+        delivery_city=order.delivery_city,
+        delivery_zip=order.delivery_zip,
+        delivery_country=order.delivery_country,
+        pickup_code=generate_pickup_code(),
+        tracking_number=return_tracking,
+        status=OrderStatus.IN_TRANSIT.value,
+        paid_at=datetime.utcnow(),
+        shipped_at=datetime.utcnow(),
+    )
+    db.add(return_order)
+    db.commit()
+    db.refresh(return_order)
+    return return_order
+
+
+async def _finalize_return_received_and_refund(db: Session, order: Order, dispute: OrderIssue, source: str) -> Dict[str, Any]:
+    now = datetime.utcnow()
+    dispute.return_received_at = now
+    dispute.status = OrderIssueStatus.RESOLVED.value
+    dispute.updated_at = now
+
+    refund_payment_id = None
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            payment_response = await client.get(
+                f"{Configs.PAYMENT_SERVICE_URL}/api/v1/payments/order/{order.id}"
+            )
+            if payment_response.status_code == 200:
+                payment_payload = payment_response.json()
+                payment_data = payment_payload.get("data", payment_payload)
+                payment_id = payment_data.get("id")
+                if payment_id:
+                    refund_response = await client.post(
+                        f"{Configs.PAYMENT_SERVICE_URL}/api/v1/payments/{payment_id}/refund",
+                        json={
+                            "reason": "requested_by_customer",
+                            "metadata": {
+                                "order_id": order.id,
+                                "dispute_id": dispute.id,
+                                "source": source
+                            }
+                        }
+                    )
+                    if refund_response.status_code in [200, 202]:
+                        refund_payment_id = int(payment_id)
+                    else:
+                        logger.warning(
+                            f"Refund request failed | dispute_id={dispute.id} | order_id={order.id} | HTTP {refund_response.status_code}"
+                        )
+            else:
+                logger.warning(
+                    f"Payment lookup failed | dispute_id={dispute.id} | order_id={order.id} | HTTP {payment_response.status_code}"
+                )
+    except Exception as exc:
+        logger.warning(
+            f"Refund integration error | dispute_id={dispute.id} | order_id={order.id} | error_type={safe_exception_name(exc)}"
+        )
+
+    dispute.refund_payment_id = refund_payment_id
+    order.status = OrderStatus.REFUNDED.value
+    db.add(order)
+    _sync_dispute_report_status(db, dispute, "resolved")
+    db.add(dispute)
+    db.commit()
+    db.refresh(dispute)
+
+    return {
+        "refund_payment_id": refund_payment_id,
+        "status": dispute.status,
+        "order_status": order.status,
+    }
+
+
+async def process_auto_accept_discount_disputes() -> int:
+    now = datetime.utcnow()
+    threshold = now - timedelta(minutes=Configs.DISPUTE_DISCOUNT_AUTO_ACCEPT_MINUTES)
+    processed = 0
+
+    with Session(engine) as db:
+        stale_disputes = db.exec(
+            select(OrderIssue).where(
+                OrderIssue.status == OrderIssueStatus.SELLER_RESPONDED.value,
+                OrderIssue.seller_response_action == SellerDisputeAction.OFFER_DISCOUNT.value,
+                OrderIssue.seller_responded_at != None,
+                OrderIssue.seller_responded_at <= threshold,
+            )
+        ).all()
+
+        for dispute in stale_disputes:
+            order = db.get(Order, dispute.order_id)
+            if not order:
+                continue
+
+            try:
+                await _accept_discount_and_close_dispute(
+                    db,
+                    order,
+                    dispute,
+                    source="discount_auto_accept_timeout",
+                )
+                processed += 1
+                logger.info(
+                    f"Dispute auto-accepted | order_id={order.id} | dispute_id={dispute.id} | timeout_minutes={Configs.DISPUTE_DISCOUNT_AUTO_ACCEPT_MINUTES}"
+                )
+            except Exception as exc:
+                logger.warning(
+                    f"Dispute auto-accept failed | order_id={order.id} | dispute_id={dispute.id} | error_type={safe_exception_name(exc)}"
+                )
+
+    return processed
+
+
+async def _release_payment_for_order(order_id: int) -> None:
+    """Call payments-service to transfer held funds to seller."""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                f"{Configs.PAYMENT_SERVICE_URL}/api/v1/payments/order/{order_id}"
+            )
+            if resp.status_code != 200:
+                logger.warning(f"Release payment: lookup failed | order_id={order_id} | status={resp.status_code}")
+                return
+            data = resp.json()
+            payment = data.get("data", data)
+            payment_id = payment.get("id")
+            if not payment_id:
+                logger.warning(f"Release payment: no payment_id | order_id={order_id}")
+                return
+            release_resp = await client.post(
+                f"{Configs.PAYMENT_SERVICE_URL}/api/v1/payments/{payment_id}/release-to-seller"
+            )
+            if release_resp.status_code in (200, 202):
+                logger.info(f"Payment released to seller | order_id={order_id} | payment_id={payment_id}")
+            else:
+                logger.warning(f"Release payment failed | order_id={order_id} | payment_id={payment_id} | status={release_resp.status_code} | body={release_resp.text[:200]}")
+    except Exception as exc:
+        logger.warning(f"Release payment error | order_id={order_id} | error={safe_exception_name(exc)}")
+
+async def process_auto_confirm_picked_up_orders() -> int:
+    """Auto-confirm orders that have been in picked_up status for > 24h with no active dispute."""
+    now = datetime.utcnow()
+    threshold = now - timedelta(hours=Configs.ORDER_AUTO_CONFIRM_HOURS)
+    processed = 0
+
+    with Session(engine) as db:
+        stale_orders = db.exec(
+            select(Order).where(
+                Order.status == OrderStatus.PICKED_UP.value,
+                Order.order_confirmed_at == None,
+                Order.delivered_at != None,
+                Order.delivered_at <= threshold,
+            )
+        ).all()
+
+        for order in stale_orders:
+            active_dispute = db.exec(
+                select(OrderIssue).where(
+                    OrderIssue.order_id == order.id,
+                    OrderIssue.status.in_([
+                        OrderIssueStatus.OPEN.value,
+                        OrderIssueStatus.IN_REVIEW.value,
+                        OrderIssueStatus.SELLER_RESPONDED.value,
+                        OrderIssueStatus.AWAITING_RETURN.value,
+                    ])
+                )
+            ).first()
+            if active_dispute:
+                continue
+
+            try:
+                order.order_confirmed_at = now
+                order.confirmed_by_buyer = True
+                order.status = OrderStatus.CONFIRMED.value
+                order.completed_at = now
+                db.add(order)
+                db.commit()
+
+                await _release_payment_for_order(order.id)
+                processed += 1
+                logger.info(
+                    f"Order auto-confirmed | order_id={order.id} | "
+                    f"delivered_at={order.delivered_at} | method={order.delivery_method}"
+                )
+            except Exception as exc:
+                logger.warning(
+                    f"Order auto-confirm failed | order_id={order.id} | error_type={safe_exception_name(exc)}"
+                )
+
+    return processed
+
 async def finalize_order_after_successful_payment(
     *,
     db: Session,
@@ -205,6 +645,9 @@ async def finalize_order_after_successful_payment(
             db.commit()
             db.refresh(order)
         return f"{Configs.FRONTEND_URL.rstrip('/')}/order?tracking={order.tracking_number}"
+
+    if order.status == OrderStatus.FAILURE.value:
+        return f"{Configs.FRONTEND_URL.rstrip('/')}/my-orders?order_id={order.id}&payment=failure"
 
     order.status = OrderStatus.PAID.value
     order.paid_at = datetime.utcnow()
@@ -222,7 +665,6 @@ async def finalize_order_after_successful_payment(
             seller = db.get(User, order.seller_id)
 
             delivery_data = {
-                "post_id": order.post_id,
                 "order_id": order.id,
                 "provider": order.delivery_method,
                 "recipient_name": f"{order.buyer_first_name} {order.buyer_last_name}",
@@ -230,10 +672,14 @@ async def finalize_order_after_successful_payment(
                 "recipient_email": order.buyer_email,
                 "sender_name": seller.name or seller.username if seller else "Продавец",
                 "sender_phone": seller.phone if seller and seller.phone else "+37120000000",
+                "sender_email": seller.email if seller and seller.email else None,
                 "delivery_address": order.delivery_address,
                 "delivery_city": order.delivery_city,
                 "delivery_zip": order.delivery_zip,
-                "delivery_country": order.delivery_country or "Latvia",
+                "delivery_country": order.delivery_country or "LV",
+                "pickup_point_id": order.selected_locker_id,
+                "pickup_point_name": order.selected_locker_name,
+                "weight": 1.0,
                 "notes": f"lang={lang}",
             }
 
@@ -248,13 +694,150 @@ async def finalize_order_after_successful_payment(
                     order.tracking_number = delivery_info.get("tracking_number")
                     db.commit()
                     logger.info(f"Delivery created | order_id={order.id}")
+
+                    # Trigger DPD simulation — Stripe webhook may not fire in test/dev mode
+                    try:
+                        async with httpx.AsyncClient(timeout=3.0) as sim_client:
+                            await sim_client.post(
+                                f"{Configs.DELIVERY_SERVICE_URL}/api/v1/delivery/orders/{order.id}/after-payment"
+                            )
+                    except Exception:
+                        pass
+
+                    try:
+                        seller = db.get(User, order.seller_id)
+                        post = db.get(Product, order.post_id)
+
+                        notification_data = {
+                            "post_id": order.post_id,
+                            "order_id": order.id,
+                            "seller_name": seller.name or seller.username if seller else "Продавец",
+                            "seller_email": seller.email if seller else None,
+                            "seller_phone": seller.phone if seller else None,
+                            "buyer_name": f"{order.buyer_first_name} {order.buyer_last_name}",
+                            "buyer_email": order.buyer_email,
+                            "buyer_phone": order.buyer_phone,
+                            "product_name": product_name(post),
+                            "product_model": product_model_text(post),
+                            "order_price": order.price,
+                            "delivery_method": order.delivery_method,
+                            "tracking_url": f"{Configs.FRONTEND_URL.rstrip('/')}/order?tracking={order.tracking_number}",
+                            "tracking_number": order.tracking_number,
+                            "language": lang,
+                        }
+                        await send_notification_async("order-paid", notification_data)
+                        
+                        # 🔑 PIN-код для DPD PICKUP: отправляем SMS продавцу
+                        pin_code = delivery_info.get("pickup_code")
+                        if pin_code and order.delivery_method == DeliveryMethod.DPD.value:
+                            seller = db.get(User, order.seller_id)
+                            if seller and seller.phone:
+                                pin_notification_data = {
+                                    "order_id": order.id,
+                                    "seller_name": seller.name or seller.username,
+                                    "seller_phone": seller.phone,
+                                    "pin_code": pin_code,
+                                    "tracking_number": order.tracking_number,
+                                    "language": lang,
+                                }
+                                await send_notification_async("dpd-pin-code", pin_notification_data)
+                                logger.info(
+                                    f"PIN code SMS sent to seller | order_id={order.id} | seller_id={seller.id} | pin={pin_code}"
+                                )
+                            else:
+                                logger.warning(
+                                    f"PIN code SMS not sent - seller phone missing | order_id={order.id} | seller_id={order.seller_id}"
+                                )
+                    except Exception as e:
+                        logger.warning(
+                            f"Payment notification failed | order_id={order.id} | error_type={safe_exception_name(e)}"
+                        )
+
+                    return f"{Configs.FRONTEND_URL.rstrip('/')}/order?tracking={order.tracking_number}"
                 else:
-                    logger.warning(f"Delivery create failed | order_id={order.id} | HTTP {response.status_code}")
+                    # ❌ ОТКАТ: Доставка не создана - откатываем заказ и платёж
+                    error_detail = response.text
+                    try:
+                        error_payload = response.json()
+                    except Exception:
+                        error_payload = None
+                    logger.error(
+                        f"Delivery create failed | order_id={order.id} | HTTP {response.status_code} | error={error_detail} | payload={delivery_data} | parsed_error={error_payload}"
+                    )
+                    
+                    # Откатываем статус заказа
+                    order.paid_at = None
+                    order.shipped_at = None
+                    order.delivered_at = None
+                    order.completed_at = None
+                    order.tracking_number = None
+                    if post:
+                        post.active = True
+                    order.status = OrderStatus.FAILURE.value
+                    db.commit()
+                    
+                    # Отправляем запрос на возврат платежа
+                    try:
+                        async with httpx.AsyncClient(timeout=10.0) as refund_client:
+                            payment_lookup = await refund_client.get(
+                                f"{Configs.PAYMENTS_SERVICE_URL}/api/v1/payments/order/{order.id}"
+                            )
+
+                            payment_id = None
+                            if payment_lookup.status_code == 200:
+                                payment_payload = payment_lookup.json()
+                                payment_data = payment_payload.get("data", payment_payload)
+                                payment_id = payment_data.get("id")
+
+                            if payment_id:
+                                refund_payload = {
+                                    # Stripe accepts only duplicate/fraudulent/requested_by_customer
+                                    # The business reason is preserved in metadata.
+                                    "reason": "requested_by_customer",
+                                    "metadata": {
+                                        "source": "posts.finalize_order_after_successful_payment",
+                                        "order_id": order.id,
+                                        "delivery_error_status": response.status_code,
+                                        "business_reason": "delivery_failure",
+                                    },
+                                }
+                                refund_response = await refund_client.post(
+                                    f"{Configs.PAYMENTS_SERVICE_URL}/api/v1/payments/{payment_id}/refund",
+                                    json=refund_payload,
+                                )
+                                if refund_response.status_code in (200, 202):
+                                    logger.info(f"Payment refunded | order_id={order.id} | payment_id={payment_id}")
+                                else:
+                                    refund_body = refund_response.text
+                                    try:
+                                        refund_parsed = refund_response.json()
+                                    except Exception:
+                                        refund_parsed = None
+                                    logger.error(
+                                        f"Payment refund failed | order_id={order.id} | payment_id={payment_id} | HTTP {refund_response.status_code} | body={refund_body} | parsed={refund_parsed}"
+                                    )
+                            else:
+                                logger.error(f"Payment lookup failed | order_id={order.id} | no payment_id found")
+                    except Exception as refund_error:
+                        logger.error(
+                            f"Payment refund error | order_id={order.id} | error={safe_exception_name(refund_error)}"
+                        )
+                    
+                    return f"{Configs.FRONTEND_URL.rstrip('/')}/my-orders?order_id={order.id}&payment=failure"
 
         except Exception as e:
             logger.error(
                 f"Delivery create error | order_id={order.id} | error_type={safe_exception_name(e)}"
             )
+            order.status = OrderStatus.FAILURE.value
+            order.paid_at = None
+            order.shipped_at = None
+            order.delivered_at = None
+            order.completed_at = None
+            if post:
+                post.active = True
+            db.commit()
+            return f"{Configs.FRONTEND_URL.rstrip('/')}/my-orders?order_id={order.id}&payment=failure"
     else:
         logger.info(f"Delivery skipped | order_id={order.id} | method={order.delivery_method}")
 
@@ -295,33 +878,6 @@ async def finalize_order_after_successful_payment(
         db.refresh(order)
 
     order_page_url = f"{Configs.FRONTEND_URL.rstrip('/')}/order?tracking={order.tracking_number}"
-
-    try:
-        seller = db.get(User, order.seller_id)
-        post = db.get(Product, order.post_id)
-
-        notification_data = {
-            "post_id": order.post_id,
-            "order_id": order.id,
-            "seller_name": seller.name or seller.username if seller else "Продавец",
-            "seller_email": seller.email if seller else None,
-            "seller_phone": seller.phone if seller else None,
-            "buyer_name": f"{order.buyer_first_name} {order.buyer_last_name}",
-            "buyer_email": order.buyer_email,
-            "buyer_phone": order.buyer_phone,
-            "product_name": product_name(post),
-            "product_model": product_model_text(post),
-            "order_price": order.price,
-            "delivery_method": order.delivery_method,
-            "tracking_url": order_page_url,
-            "tracking_number": order.tracking_number,
-            "language": lang,
-        }
-        await send_notification_async("order-paid", notification_data)
-    except Exception as e:
-        logger.warning(
-            f"Payment notification failed | order_id={order.id} | error_type={safe_exception_name(e)}"
-        )
 
     return order_page_url
 
@@ -647,6 +1203,7 @@ async def process_payment(
     )
     cancel_url = f"{Configs.FRONTEND_URL.rstrip('/')}/product?id={order.post_id}&payment=cancelled"
 
+    delivery_cost_cents = int(round(float(order.delivery_cost or 0) * 100, 2))
     payment_payload = {
         "amount_cents": amount_cents,
         "currency": "eur",
@@ -658,6 +1215,7 @@ async def process_payment(
         "description": f"Payment for order #{order.id}",
         "success_url": success_url,
         "cancel_url": cancel_url,
+        "delivery_cost_cents": delivery_cost_cents,
         "metadata": {
             "flow": "posts-order-checkout",
             "delivery_method": order.delivery_method,
@@ -732,6 +1290,9 @@ async def payment_success_callback(
         tracking = order.tracking_number or f"ORD{order.id}"
         return RedirectResponse(url=f"{Configs.FRONTEND_URL.rstrip('/')}/order?tracking={tracking}", status_code=302)
 
+    if order.status == OrderStatus.FAILURE.value:
+        return RedirectResponse(url=f"{Configs.FRONTEND_URL.rstrip('/')}/my-orders?order_id={order.id}&payment=failure", status_code=302)
+
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
             response = await client.get(
@@ -764,6 +1325,7 @@ async def payment_success_callback(
 @order_router.get("/shipments/{tracking_number}")
 async def get_order_page_by_tracking(
     tracking_number: str,
+    access_token: str = Cookie(None),
     db: Session = Depends(get_session)
 ):
     """
@@ -811,6 +1373,24 @@ async def get_order_page_by_tracking(
         .order_by(OrderIssue.created_at.desc())
     ).all()
 
+    now_utc = datetime.utcnow()
+    escalated_any = False
+    for issue in issues:
+        if (
+            issue.status == OrderIssueStatus.OPEN.value
+            and issue.seller_response_deadline
+            and issue.seller_response_deadline < now_utc
+        ):
+            issue.status = OrderIssueStatus.IN_REVIEW.value
+            issue.escalated_to_admin_at = issue.escalated_to_admin_at or now_utc
+            issue.updated_at = now_utc
+            _sync_dispute_report_status(db, issue, "pending")
+            db.add(issue)
+            escalated_any = True
+
+    if escalated_any:
+        db.commit()
+
     status_stage_map = {
         OrderStatus.PENDING_PAYMENT.value: "payment_pending",
         OrderStatus.PAID.value: "paid",
@@ -819,6 +1399,7 @@ async def get_order_page_by_tracking(
         OrderStatus.PICKED_UP.value: "picked_up",
         OrderStatus.CONFIRMED.value: "confirmed",
         OrderStatus.CANCELLED.value: "cancelled",
+        OrderStatus.FAILURE.value: "failure",
         OrderStatus.REFUNDED.value: "refunded"
     }
 
@@ -832,12 +1413,19 @@ async def get_order_page_by_tracking(
     if delivery_data:
         delivery_status = delivery_data.get("status")
         order_status = order.status
-        
+
+        _TERMINAL_ORDER_STATUSES = {
+            OrderStatus.CONFIRMED.value,
+            OrderStatus.REFUNDED.value,
+            OrderStatus.CANCELLED.value,
+        }
+
         if delivery_status and delivery_status != order_status:
-            logger.warning(
-                f"Status mismatch | tracking={tracking_number} | order_status={order_status} | delivery_status={delivery_status}"
-            )
-            
+            if order_status not in _TERMINAL_ORDER_STATUSES:
+                logger.warning(
+                    f"Status mismatch | tracking={tracking_number} | order_status={order_status} | delivery_status={delivery_status}"
+                )
+
             # Если доставка уже прошла в статус picked_up, но order еще не обновлен (и еще не подтвержден), обновляем order
             # ВАЖНО: Не перезаписываем если order уже был подтвержден (status == CONFIRMED)
             if delivery_status == "picked_up" and order_status not in [OrderStatus.PICKED_UP.value, OrderStatus.CONFIRMED.value]:
@@ -897,6 +1485,20 @@ async def get_order_page_by_tracking(
     # Отзыв: ТОЛЬКО если заказ подтвержден И еще нет отзыва
     # (order.review_rating = None гарантирует один отзыв)
     can_leave_review = order_confirmed and order.review_rating is None
+
+    current_user = _decode_user_optional(access_token)
+    current_user_id = current_user.get("user_id") if current_user else None
+    current_user_type = current_user.get("user_type") if current_user else "guest"
+    is_seller = bool(current_user_id and order.seller_id == current_user_id)
+    is_buyer = bool(current_user_id and order.buyer_id == current_user_id)
+    is_admin = current_user_type in ["admin", "support"]
+
+    active_disputes = [item for item in issues if item.status in [OrderIssueStatus.OPEN.value, OrderIssueStatus.IN_REVIEW.value, OrderIssueStatus.AWAITING_RETURN.value]]
+    can_seller_respond_dispute = is_seller and any(
+        item.status == OrderIssueStatus.OPEN.value and
+        item.seller_response_deadline and item.seller_response_deadline >= datetime.utcnow()
+        for item in active_disputes
+    )
     
     return {
         "order": {
@@ -934,6 +1536,18 @@ async def get_order_page_by_tracking(
                 "reason": issue.reason,
                 "description": issue.description,
                 "status": issue.status,
+                "buyer_media_urls": issue.buyer_media_urls or [],
+                "seller_response_action": issue.seller_response_action,
+                "seller_response_text": issue.seller_response_text,
+                "seller_discount_amount": issue.seller_discount_amount,
+                "seller_media_urls": issue.seller_media_urls or [],
+                "seller_response_deadline": issue.seller_response_deadline,
+                "seller_responded_at": issue.seller_responded_at,
+                "escalated_to_admin_at": issue.escalated_to_admin_at,
+                "admin_verdict": issue.admin_verdict,
+                "admin_comment": issue.admin_comment,
+                "admin_verdict_at": issue.admin_verdict_at,
+                "return_received_at": issue.return_received_at,
                 "created_at": issue.created_at,
                 "updated_at": issue.updated_at
             }
@@ -941,7 +1555,9 @@ async def get_order_page_by_tracking(
         ],
         "actions": {
             "can_leave_review": can_leave_review,      # ✅ ДИНАМИЧЕСКОЕ: зависит от статуса
-            "can_open_issue": can_open_issue           # ✅ ДИНАМИЧЕСКОЕ: зависит от статуса и метода
+            "can_open_issue": can_open_issue,
+            "can_seller_respond_dispute": can_seller_respond_dispute,
+            "current_user_role": "admin" if is_admin else ("seller" if is_seller else ("buyer" if is_buyer else "guest"))
         }
     }
 
@@ -1077,7 +1693,10 @@ async def create_tracking_issue(
         issue_type=issue_data.issue_type.value,
         reason=issue_data.reason,
         description=issue_data.description,
-        status=OrderIssueStatus.OPEN.value
+        status=OrderIssueStatus.OPEN.value,
+        buyer_media_urls=[],
+        seller_media_urls=[],
+        seller_response_deadline=datetime.utcnow() + timedelta(days=2)
     )
     db.add(issue)
     db.commit()
@@ -1095,7 +1714,7 @@ async def create_tracking_issue(
 
         reporter_ip = request.headers.get("X-Forwarded-For", "").split(",")[0].strip() if request.headers.get("X-Forwarded-For") else (request.client.host if request.client else "unknown")
         short_reason = (issue_data.reason or "").strip()[:50]
-        details_prefix = f"[tracking:{tracking_number}] [type:{issue_data.issue_type.value}]"
+        details_prefix = f"[tracking:{tracking_number}] [type:{issue_data.issue_type.value}] [dispute_id:{issue.id}]"
 
         report = PostReport(
             post_id=order.post_id,
@@ -1126,6 +1745,469 @@ async def create_tracking_issue(
             "created_at": issue.created_at
         },
         "message": "Заявка создана"
+    }
+
+
+@order_router.post("/shipments/{tracking_number}/disputes")
+async def create_tracking_dispute(
+    tracking_number: str,
+    request: Request,
+    issue_type: str = Form(...),
+    reason: str = Form(...),
+    description: str = Form(...),
+    files: List[UploadFile] = File(default_factory=list),
+    access_token: str = Cookie(None),
+    db: Session = Depends(get_session),
+):
+    normalized_type = (issue_type or "").strip().lower()
+    if normalized_type not in ["complaint", "return"]:
+        raise HTTPException(status_code=422, detail="issue_type должен быть complaint или return")
+
+    if len((reason or "").strip()) < 3:
+        raise HTTPException(status_code=422, detail="Поле reason слишком короткое")
+    if len((description or "").strip()) < 10:
+        raise HTTPException(status_code=422, detail="Поле description слишком короткое")
+
+    order = db.exec(select(Order).where(Order.tracking_number == tracking_number)).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Заказ не найден")
+
+    user = _decode_user_optional(access_token)
+
+    # Авторизованный заказ: спор может открыть только владелец (buyer_id)
+    if order.buyer_id is not None:
+        if not user:
+            raise HTTPException(status_code=401, detail="Требуется авторизация покупателя")
+        if user["user_id"] != order.buyer_id:
+            raise HTTPException(status_code=403, detail="Только покупатель может открыть спор")
+    else:
+        # Анонимный заказ: разрешаем открывать спор без авторизации по tracking-ссылке,
+        # но явно запрещаем это продавцу, если он авторизован.
+        if user and user["user_id"] == order.seller_id:
+            raise HTTPException(status_code=403, detail="Продавец не может открыть спор как покупатель")
+
+    is_pickup = order.delivery_method == "pickup"
+    is_delivery = order.delivery_method in ["dpd", "omniva"]
+
+    if is_pickup:
+        if order.status != OrderStatus.PAID.value or order.order_confirmed_at is not None:
+            raise HTTPException(status_code=400, detail="Для pickup спор доступен только до подтверждения состояния")
+    elif is_delivery:
+        if order.status != OrderStatus.PICKED_UP.value or order.order_confirmed_at is not None:
+            raise HTTPException(status_code=400, detail="Для доставки спор доступен только после получения и до подтверждения")
+    else:
+        raise HTTPException(status_code=400, detail="Споры доступны только для pickup/dpd/omniva")
+
+    uploaded_urls = await _upload_dispute_files(order.id, files)
+
+    dispute = OrderIssue(
+        order_id=order.id,
+        tracking_number=tracking_number,
+        issue_type=normalized_type,
+        reason=reason.strip(),
+        description=description.strip(),
+        status=OrderIssueStatus.OPEN.value,
+        buyer_media_urls=uploaded_urls,
+        seller_media_urls=[],
+        seller_response_deadline=datetime.utcnow() + timedelta(days=2),
+    )
+    db.add(dispute)
+    db.commit()
+    db.refresh(dispute)
+
+    reporter_ip = request.headers.get("X-Forwarded-For", "").split(",")[0].strip() if request.headers.get("X-Forwarded-For") else (request.client.host if request.client else "unknown")
+    report = PostReport(
+        post_id=order.post_id,
+        reporter_id=user["user_id"] if user else None,
+        reporter_ip=reporter_ip,
+        reason=(reason or "").strip()[:50] or "Order dispute",
+        details=(
+            f"[tracking:{tracking_number}] [type:{normalized_type}] [dispute_id:{dispute.id}]\n"
+            f"{description.strip()}"
+        ),
+        status="pending",
+    )
+    db.add(report)
+    db.commit()
+
+    await _send_dispute_event_notification(
+        db,
+        order,
+        dispute,
+        "dispute_opened_seller",
+    )
+
+    return {
+        "success": True,
+        "order_id": order.id,
+        "tracking_number": tracking_number,
+        "dispute": {
+            "id": dispute.id,
+            "status": dispute.status,
+            "seller_response_deadline": dispute.seller_response_deadline,
+            "buyer_media_urls": dispute.buyer_media_urls or [],
+        },
+        "message": "Спор создан и отправлен продавцу"
+    }
+
+
+@order_router.post("/shipments/{tracking_number}/disputes/{dispute_id}/seller-response")
+async def seller_respond_to_dispute(
+    tracking_number: str,
+    dispute_id: int,
+    action: str = Form(...),
+    response_text: str = Form(...),
+    discount_amount: Optional[float] = Form(default=None),
+    files: List[UploadFile] = File(default_factory=list),
+    access_token: str = Cookie(None),
+    db: Session = Depends(get_session),
+):
+    user = _decode_user_optional(access_token)
+    if not user:
+        raise HTTPException(status_code=401, detail="Требуется авторизация")
+
+    dispute = db.get(OrderIssue, dispute_id)
+    if not dispute or dispute.tracking_number != tracking_number:
+        raise HTTPException(status_code=404, detail="Спор не найден")
+
+    order = db.get(Order, dispute.order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Заказ не найден")
+
+    if order.seller_id != user["user_id"]:
+        raise HTTPException(status_code=403, detail="Только продавец может отвечать на спор")
+
+    if dispute.status != OrderIssueStatus.OPEN.value:
+        raise HTTPException(status_code=400, detail="Ответ продавца уже получен или спор закрыт")
+
+    now = datetime.utcnow()
+    if dispute.seller_response_deadline and now > dispute.seller_response_deadline:
+        dispute.status = OrderIssueStatus.IN_REVIEW.value
+        dispute.escalated_to_admin_at = now
+        dispute.updated_at = now
+        _sync_dispute_report_status(db, dispute, "pending")
+        db.add(dispute)
+        db.commit()
+        raise HTTPException(status_code=400, detail="Срок ответа продавца (2 дня) истёк, спор передан в админку")
+
+    normalized_action = (action or "").strip().lower()
+    if normalized_action not in [SellerDisputeAction.OFFER_DISCOUNT.value, SellerDisputeAction.APPEAL.value]:
+        raise HTTPException(status_code=422, detail="action должен быть offer_discount или appeal")
+
+    response_text = (response_text or "").strip()
+    if len(response_text) < 5:
+        raise HTTPException(status_code=422, detail="Комментарий продавца слишком короткий")
+
+    if normalized_action == SellerDisputeAction.OFFER_DISCOUNT.value:
+        if discount_amount is None or discount_amount <= 0:
+            raise HTTPException(status_code=422, detail="Для скидки нужно указать discount_amount > 0")
+        if discount_amount > order.price:
+            raise HTTPException(status_code=422, detail="Скидка не может быть больше суммы заказа")
+        order.discount_offered = discount_amount
+        order.discount_status = "pending"
+        db.add(order)
+    else:
+        discount_amount = None
+
+    seller_urls = await _upload_dispute_files(order.id, files)
+
+    dispute.seller_response_action = normalized_action
+    dispute.seller_response_text = response_text
+    dispute.seller_discount_amount = discount_amount
+    dispute.seller_media_urls = seller_urls
+    dispute.seller_responded_at = now
+    if normalized_action == SellerDisputeAction.OFFER_DISCOUNT.value:
+        dispute.status = OrderIssueStatus.SELLER_RESPONDED.value
+    else:
+        dispute.escalated_to_admin_at = now
+        dispute.status = OrderIssueStatus.IN_REVIEW.value
+    dispute.updated_at = now
+
+    db.add(dispute)
+    if normalized_action == SellerDisputeAction.OFFER_DISCOUNT.value:
+        _sync_dispute_report_status(db, dispute, "waiting_buyer")
+    else:
+        _sync_dispute_report_status(db, dispute, "pending")
+    db.commit()
+    db.refresh(dispute)
+
+    await _send_dispute_event_notification(
+        db,
+        order,
+        dispute,
+        "dispute_seller_response_buyer",
+    )
+
+    return {
+        "success": True,
+        "dispute_id": dispute.id,
+        "status": dispute.status,
+        "message": "Ответ продавца принят"
+    }
+
+
+@order_router.post("/disputes/{dispute_id}/verdict")
+async def admin_dispute_verdict(
+    dispute_id: int,
+    payload: Dict[str, Any],
+    access_token: str = Cookie(None),
+    db: Session = Depends(get_session),
+):
+    admin_user = _require_admin_user(access_token)
+
+    dispute = db.get(OrderIssue, dispute_id)
+    if not dispute:
+        raise HTTPException(status_code=404, detail="Спор не найден")
+
+    if dispute.status not in [OrderIssueStatus.OPEN.value, OrderIssueStatus.SELLER_RESPONDED.value, OrderIssueStatus.IN_REVIEW.value, OrderIssueStatus.AWAITING_RETURN.value]:
+        raise HTTPException(status_code=400, detail="Для этого спора вердикт уже зафиксирован")
+
+    verdict_raw = str(payload.get("verdict", "")).strip().lower()
+    if verdict_raw not in [AdminDisputeVerdict.BUYER_WINS.value, AdminDisputeVerdict.SELLER_WINS.value]:
+        raise HTTPException(status_code=422, detail="verdict должен быть buyer_wins или seller_wins")
+
+    admin_comment = str(payload.get("comment", "")).strip() or None
+    now = datetime.utcnow()
+
+    dispute.admin_verdict = verdict_raw
+    dispute.admin_comment = admin_comment
+    dispute.admin_verdict_at = now
+    dispute.escalated_to_admin_at = dispute.escalated_to_admin_at or now
+    dispute.updated_at = now
+
+    order = db.get(Order, dispute.order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Заказ не найден")
+
+    return_tracking = None
+    if verdict_raw == AdminDisputeVerdict.BUYER_WINS.value:
+        dispute.status = OrderIssueStatus.AWAITING_RETURN.value
+        _sync_dispute_report_status(db, dispute, "approved")
+        return_order = _ensure_return_order_for_dispute(db, order, dispute)
+        return_tracking = return_order.tracking_number
+        logger.info(
+            f"Return order prepared | source_order_id={order.id} | dispute_id={dispute.id} | return_tracking={return_order.tracking_number}"
+        )
+        # Создаём доставку для возврата (покупатель → продавец через тот же провайдер)
+        return_delivery_tracking = await _create_return_delivery_for_dispute(db, order, dispute, return_order)
+        if return_delivery_tracking:
+            return_tracking = return_delivery_tracking
+    else:
+        dispute.status = OrderIssueStatus.RESOLVED.value
+        if order.status != OrderStatus.REFUNDED.value:
+            order.status = OrderStatus.CONFIRMED.value
+            order.completed_at = order.completed_at or now
+            order.confirmed_by_buyer = True
+        _sync_dispute_report_status(db, dispute, "rejected")
+
+    db.add(order)
+    db.add(dispute)
+    db.commit()
+    db.refresh(dispute)
+
+    # При seller_wins — разблокируем платёж продавцу; при buyer_wins — возврат обрабатывается позже
+    if verdict_raw == AdminDisputeVerdict.SELLER_WINS.value:
+        await _release_payment_for_order(order.id)
+
+    await _send_dispute_event_notification(
+        db,
+        order,
+        dispute,
+        "dispute_platform_result_both",
+        verdict=verdict_raw,
+    )
+
+    return {
+        "success": True,
+        "dispute_id": dispute.id,
+        "status": dispute.status,
+        "admin_id": admin_user["user_id"],
+        "return_tracking": return_tracking,
+    }
+
+
+@order_router.post("/shipments/{tracking_number}/disputes/{dispute_id}/buyer-discount-response")
+async def buyer_discount_response(
+    tracking_number: str,
+    dispute_id: int,
+    payload: Dict[str, Any],
+    access_token: str = Cookie(None),
+    db: Session = Depends(get_session),
+):
+    dispute = db.get(OrderIssue, dispute_id)
+    if not dispute or dispute.tracking_number != tracking_number:
+        raise HTTPException(status_code=404, detail="Спор не найден")
+
+    order = db.get(Order, dispute.order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Заказ не найден")
+
+    user = _decode_user_optional(access_token)
+    if order.buyer_id is not None:
+        if not user:
+            raise HTTPException(status_code=401, detail="Требуется авторизация покупателя")
+        if user["user_id"] != order.buyer_id:
+            raise HTTPException(status_code=403, detail="Только покупатель может принять решение по скидке")
+    else:
+        if user and user["user_id"] == order.seller_id:
+            raise HTTPException(status_code=403, detail="Продавец не может подтвердить скидку за покупателя")
+
+    if dispute.status != OrderIssueStatus.SELLER_RESPONDED.value:
+        raise HTTPException(status_code=400, detail="Ожидается решение покупателя по предложенной скидке")
+    if dispute.seller_response_action != SellerDisputeAction.OFFER_DISCOUNT.value:
+        raise HTTPException(status_code=400, detail="Этот спор не содержит предложения скидки")
+
+    accepted = bool(payload.get("accepted"))
+    now = datetime.utcnow()
+
+    if accepted:
+        result = await _accept_discount_and_close_dispute(
+            db,
+            order,
+            dispute,
+            source="discount_acceptance",
+        )
+
+        return {
+            "success": True,
+            "accepted": True,
+            "dispute_id": dispute.id,
+            "status": result["status"],
+            "discount_amount": result["discount_amount"],
+            "refund_payment_id": result["refund_payment_id"],
+            "message": "Скидка принята, частичный refund покупателю выполнен"
+        }
+
+    order.discount_status = "rejected"
+    db.add(order)
+
+    dispute.status = OrderIssueStatus.IN_REVIEW.value
+    dispute.escalated_to_admin_at = now
+    dispute.updated_at = now
+    _sync_dispute_report_status(db, dispute, "pending")
+    db.add(dispute)
+    db.commit()
+    db.refresh(dispute)
+
+    return {
+        "success": True,
+        "accepted": False,
+        "dispute_id": dispute.id,
+        "status": dispute.status,
+        "message": "Скидка отклонена, спор передан в админку"
+    }
+
+
+@order_router.post("/disputes/{dispute_id}/confirm-return-received")
+async def admin_confirm_return_received(
+    dispute_id: int,
+    access_token: str = Cookie(None),
+    db: Session = Depends(get_session),
+):
+    _require_admin_user(access_token)
+
+    dispute = db.get(OrderIssue, dispute_id)
+    if not dispute:
+        raise HTTPException(status_code=404, detail="Спор не найден")
+    if dispute.admin_verdict != AdminDisputeVerdict.BUYER_WINS.value:
+        raise HTTPException(status_code=400, detail="Возврат подтверждается только при вердикте buyer_wins")
+    if dispute.status != OrderIssueStatus.AWAITING_RETURN.value:
+        raise HTTPException(status_code=400, detail="Сначала нужен вердикт и этап ожидания возврата")
+
+    order = db.get(Order, dispute.order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Заказ не найден")
+
+    result = await _finalize_return_received_and_refund(db, order, dispute, "order_dispute_admin")
+
+    return {
+        "success": True,
+        "dispute_id": dispute.id,
+        "order_id": order.id,
+        "status": result["status"],
+        "order_status": result["order_status"],
+        "refund_payment_id": result["refund_payment_id"],
+    }
+
+
+@order_router.post("/shipments/{tracking_number}/disputes/{dispute_id}/seller-confirm-return")
+async def seller_confirm_return_received(
+    tracking_number: str,
+    dispute_id: int,
+    access_token: str = Cookie(None),
+    db: Session = Depends(get_session),
+):
+    user = _decode_user_optional(access_token)
+    if not user:
+        raise HTTPException(status_code=401, detail="Требуется авторизация")
+
+    dispute = db.get(OrderIssue, dispute_id)
+    if not dispute or dispute.tracking_number != tracking_number:
+        raise HTTPException(status_code=404, detail="Спор не найден")
+    if dispute.admin_verdict != AdminDisputeVerdict.BUYER_WINS.value:
+        raise HTTPException(status_code=400, detail="Подтверждение возврата доступно только при buyer_wins")
+    if dispute.status != OrderIssueStatus.AWAITING_RETURN.value:
+        raise HTTPException(status_code=400, detail="Сейчас нет этапа ожидания возврата")
+
+    order = db.get(Order, dispute.order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Заказ не найден")
+    if order.seller_id != user["user_id"]:
+        raise HTTPException(status_code=403, detail="Только продавец может подтвердить получение возврата")
+
+    result = await _finalize_return_received_and_refund(db, order, dispute, "order_dispute_seller")
+
+    return {
+        "success": True,
+        "dispute_id": dispute.id,
+        "order_id": order.id,
+        "status": result["status"],
+        "order_status": result["order_status"],
+        "refund_payment_id": result["refund_payment_id"],
+    }
+
+
+@order_router.get("/orders/disputes/{dispute_id}")
+async def get_dispute_details_admin(
+    dispute_id: int,
+    access_token: str = Cookie(None),
+    db: Session = Depends(get_session),
+):
+    """Получить детали спора для администратора (с медиа файлами)"""
+    _require_admin_user(access_token)
+    
+    dispute = db.get(OrderIssue, dispute_id)
+    if not dispute:
+        raise HTTPException(status_code=404, detail="Спор не найден")
+    
+    order = db.get(Order, dispute.order_id)
+    
+    return {
+        "success": True,
+        "dispute": {
+            "id": dispute.id,
+            "order_id": dispute.order_id,
+            "tracking_number": dispute.tracking_number,
+            "status": dispute.status,
+            "issue_type": dispute.issue_type,
+            "reason": dispute.reason,
+            "description": dispute.description,
+            "buyer_media_urls": dispute.buyer_media_urls or [],
+            "seller_response_action": dispute.seller_response_action,
+            "seller_response_text": dispute.seller_response_text,
+            "seller_media_urls": dispute.seller_media_urls or [],
+            "seller_discount_amount": dispute.seller_discount_amount,
+            "admin_verdict": dispute.admin_verdict,
+            "created_at": dispute.created_at.isoformat() if dispute.created_at else None,
+            "seller_responded_at": dispute.seller_responded_at.isoformat() if dispute.seller_responded_at else None,
+            "escalated_to_admin_at": dispute.escalated_to_admin_at.isoformat() if dispute.escalated_to_admin_at else None,
+            "order": {
+                "id": order.id,
+                "price": order.price,
+                "seller_id": order.seller_id,
+                "buyer_id": order.buyer_id if order.buyer_id else None,
+            } if order else None
+        }
     }
 
 
@@ -1473,6 +2555,23 @@ async def get_order_details(
     }
 
 
+@order_router.post("/delivery-events/created")
+async def delivery_created_webhook(
+    request: dict,
+    db: Session = Depends(get_session)
+):
+    """Webhook от delivery-service: уведомление о создании доставки. Обновляет tracking_number если ещё не проставлен."""
+    order_id = request.get("order_id")
+    tracking_number = request.get("tracking_number")
+    if order_id and tracking_number:
+        order = db.get(Order, order_id)
+        if order and not order.tracking_number:
+            order.tracking_number = tracking_number
+            db.add(order)
+            db.commit()
+    return {"ok": True}
+
+
 @order_router.post("/delivery-events/receipts")
 async def delivery_received_webhook(
     request: dict,
@@ -1730,6 +2829,7 @@ async def confirm_order_condition(
         # Идемпотентность: если уже подтвержден, просто возвращаем успех
         if order.status == OrderStatus.CONFIRMED.value:
             logger.info(f"Order already confirmed | order_id={order.id} | tracking={tracking_number}")
+            await _release_payment_for_order(order.id)
             return {
                 "status": "success",
                 "message": "Заказ уже был подтвержден",
@@ -1761,7 +2861,9 @@ async def confirm_order_condition(
         db.add(order)
         db.commit()
         db.refresh(order)
-        
+
+        await _release_payment_for_order(order.id)
+
         logger.info(f"Order condition confirmed | order_id={order.id} | tracking={tracking_number} | buyer={'auth:' + str(buyer_id) if buyer_id else 'anonymous'}")
         
         return {

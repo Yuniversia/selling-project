@@ -11,6 +11,8 @@ class Settings(BaseSettings):
 
     service_name: str = "payments-service"
 
+    application_fee: float = 0.05
+
     backend_host: str = "0.0.0.0"
     port: int = 9000
 

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="{{ lang }}">
 <head>
     {% set page_title = post.model + " " + post.memory + "GB - Viedix Marketplace" if post else t.site_name %}
@@ -276,6 +276,12 @@
                         <!-- Выбор паковомата -->
                         <div id="parcelLockerSelection" style="display: none; margin: 20px 0;">
                             <h4 style="margin-bottom: 12px;">{{ t.select_pickup_point }}</h4>
+                            <div class="form-group" style="margin-bottom: 12px;">
+                                <label class="label">Город</label>
+                                <select id="pickupCityFilter" class="input">
+                                    <option value="all">Все города</option>
+                                </select>
+                            </div>
                             <div class="form-group">
                                 <label class="label">{{ t.locker_label }}</label>
                                 <select id="parcelLockerSelect" class="input">
@@ -341,7 +347,7 @@
                                     <strong>{{ t.postal_code }}:</strong> <span id="lockerZipStep3"></span>
                                 </p>
                                 <p id="lockerCostStep3" style="margin: 8px 0; font-size: 14px; color: var(--color-primary); font-weight: 600;">
-                                    <strong>{{ t.delivery_cost_label }}:</strong> <span id="lockerCostValue">€2.99</span>
+                                    <strong>{{ t.delivery_cost_label }}:</strong> <span id="lockerCostValue">€{{ "%.2f"|format(delivery_costs.dpd) }}</span>
                                 </p>
                             </div>
                         </div>
@@ -1110,18 +1116,23 @@
         });
 
         // === ФАЗА 2: ПЕРЕМЕННЫЕ И КОНСТАНТЫ ДОСТАВКИ ===
+        // Загружаем стоимости доставки из конфигурации сервера (Jinja2 template context)
+        // Если недоступны, используем резервные значения
         let DELIVERY_COSTS = {
-            pickup: 0,     // Бесплатно
-            dpd: 2.99,              // €2.99 (default)
-            omniva: 1.99            // €1.99 (default)
+            pickup: {{ delivery_costs.pickup or 0 }},
+            dpd: {{ delivery_costs.dpd | default(0) }},
+            omniva: {{ delivery_costs.omniva | default(0) }}
         };
         let currentDeliveryMethod = 'dpd';  // Default to DPD instead of pickup
         let currentDeliveryCost = 0;
 
-        // === ЗАГРУЗКА СТОИМОСТЕЙ ДОСТАВКИ ИЗ КОНФИГУРАЦИИ ===
+        console.log('[Product] 📦 Delivery costs from server config:', DELIVERY_COSTS);
+
+        // === ЗАГРУЗКА СТОИМОСТЕЙ ДОСТАВКИ ИЗ API (резервный механизм) ===
         async function loadDeliveryCosts() {
             try {
                 // Загружаем с main-service (того же сервиса, что отдает product.html)
+                // Это резервный механизм на случай, если конфиги не прошли через Jinja2
                 const response = await fetch(`/api/v1/delivery-costs`, {
                     method: 'GET',
                     headers: {
@@ -1132,15 +1143,19 @@
                 if (response.ok) {
                     const result = await response.json();
                     if (result.data) {
+                        const previousCosts = {...DELIVERY_COSTS};
                         DELIVERY_COSTS = {
                             pickup: result.data.pickup || 0,
-                            dpd: result.data.dpd || 2.99,
-                            omniva: result.data.omniva || 1.99
+                            dpd: result.data.dpd || DELIVERY_COSTS.dpd,
+                            omniva: result.data.omniva || DELIVERY_COSTS.omniva
                         };
-                        console.log('[Product] 📦 Delivery costs loaded:', DELIVERY_COSTS);
+                        // Only log if values actually changed
+                        if (JSON.stringify(previousCosts) !== JSON.stringify(DELIVERY_COSTS)) {
+                            console.log('[Product] 📦 Delivery costs updated from API:', DELIVERY_COSTS);
+                        }
                     }
                 } else {
-                    console.warn('[Product] ⚠️ Failed to load delivery costs, using defaults');
+                    console.warn('[Product] ⚠️ Failed to load delivery costs, using server-provided defaults');
                 }
             } catch (error) {
                 console.warn('[Product] ⚠️ Error loading delivery costs:', error);
@@ -1310,10 +1325,78 @@
             currentStep = 2;
         }
 
+        let allPickupPoints = [];
+        let currentPickupCityFilter = 'all';
+
+        function renderPickupLockerOptions(provider) {
+            const select = document.getElementById('parcelLockerSelect');
+            const cityFilter = document.getElementById('pickupCityFilter');
+            const filteredPoints = currentPickupCityFilter === 'all'
+                ? allPickupPoints
+                : allPickupPoints.filter(point => String(point.city || '').toLowerCase() === String(currentPickupCityFilter).toLowerCase());
+
+            const uniqueCities = Array.from(new Set(allPickupPoints.map(point => String(point.city || '').trim()).filter(Boolean)))
+                .sort((left, right) => left.localeCompare(right, 'ru', { sensitivity: 'base' }));
+
+            const previousCity = cityFilter?.value || 'all';
+            if (cityFilter) {
+                cityFilter.innerHTML = '<option value="all">Все города</option>';
+                uniqueCities.forEach(city => {
+                    const option = document.createElement('option');
+                    option.value = city;
+                    option.textContent = city;
+                    cityFilter.appendChild(option);
+                });
+                cityFilter.value = uniqueCities.includes(previousCity) ? previousCity : currentPickupCityFilter;
+            }
+
+            select.innerHTML = '';
+
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = window.i18n?.select_locker || 'Выберите пакомат';
+            select.appendChild(defaultOption);
+
+            filteredPoints.forEach(locker => {
+                const option = document.createElement('option');
+                option.value = locker.system_point_id;
+                const city = locker.city || '—';
+                const name = locker.name || locker.system_point_id;
+                const address = locker.address || '';
+                option.textContent = address ? `${city} · ${name} · ${address}` : `${city} · ${name}`;
+                option.dataset.address = locker.address || '';
+                option.dataset.city = locker.city || '';
+                option.dataset.zip = locker.postal_code || '';
+                option.dataset.country = locker.country_code || 'LV';
+                select.appendChild(option);
+            });
+
+            if (!filteredPoints.length) {
+                const emptyOption = document.createElement('option');
+                emptyOption.value = '';
+                emptyOption.textContent = 'Пункты выдачи не найдены';
+                select.appendChild(emptyOption);
+            }
+
+            select.value = '';
+            const selectedLockerInfo = document.getElementById('selectedLockerInfo');
+            if (selectedLockerInfo) {
+                selectedLockerInfo.style.display = 'none';
+            }
+            document.getElementById('deliveryAddress').value = '';
+            document.getElementById('deliveryCity').value = '';
+            document.getElementById('deliveryZip').value = '';
+            document.getElementById('deliveryCountry').value = 'Latvia';
+        }
+
         // === ФАЗА 2: ЗАГРУЗКА СПИСКА ПАКОВОМАТОВ ===
         async function loadParcelLockers(provider) {
             const select = document.getElementById('parcelLockerSelect');
+            const cityFilter = document.getElementById('pickupCityFilter');
             select.innerHTML = `<option value="">${window.i18n?.loading_lockers || 'Загружаем...'}</option>`;
+            if (cityFilter) {
+                cityFilter.innerHTML = '<option value="all">Все города</option>';
+            }
 
             try {
                 const response = await fetch(`/api/v1/delivery/pickup-points?provider=${encodeURIComponent(provider)}&country_code=LV&limit=200`, {
@@ -1324,24 +1407,9 @@
                     throw new Error(`HTTP ${response.status}`);
                 }
 
-                const lockers = await response.json();
-                select.innerHTML = '';
-
-                const defaultOption = document.createElement('option');
-                defaultOption.value = '';
-                defaultOption.textContent = window.i18n?.select_locker || 'Выберите пакомат';
-                select.appendChild(defaultOption);
-
-                lockers.forEach(locker => {
-                    const option = document.createElement('option');
-                    option.value = locker.system_point_id;
-                    option.textContent = `${locker.name} (${locker.city}, ${locker.postal_code})`;
-                    option.dataset.address = locker.address;
-                    option.dataset.city = locker.city;
-                    option.dataset.zip = locker.postal_code;
-                    option.dataset.country = locker.country_code || 'LV';
-                    select.appendChild(option);
-                });
+                allPickupPoints = await response.json();
+                currentPickupCityFilter = 'all';
+                renderPickupLockerOptions(provider);
             } catch (error) {
                 console.error('[Product] Failed to load pickup points:', error);
                 select.innerHTML = '<option value="">Не удалось загрузить пакоматы</option>';
@@ -1350,6 +1418,16 @@
             // Обработчик выбора
             select.removeEventListener('change', handleLockerChange);
             select.addEventListener('change', handleLockerChange);
+
+            if (cityFilter) {
+                cityFilter.removeEventListener('change', handlePickupCityChange);
+                cityFilter.addEventListener('change', handlePickupCityChange);
+            }
+        }
+
+        function handlePickupCityChange(e) {
+            currentPickupCityFilter = e.target.value || 'all';
+            renderPickupLockerOptions(currentDeliveryMethod);
         }
 
         function handleLockerChange(e) {
@@ -1944,3 +2022,4 @@
         // Загружаем данные при загрузке страницы
         window.addEventListener('load', loadPostData);
     </script>
+

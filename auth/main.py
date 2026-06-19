@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.cors import CORSMiddleware
 
-from database import create_db_and_tables 
+from database import create_db_and_tables, apply_schema_patches
 from auth_router import auth_router
 
 logging.basicConfig(
@@ -16,26 +16,23 @@ logging.basicConfig(
 )
 logger = logging.getLogger("auth.main")
 
-# Используем асинхронный контекстный менеджер для инициализации базы данных
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    Вызывается при запуске и завершении работы приложения.
-    """
     logger.info("Creating database tables...")
     create_db_and_tables()
+    apply_schema_patches()
     yield
     logger.info("Application shutdown complete.")
 
 app = FastAPI(
     title="Modular FastAPI Auth App",
-    description="Модульной авторизации с FastAPI и SQLAlchemy/SQLModel.",
-    docs_url ="/auth/docs" ,
+    description="Auth microservice with FastAPI and SQLAlchemy/SQLModel.",
+    docs_url="/auth/docs",
     version="1.0.0",
-    lifespan=lifespan # Регистрируем контекстный менеджер
+    lifespan=lifespan
 )
 
-# CORS - разрешаем конкретные origins для работы с credentials
+# CORS - allow specific origins for credential-bearing requests
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -43,8 +40,8 @@ app.add_middleware(
         "http://localhost:8080",
         "http://127.0.0.1",
         "http://127.0.0.1:8080",
-        "http://136.169.38.242",  # Wi-Fi IP через Nginx (порт 80)
-        "http://136.169.38.242:8080",  # Wi-Fi IP напрямую
+        "http://136.169.38.242",
+        "http://136.169.38.242:8080",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -52,15 +49,12 @@ app.add_middleware(
     expose_headers=["*"],
 )
 
-# Session middleware
+# Session middleware required for Google OAuth state parameter
 SESSION_SECRET = os.getenv('SESSION_SECRET', 'ANY_RANDOM_STRING_FOR_SESSION')
 app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET)
 
-# Подключаем роутер аутентификации
 app.include_router(auth_router)
 
-# Health check endpoint для Docker
 @app.get("/health")
 async def health_check():
-    """Проверка здоровья сервиса для Docker healthcheck"""
     return {"status": "healthy", "service": "auth"}

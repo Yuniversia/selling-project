@@ -1,4 +1,4 @@
-# frontend_router.py
+﻿# frontend_router.py
 
 from fastapi import APIRouter, Request, Response, Query
 from fastapi.templating import Jinja2Templates
@@ -7,6 +7,7 @@ import os
 import jwt
 from typing import Optional
 from translations import get_all_translations
+from configs import Configs
 
 # Инициализация Jinja2Templates. 
 # Указываем, где искать HTML-шаблоны (в папке 'templates')
@@ -53,7 +54,7 @@ def get_language(request: Request) -> str:
     return lang
 
 def get_template_context(request: Request, title: str = "") -> dict:
-    """Возвращает базовый контекст для всех шаблонов с API URLs и переводами."""
+    """Возвращает базовый контекст для всех шаблонов с API URLs, переводами и стоимостью доставки."""
     user = get_user_from_token(request)
     lang = get_language(request)
     translations = get_all_translations(lang)
@@ -68,7 +69,13 @@ def get_template_context(request: Request, title: str = "") -> dict:
         "AUTH_API": AUTH_API_URL,
         "POSTS_API": POSTS_API_URL,
         "CHAT_API": CHAT_API_URL,
-        "IMEI_API": IMEI_API_URL
+        "IMEI_API": IMEI_API_URL,
+        # Delivery Costs (€) from configuration
+        "delivery_costs": {
+            "pickup": Configs.DELIVERY_COST_PICKUP,
+            "dpd": Configs.DELIVERY_COST_DPD,
+            "omniva": Configs.DELIVERY_COST_OMNIVA,
+        }
     }
 
 @frontend_router.get("/", name="index")
@@ -307,7 +314,7 @@ def set_language(lang: str, request: Request):
         key="lang",
         value=lang,
         max_age=365 * 24 * 60 * 60,  # 1 год
-        httponly=True,
+        httponly=False,
         samesite="lax"
     )
     return response

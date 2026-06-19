@@ -349,6 +349,7 @@ services:
       - OMNIVA_API_KEY=${OMNIVA_API_KEY}
       - DPD_API_KEY=${DPD_API_KEY}
       - DPD_API_SECRET=${DPD_API_SECRET}
+      - DPD_TEST_API_KEY=${DPD_TEST_API_KEY}
       - DPD_TEST_MODE=${DPD_TEST_MODE:-true}
       - DPD_INNER_SYSTEM_SIMULATION=${DPD_INNER_SYSTEM_SIMULATION:-true}
       - DPD_REAL_API_BASE_URL=${DPD_REAL_API_BASE_URL:-https://eserviss.dpd.lv/api/v1}
@@ -415,6 +416,9 @@ services:
       - IMEI_SERVICE_URL=${IMEI_SERVICE_URL:-http://localhost:5001}
       - SECRET_KEY=${SECRET_KEY:-My secret key}
       - TOKEN_ALGORITHM=${TOKEN_ALGORITHM:-HS256}
+      - DELIVERY_COST_PICKUP=${DELIVERY_COST_PICKUP:-0}
+      - DELIVERY_COST_DPD=${DELIVERY_COST_DPD:-4.99}
+      - DELIVERY_COST_OMNIVA=${DELIVERY_COST_OMNIVA:-4.99}
     # НЕ публикуем порт - доступ только через nginx
     # ports:
     #   - "${MAIN_PORT:-8080}:${MAIN_PORT:-8080}"

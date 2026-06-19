@@ -119,6 +119,49 @@ const AdminAPI = {
             }
         }
     },
+
+    disputes: {
+        async getDetails(disputeId) {
+            const response = await fetch(`${AdminAPI.baseURL}/orders/disputes/${disputeId}`, {
+                method: 'GET',
+                credentials: 'include',
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return await response.json();
+        },
+
+        async verdict(disputeId, payload = {}) {
+            const response = await fetch(`${AdminAPI.baseURL}/orders/disputes/${disputeId}/verdict`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    verdict: payload.verdict,
+                    comment: payload.comment || ''
+                })
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return await response.json();
+        },
+
+        async confirmReturnReceived(disputeId) {
+            const response = await fetch(`${AdminAPI.baseURL}/orders/disputes/${disputeId}/confirm-return-received`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return await response.json();
+        }
+    },
     
     // ===== CHATS API =====
     chats: {

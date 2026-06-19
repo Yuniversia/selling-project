@@ -2,19 +2,20 @@
 <html lang="ru">
 <head>
     {% include 'seo_meta.html' %}
-    <title>Viedix Marketplace - Купить и продать iPhone в Латвии</title>
+    <title>Viedix Marketplace</title>
     <link rel="stylesheet" href="/templates/static/styles2.css?v=42">
     <script src="/templates/static/cache-manager.js?v=42"></script>
     <script src="/templates/static/push-init.js?v=5" defer></script>
+    <script src="/templates/static/profile-guard.js?v=1" defer></script>
     <script>
-        // API Configuration - единый стандарт /api/v1/<service>
-        // Nginx проксирует эти пути к соответствующим микросервисам
+        // API Configuration -   ´ ¸  ‹       ´  € /api/v1/<service>
+        // Nginx  €   ¸€   ¸   ¸           ¸    ¸ €  €   ¸   
         const API_V1 = "/api/v1";
         const AUTH_API = `${API_V1}/auth`;
         const POSTS_API = `${API_V1}/posts`;
         const CHAT_API = `${API_V1}/chat`;
         const IMEI_API = `${API_V1}/imei`;
-        console.log('🔧 API BASE:', API_V1);
+        console.log(' ”§ API BASE:', API_V1);
     </script>
 </head>
 <body>
@@ -58,16 +59,16 @@
     </section>
 
     <!-- <div class="category-scroll">
-        <div class="cat-pill active">Все</div>
+        <div class="cat-pill active"> ’ </div>
         <div class="cat-pill">iPhone</div>
         <div class="cat-pill">MacBook</div>
         <div class="cat-pill">iPad</div>
         <div class="cat-pill">AirPods</div>
         <div class="cat-pill">Watch</div>
-        <div class="cat-pill">Консоли</div>
+        <div class="cat-pill"> š      ¸</div>
     </div> -->
 
-    <!-- Фильтры -->
+    <!--  ¤ ¸ €‹ -->
     <div class="filters-section">
         <div class="filters-header">
             <div class="filters-title">
@@ -193,16 +194,16 @@
                 </label>
                 <select id="filterMemory">
                     <option value="">{{ t.all }}</option>
-                    <option value="64">От 64GB</option>
-                    <option value="128">От 128GB</option>
-                    <option value="256">От 256GB</option>
-                    <option value="512">От 512GB</option>
-                    <option value="1024">От 1TB</option>
+                    <option value="64">  64GB</option>
+                    <option value="128">  128GB</option>
+                    <option value="256">  256GB</option>
+                    <option value="512">  512GB</option>
+                    <option value="1024">  1TB</option>
                 </select>
             </div>
 
             <div class="filter-group">
-                <label>{{ t.price }} (€)</label>
+                <label>{{ t.price }}</label>
                 <input type="number" id="filterPriceMin" placeholder="{{ t.price_from }}" min="0">
             </div>
 
@@ -240,14 +241,14 @@
 
         
         <div class="filters-actions">
-            <button id="applyFiltersBtn">🔍 {{ t.apply_filters }}</button>
-            <button id="clearFiltersBtn">✕ {{ t.clear_filters }}</button>
+            <button id="applyFiltersBtn">{{ t.apply_filters }}</button>
+            <button id="clearFiltersBtn">{{ t.clear_filters }}</button>
         </div>
         </div>
         
     </div>
 
-    <!-- Sticky Info Sidebar (только для Desktop) -->
+    <!-- Sticky Info Sidebar (       Desktop) -->
     <aside class="sticky-info-sidebar">
         <div class="info-card">
             <div class="info-icon">
@@ -256,23 +257,23 @@
             <h3>{{ t.about_marketplace }}</h3>
             <div class="info-content">
                 <div class="info-item">
-                    <span class="info-label">🛡️ {{ t.security }}</span>
+                    <span class="info-label">{{ t.security }}</span>
                     <p>{{ t.security_desc }}</p>
                 </div>
                 <div class="info-item">
-                    <span class="info-label">💰 {{ t.money_protection }}</span>
+                    <span class="info-label"> {{ t.money_protection }}</span>
                     <p>{{ t.money_protection_desc }}</p>
                 </div>
                 <div class="info-item">
-                    <span class="info-label">📱 {{ t.imei_check }}</span>
+                    <span class="info-label"> {{ t.imei_check }}</span>
                     <p>{{ t.imei_check_desc }}</p>
                 </div>
                 <div class="info-item">
-                    <span class="info-label">🚚 {{ t.delivery }}</span>
+                    <span class="info-label"> {{ t.delivery }}</span>
                     <p>{{ t.delivery_desc }}</p>
                 </div>
                 <div class="info-item">
-                    <span class="info-label">💵 {{ t.commission }}</span>
+                    <span class="info-label">{{ t.commission }}</span>
                     <p>{{ t.commission_desc }}</p>
                 </div>
             </div>
@@ -281,7 +282,6 @@
 
     <main class="main-container">
         <div class="product-grid" id="productGrid">
-            <!-- Посты загружаются динамически -->
         </div>
     </main>
 
@@ -292,7 +292,7 @@
             </div>
             
             <div class="auth-header">
-                <h2>{{ t.login_to_lais }}</h2>
+                <h2>{{ t.login_to_viedix }}</h2>
                 <p>{{ t.manage_ads }}</p>
             </div>
 
@@ -366,7 +366,7 @@
     </div>
 
     <style>
-    /* Стили для фильтров (компактные, с возможностью скрыть) */
+    /*  ¡ ¸  ¸   „ ¸ €    (         ‹ ,         ¶     €‹) */
     .filters-section {
         background: #fff;
         padding: 12px 16px;
@@ -472,7 +472,7 @@
         border-color: var(--color-primary);
     }
 
-    /* Стили для Cookie Модалки */
+    /*  ¡ ¸  ¸   Cookie    ´     ¸ */
     #cookieConsentModal {
         display: none;
         position: fixed;
@@ -497,7 +497,7 @@
         to { transform: translateY(0); opacity: 1; }
     }
 
-    /* Стили для Меню Профиля в Хедере */
+    /*  ¡ ¸  ¸         € „ ¸      ¥  ´ €  */
     .user-profile-wrapper {
         position: relative;
         margin-left: 12px;
@@ -509,7 +509,7 @@
         height: 40px;
         border-radius: 50%;
         background-color: #f5f5f7;
-        background-image: url('https://ui-avatars.com/api/?name=User&background=0D8ABC&color=fff'); /* Дефолтная аватарка */
+        background-image: url('https://ui-avatars.com/api/?name=User&background=0D8ABC&color=fff'); /*  ” „               €    */
         background-size: cover;
         background-position: center;
         cursor: pointer;
@@ -521,7 +521,7 @@
         transform: scale(1.05);
     }
 
-    /* Выпадающее меню */
+    /*  ’‹    ´          */
     .profile-dropdown {
         display: none;
         position: absolute;
@@ -640,7 +640,7 @@
         transform: scale(1.1);
     }
 
-    /* Sticky Sidebar - прилипает при скролле */
+    /* Sticky Sidebar -  € ¸  ¸      € ¸  €     */
     .sticky-info-sidebar {
         position: sticky;
         float: left;
@@ -749,29 +749,29 @@
 <script>
 (function() {
     // ==========================================
-    // 1. ЛОГИКА COOKIE MODAL (Оставляем как было)
+    // 1.  ›  “ ˜ š  COOKIE MODAL (                ‹  )
     // ==========================================
     const cookieModal = document.getElementById('cookieConsentModal');
     const acceptBtn = document.getElementById('acceptCookiesBtn');
     
-    if (!localStorage.getItem('lais_cookie_consent')) {
+    if (!localStorage.getItem('viedix_cookie_consent')) {
         setTimeout(() => {
             cookieModal.classList.add('active');
         }, 1000);
     }
 
     acceptBtn.addEventListener('click', () => {
-        localStorage.setItem('lais_cookie_consent', 'true');
+        localStorage.setItem('viedix_cookie_consent', 'true');
         cookieModal.classList.remove('active');
     });
 
     // ==========================================
-    // 2. НОВАЯ ЛОГИКА АВТОРИЗАЦИИ (Через /auth/me)
+    // 2.    ’  ¯  ›  “ ˜ š    ’ ¢    ˜ —  ¦ ˜ ˜ ( § €   /auth/me)
     // ==========================================
     
     async function checkAuthAndBuildUI() {
         try {
-            // Используем кешированный запрос (TTL: 5 минут)
+            //  ˜         ˆ ¸€         ‹      €  (TTL: 5   ¸  )
             const response = await cachedFetch(`${AUTH_API}/me`, {
                 method: 'GET',
                 headers: {
@@ -780,14 +780,14 @@
                 credentials: 'include' 
             }, 5 * 60 * 1000);
 
-            // Если статус 200 - пользователь залогинен
+            //  •  ¸    200 -                    ¸     
             if (response.ok) {
                 const userData = await response.json();
                 updateUIForLoggedInUser(userData);
                 return;
             }
             
-            // Если 401 - пробуем обновить access_token используя refresh_token
+            //  •  ¸ 401 -  €               ¸ access_token  ¸     refresh_token
             if (response.status === 401) {
                 const refreshResponse = await fetch(`${AUTH_API}/refresh`, {
                     method: 'GET',
@@ -797,7 +797,7 @@
                     credentials: 'include' 
                 });
 
-                // Если refresh вернул 200 - пробуем /auth/me ещё раз
+                //  •  ¸ refresh    €    200 -  €      /auth/me   €   
                 if (refreshResponse.ok) {
                     const retryResponse = await fetch(`${AUTH_API}/me`, {
                         method: 'GET',
@@ -814,24 +814,24 @@
                     }
                 }
 
-                // Если refresh вернул 401 - пользователь точно не авторизован
-                console.log("Пользователь не авторизован (refresh_token истёк)");
+                //  •  ¸ refresh    €    401 -                           € ¸        
+                console.log("                     € ¸         (refresh_token  ¸ )");
                 return;
             }
         } catch (error) {
-            console.log("Пользователь не авторизован или ошибка сети");
+            console.log("                     € ¸          ¸  ¸  ˆ ¸        ¸");
         }
     }
 
     function updateUIForLoggedInUser(user) {
-        // А. Скрываем кнопку "Войти"
+        //  .  ¡ €‹              " ’   ¸"
         const loginBtn = document.getElementById('loginBtn');
         if (loginBtn) loginBtn.style.display = 'none';
 
-        // Б. Добавляем Аватарку
+        //  .  ”                  € 
         const headerControls = document.querySelector('.header-controls');
         if (headerControls) {
-            // Формируем аватарку с инициалами пользователя
+            //  ¤ €  ¸€           €    ¸   ¸ ¸       ¸            
             const avatarUrl = user.avatar_url || `https://ui-avatars.com/api/?name=${user.username}&background=0D8ABC&color=fff`;
 
             const profileWrapper = document.createElement('div');
@@ -839,28 +839,20 @@
             
             profileWrapper.innerHTML = `
                 <div class="user-avatar" style="background-image: url('${avatarUrl}')" onclick="window.location.href='/profile'"></div>
-                <div class="profile-dropdown">
-                    <div style="padding: 12px 16px; border-bottom: 1px solid #eee; font-weight: 600; color: #888; font-size: 12px;">
-                        ${user.username}
-                    </div>
-                    <a href="/profile">👤 Мой профиль</a>
-                    <a href="/profile/edit">⚙️ Сменить данные</a>
-                    <div class="divider"></div>
-                    <button class="logout-btn" id="logoutAction">Выйти из аккаунта</button>
-                </div>
+                
             `;
             
             headerControls.appendChild(profileWrapper);
             
-            // В. Логика Выхода (Logout)
+            //  ’.  ›   ¸     ’‹  ´   (Logout)
             document.getElementById('logoutAction').addEventListener('click', async (e) => {
                 e.stopPropagation(); 
                 try {
                     await fetch(`${AUTH_API}/logout`, {
                         method: 'POST',
-                        credentials: 'include' // Обязательно, чтобы сервер понял, чью куку удалять
+                        credentials: 'include' //            ,    ‹  €   €      ,      ´   
                     });
-                    // Перезагружаем страницу после выхода
+                    //   €     € ¶     €     ¸        ‹  ´  
                     window.location.reload();
                 } catch (err) {
                     console.error('Logout failed', err);
@@ -870,7 +862,7 @@
         }
     }
 
-    // Запускаем проверку при загрузке скрипта
+    //  —          €    €   € ¸     €     € ¸   
     checkAuthAndBuildUI();
 
 })();
@@ -878,19 +870,19 @@
 
 <script>
     /**
-     * Helper функция для обновления access_token если он истёк.
-     * Используется перед любыми защищёнными API запросами.
+     * Helper                  ¸ access_token    ¸      ¸ .
+     *  ˜        €  ´    ‹  ¸     ¸    ‹  ¸ API     €     ¸.
      * 
-     * Логика:
-     * 1. Пробует выполнить originalFetch
-     * 2. Если получает 401 - вызывает /auth/refresh для обновления access_token
-     * 3. Затем повторяет originalFetch
+     *  ›   ¸   :
+     * 1.  €       ‹      ¸ originalFetch
+     * 2.  •  ¸        401 -   ‹ ‹      /auth/refresh                ¸ access_token
+     * 3.  —          €  originalFetch
      */
     async function fetchWithTokenRefresh(url, options = {}) {
-        // Первый запрос
+        //   €  ‹      € 
         let response = await fetch(url, { ...options, credentials: 'include' });
 
-        // Если 401 - пробуем обновить токен
+        //  •  ¸ 401 -  €               ¸      
         if (response.status === 401) {
             const refreshResponse = await fetch(`${AUTH_API}/refresh`, {
                 method: 'GET',
@@ -898,7 +890,7 @@
                 credentials: 'include'
             });
 
-            // Если refresh удался - повторяем исходный запрос
+            //  •  ¸ refresh  ´    -      €    ¸  ´  ‹      € 
             if (refreshResponse.ok) {
                 response = await fetch(url, { ...options, credentials: 'include' });
             }
@@ -913,20 +905,20 @@
         const loginBtn = document.getElementById('loginBtn');
         const closeBtn = document.getElementById('closeModal');
         
-        // --- НОВЫЙ КОД НАЧАЛО ---
+        // ---    ’ « ™  š  ”    §  ›  ---
         const postAdBtn = document.getElementById('postAdBtn');
 
         postAdBtn.addEventListener('click', (e) => {
-            // Проверяем, есть ли на странице элементы авторизованного пользователя
-            // (мы создаем .user-profile-wrapper в первом скрипте при успешном входе)
+            //  €    €  ,     ¸      €     ¸        ‹      € ¸                         
+            // ( ‹    ´     .user-profile-wrapper      €      € ¸    € ¸   ˆ         ´ )
             const isUserLoggedIn = document.querySelector('.user-profile-wrapper');
 
             if (!isUserLoggedIn) {
-                e.preventDefault(); // Отменяем переход по ссылке
-                modal.classList.add('active'); // Открываем окно входа
+                e.preventDefault(); //           €   ´    ‹   
+                modal.classList.add('active'); //   €‹                 ´  
                 
             }
-            // Если пользователь залогинен, скрипт ничего не делает, 
+            //  •  ¸                    ¸     ,  € ¸     ¸         ´     , 
         });
 
         loginBtn.onclick = () => modal.classList.add('active');
@@ -1020,17 +1012,17 @@
                         let hasError = false;
                         
                         if (passInput.value !== confirmPassInput.value) {
-                            errorMessages[3].textContent = 'Пароли не совпадают';
+                            errorMessages[3].textContent = '   €   ¸            ´  ';
                             hasError = true;
                         }
 
                         if (passInput.value.length < 8) {
-                            errorMessages[3].textContent = 'Пароль должен быть не менее 8 символов';
+                            errorMessages[3].textContent = '   €    ´   ¶      ‹            8  ¸        ';
                             hasError = true;
                         }
                         
                         if (!termsCheck.checked) {
-                            errorMessages[4].textContent = 'Необходимо согласиться с правилами';
+                            errorMessages[4].textContent = '       ´ ¸         ¸   €     ¸     ¸';
                             hasError = true;
                         }
                         
@@ -1054,10 +1046,10 @@
                             if (response.status === 406) {
                                 if (result.errors) {
                                     if (result.errors.email) {
-                                        errorMessages[0].textContent = 'Такая почта уже существует';
+                                        errorMessages[0].textContent = ' ¢            ¶      ';
                                     }
                                     if (result.errors.username) {
-                                        errorMessages[1].textContent = 'Такой никнейм уже существует';
+                                        errorMessages[1].textContent = ' ¢         ¸        ¶      ';
                                     }
                                 }
                             } else if (response.ok) {
@@ -1077,14 +1069,14 @@
 
     <script>
         // ==========================================
-        // ЛОГИКА ЗАГРУЗКИ ПОСТОВ И ФИЛЬТРАЦИИ
+        //  ›  “ ˜ š   —  “   £ — š ˜    ¡ ¢  ’  ˜  ¤ ˜ › ¬ ¢    ¦ ˜ ˜
         // ==========================================
 
         const productGrid = document.getElementById('productGrid');
         const applyFiltersBtn = document.getElementById('applyFiltersBtn');
         const clearFiltersBtn = document.getElementById('clearFiltersBtn');
 
-        // Элементы фильтров
+        //  ­      ‹ „ ¸ €   
         const filterModel = document.getElementById('filterModel');
         const filterBateryMin = document.getElementById('filterBateryMin');
         const filterBateryMax = document.getElementById('filterBateryMax');
@@ -1096,7 +1088,7 @@
         const filterSortPrice = document.getElementById('filterSortPrice');
         const filterSortDate = document.getElementById('filterSortDate');
 
-        // Активация фильтров по нажатию Enter
+        //    ¸     ¸ „ ¸ €            ¶   ¸ Enter
         const allFilters = [filterModel, filterBateryMin, filterBateryMax, filterCondition, filterColor, filterMemory, filterPriceMin, filterPriceMax, filterSortPrice, filterSortDate];
         allFilters.forEach(filter => {
             if (filter) {
@@ -1109,7 +1101,7 @@
             }
         });
 
-        // Функция для форматирования даты
+        //  ¤    ¸   „ €    ¸€        ¸  ´  ‹
         function formatDate(dateString) {
             const date = new Date(dateString);
             const now = new Date();
@@ -1134,7 +1126,7 @@
             }
         }
 
-        // Функция для перевода condition с английского
+        //  ¤    ¸     €     ´   condition         ¸     
         function translateCondition(condition) {
             if (!condition) return '{{ t.used_condition }}';
             const conditionMap = {
@@ -1148,7 +1140,7 @@
             return conditionMap[condition] || condition;
         }
 
-        // Функция для сохранения фильтров в URL
+        //  ¤    ¸    €        ¸ „ ¸ €       URL
         function saveFiltersToURL() {
             const params = new URLSearchParams();
             
@@ -1167,7 +1159,7 @@
             window.history.pushState({ filters: params.toString() }, '', newURL);
         }
 
-        // Функция для восстановления фильтров из URL
+        //  ¤    ¸                  ¸ „ ¸ €     ¸  URL
         function restoreFiltersFromURL() {
             const params = new URLSearchParams(window.location.search);
             
@@ -1183,15 +1175,15 @@
             filterSortDate.value = params.get('sort_date') || '';
         }
 
-        // Функция для загрузки и отображения постов
+        //  ¤    ¸       €   ¸  ¸     €   ¶    ¸      
         async function loadPosts(updateURL = true) {
             try {
-                // Сохраняем фильтры в URL при загрузке
+                //  ¡ €       „ ¸ €‹    URL  € ¸     €   
                 if (updateURL) {
                     saveFiltersToURL();
                 }
 
-                // Собираем параметры фильтров
+                //  ¡    ¸€        €    €‹ „ ¸ €   
                 const params = new URLSearchParams();
                 
                 if (filterModel.value) params.append('model', filterModel.value);
@@ -1205,21 +1197,21 @@
                 if (filterSortPrice.value && filterSortPrice.value !== '' && filterSortPrice.value !== 'all') params.append('sort_price', filterSortPrice.value);
                 if (filterSortDate.value && filterSortDate.value !== '' && filterSortDate.value !== 'all') params.append('sort_date', filterSortDate.value);
 
-                // Запрашиваем посты с фильтрами (БЕЗ кеширования для корректной сортировки)
+                //  —   €  ˆ ¸         ‹  „ ¸ €    ¸ (  • —   ˆ ¸€        ¸     €€        € ¸€     ¸)
                 const url = `${POSTS_API}?${params}`;
-                console.log('Загружаем посты с URL:', url);
+                console.log(' —   € ¶       ‹  URL:', url);
 
                 const response = await fetch(url);
                 
                 if (!response.ok) {
-                    throw new Error(`Ошибка при загрузке постов: ${response.status}`);
+                    throw new Error(` ˆ ¸       € ¸     €         : ${response.status}`);
                 }
 
                 const payload = await response.json();
                 const posts = payload.data || [];
-                console.log('Получено постов:', posts.length);
+                console.log('             :', posts.length);
 
-                // Функция для форматирования памяти
+                //  ¤    ¸   „ €    ¸€        ¸      ¸
                 function formatMemory(memoryGB) {
                     if (!memoryGB) return '';
                     if (memoryGB >= 1024) {
@@ -1228,7 +1220,7 @@
                     return `${memoryGB}GB`;
                 }
 
-                // Очищаем сетку
+                //   ¸       
                 productGrid.innerHTML = '';
 
                 if (posts.length === 0) {
@@ -1236,19 +1228,19 @@
                     return;
                 }
 
-                // Отображаем посты
+                //     €   ¶       ‹
                 posts.forEach(post => {
                     const postCard = document.createElement('a');
                     postCard.href = `/product?id=${post.id}`;
                     postCard.style.textDecoration = 'none';
                     postCard.style.color = 'inherit';
 
-                    // Получаем первую фотографию или используем placeholder
+                    //           €   „   €  „ ¸  ¸  ¸  ¸       placeholder
                     const imageUrl = Array.isArray(post.images_url) ? post.images_url[0] : null;
                     const attrs = post.attributes || {};
                     const imageDisplay = imageUrl 
                         ? `<img src="${imageUrl}" alt="iPhone" style="width: 100%; height: 100%; object-fit: cover;">`
-                        : '<span style="font-weight: 600; color: #ccc;">📱</span>';
+                        : '<span style="font-weight: 600; color: #ccc;"> “ </span>';
 
                     postCard.innerHTML = `
                         <div style="background: #fff; border-radius: 16px; overflow: hidden; border: 1px solid var(--color-border); transition: transform 0.2s, box-shadow 0.2s; cursor: pointer; display: flex; flex-direction: column; height: 100%;" class="post-card">
@@ -1256,16 +1248,16 @@
                                 ${imageDisplay}
                             </div>
                             <div style="padding: 16px; display: flex; flex-direction: column; gap: 6px; flex-grow: 1;">
-                                <div style="font-weight: 700; font-size: 18px; color: var(--color-primary);">€${post.price || 'N/A'}</div>
+                                <div style="font-weight: 700; font-size: 18px; color: var(--color-primary);">  ${post.price || 'N/A'} € </div>
                                 <div style="font-size: 15px; color: var(--color-text); min-height: 21px; line-height: 1.4;">${attrs.model || post.title || 'Product'} ${formatMemory(attrs.memory)}</div>
                                 <div style="font-size: 12px; color: var(--color-text-light); margin-top: auto;">
-                                    ${translateCondition(attrs.condition)} • ${formatDate(post.created_at)} • 👁 ${post.view_count}
+                                    ${translateCondition(attrs.condition)} ${formatDate(post.created_at)} ${post.view_count}
                                 </div>
                             </div>
                         </div>
                     `;
 
-                    // Добавляем эффект при наведении
+                    //  ”           „„    € ¸         ´    ¸ ¸
                     postCard.addEventListener('mouseenter', () => {
                         postCard.querySelector('.post-card').style.transform = 'translateY(-4px)';
                         postCard.querySelector('.post-card').style.boxShadow = '0 8px 24px rgba(0,0,0,0.12)';
@@ -1279,12 +1271,12 @@
                 });
 
             } catch (error) {
-                console.error('Ошибка загрузки постов:', error);
+                console.error(' ˆ ¸          €   ¸      :', error);
                 productGrid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #f44336;">{{ t.loading_error }}</div>';
             }
         }
 
-        // Обработчики кнопок фильтров
+        //    €      ¸  ¸         „ ¸ €   
         applyFiltersBtn.addEventListener('click', () => loadPosts(true));
         clearFiltersBtn.addEventListener('click', () => {
             filterModel.value = '';
@@ -1300,15 +1292,15 @@
             loadPosts(true);
         });
 
-        // Обработчик для кнопки назад/вперед браузера
+        //    €      ¸           ¸         ´/    €  ´   €    €  
         window.addEventListener('popstate', () => {
             restoreFiltersFromURL();
-            loadPosts(false); // false чтобы не создавать новую запись в истории
+            loadPosts(false); // false    ‹        ´                  ¸     ¸ € ¸ ¸
         });
 
-        // Восстанавливаем фильтры из URL и загружаем посты при загрузке страницы
+        //  ’           ¸       „ ¸ €‹  ¸  URL  ¸     € ¶       ‹  € ¸     €    €     ¸‹
         restoreFiltersFromURL();
-        loadPosts(false); // false при первой загрузке, чтобы не дублировать текущий URL
+        loadPosts(false); // false  € ¸   €         €   ,    ‹      ´    ¸€         ¸  URL
 
         // ================================
         // Toggle Filters (collapse/expand)
@@ -1341,7 +1333,7 @@
             });
         }
 
-        // Опционально: загружаем посты при изменении фильтра (для быстрого фильтра)
+        //    ¸         :     € ¶       ‹  € ¸  ¸         ¸ ¸ „ ¸ €   (    ‹€    „ ¸ €  )
         // filterModel.addEventListener('change', loadPosts);
         // filterCondition.addEventListener('change', loadPosts);
     </script>

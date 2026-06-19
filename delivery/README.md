@@ -1,208 +1,214 @@
-# Delivery Service 🚚
+﻿# Delivery Service
 
-Сервис доставки с интеграцией Omniva и DPD для маркетплейса LAIS.
+Управляет доставкой заказов через DPD и Omniva, а также самовывозом. Синхронизирует пункты выдачи, создаёт отправления, отслеживает статусы, отправляет webhook в posts-service при изменении статуса.
 
-## Описание
+**Порт:** 7000
+**API docs:** http://localhost:7000/delivery/docs
 
-Сервис управляет процессом доставки заказов с момента создания до получения покупателем. Включает:
+---
 
-- ✅ Создание доставок для заказов
-- ✅ Отслеживание статуса доставки
-- ✅ Генерация трекинг-номеров
-- ✅ Генерация 6-значных кодов получения
-- ✅ Автоматическая отправка SMS уведомлений
-- ✅ Интеграция с Omniva и DPD (имитация)
-- ✅ История изменения статусов
-
-## Статусы доставки
-
-1. **created** - Доставка создана
-2. **in_transit** - В пути к пункту выдачи
-3. **at_pickup_point** - Прибыла в пункт выдачи (генерируется код, отправляется SMS)
-4. **picked_up** - Получено покупателем (отправляется SMS с ссылкой на отзыв)
-5. **cancelled** - Отменено
-6. **returned** - Возвращено отправителю
-
-## Процесс доставки
+## Структура файлов
 
 ```
-Order Created → Delivery Created → In Transit → At Pickup Point → Picked Up
-                                                      ↓
-                                            SMS: "Код: 123456"
-                                                                       ↓
-                                                          SMS: "Получено! Оставьте отзыв"
+delivery/
+├── main.py                 # FastAPI app, фоновая задача синхронизации пунктов выдачи
+├── delivery_router.py      # Все эндпоинты /api/v1/delivery/*
+├── delivery_service.py     # Интеграция с DPD/Omniva, логика трекинга
+├── models.py               # Delivery, DeliveryStatusHistory, PickupPoint
+├── database.py             # PostgreSQL, get_session()
+├── configs.py              # API ключи DPD/Omniva, стоимости, test mode
+├── providers/
+│   ├── base.py             # Абстрактный класс DeliveryProvider
+│   ├── dpd.py              # DPD API интеграция
+│   └── omniva.py           # Omniva API интеграция
+├── Dockerfile
+└── requirements.txt
 ```
+
+---
+
+## Модели данных
+
+### Таблица `delivery`
+
+```
+id                              SERIAL PRIMARY KEY
+order_id                        INTEGER UNIQUE         -- нет FK на order (слабая связь)
+provider                        VARCHAR                -- omniva / dpd / pickup
+tracking_number                 VARCHAR UNIQUE
+provider_tracking_number        VARCHAR
+pickup_code                     VARCHAR                -- код для получения в постомате
+status                          VARCHAR
+  -- created / in_transit / at_pickup_point / picked_up / cancelled / returned
+delivery_address                TEXT
+pickup_point_id                 VARCHAR
+pickup_point_name               VARCHAR
+recipient_name                  VARCHAR
+recipient_phone                 VARCHAR
+recipient_email                 VARCHAR
+sender_name                     VARCHAR
+sender_phone                    VARCHAR
+created_at                      TIMESTAMP
+shipped_at                      TIMESTAMP
+arrived_at_pickup_point_at      TIMESTAMP
+picked_up_at                    TIMESTAMP
+estimated_delivery_date         DATE
+notification_sent_at_pickup_point TIMESTAMP
+```
+
+### Таблица `deliverystatushistory`
+
+```
+id            SERIAL PRIMARY KEY
+delivery_id   INTEGER FK -> delivery.id
+status        VARCHAR
+notes         TEXT
+created_at    TIMESTAMP
+```
+
+### Таблица `pickuppoint`
+
+```
+id                SERIAL PRIMARY KEY
+system_point_id   VARCHAR UNIQUE     -- ID из DPD/Omniva системы
+provider          VARCHAR            -- dpd / omniva
+country_code      VARCHAR            -- LV / LT / EE
+city              VARCHAR
+name              VARCHAR
+address           VARCHAR
+postal_code       VARCHAR
+locker_index      VARCHAR            -- для постоматов
+```
+
+---
 
 ## API Endpoints
 
-### Создание доставки
-```bash
-POST /api/v1/delivery/create
+| Метод | URL | Описание | Auth |
+|---|---|---|---|
+| GET | `/api/v1/delivery/pickup-points` | Список пунктов выдачи (фильтр по provider, city) | Нет |
+| POST | `/api/v1/delivery/create` | Создать отправление | Внутренний |
+| GET | `/api/v1/delivery/order/{order_id}` | Доставка по order_id | Внутренний |
+| GET | `/api/v1/delivery/order-page/{tracking_number}` | Страница трекинга для покупателя | Нет |
+| GET | `/api/v1/delivery/track/{tracking_number}` | Статус отправления | Нет |
+| PATCH | `/api/v1/delivery/{delivery_id}/status` | Обновить статус вручную | Admin |
+| POST | `/api/v1/delivery/{delivery_id}/mark-picked-up` | Отметить как полученное | Admin |
+| POST | `/api/v1/delivery/{delivery_id}/simulate` | Симуляция для тестирования | Dev |
+| GET | `/health` | Health check | Нет |
+
+---
+
+## Флоу доставки
+
+```
+1. posts-service (после оплаты) → POST /api/v1/delivery/create
+   Тело: {order_id, provider, recipient_*, sender_*, pickup_point_id}
+
+2. delivery-service → DPD/Omniva API → создаёт отправление
+   Ответ: {tracking_number, pickup_code}
+
+3. delivery-service периодически опрашивает API провайдера (или принимает webhook)
+   → обновляет delivery.status
+   → добавляет запись в deliverystatushistory
+
+4. При статусе at_pickup_point:
+   → отправляет SMS покупателю (через notifications-service)
+   → отправляет webhook в posts-service → Order(status=ready_for_pickup)
+
+5. При статусе picked_up:
+   → webhook в posts-service → Order(status=picked_up)
 ```
 
-### Отслеживание по трекинг-номеру (публичный)
-```bash
-GET /api/v1/delivery/tracking/{tracking_number}
+---
+
+## Синхронизация пунктов выдачи
+
+При запуске (и каждые 12 часов) сервис загружает пункты выдачи DPD и Omniva:
+
+```python
+# main.py lifespan
+async def sync_pickup_points():
+    if _sync_in_progress:
+        return
+    _sync_in_progress = True
+    # загружает из DPD API и Omniva API
+    # обновляет таблицу pickuppoint (upsert по system_point_id)
+    _sync_in_progress = False
 ```
 
-### Получение доставки по заказу
-```bash
-GET /api/v1/delivery/order/{order_id}
+Флаг `_sync_in_progress` предотвращает параллельные синхронизации.
+
+---
+
+## Webhook в posts-service
+
+После изменения статуса доставки:
+
+```python
+async def notify_posts_service(order_id: int, status: str):
+    async with httpx.AsyncClient() as client:
+        await client.post(
+            f"{POSTS_SERVICE_URL}/api/v1/orders/delivery-received",
+            json={"order_id": order_id, "delivery_status": status}
+        )
 ```
 
-### Обновление статуса
-```bash
-PATCH /api/v1/delivery/{delivery_id}/status
-```
+---
 
-### Имитация доставки (для тестирования)
-```bash
-# Начать доставку (created → in_transit)
-POST /api/v1/delivery/{delivery_id}/simulate
-
-# Доставить в пункт выдачи (генерирует код + отправляет SMS)
-POST /api/v1/delivery/{delivery_id}/deliver-to-pickup-point
-
-# Отметить как полученное (проверяет код + отправляет SMS с отзывом)
-POST /api/v1/delivery/{delivery_id}/mark-picked-up?pickup_code=123456
-```
-
-## Переменные окружения
+## Конфигурация (`.env`)
 
 ```env
-# Database
-USE_POSTGRES=true
+# DPD
+DPD_API_KEY=...
+DPD_API_URL=https://api.dpd.com/
+DPD_TEST_MODE=false
+
+# Omniva
+OMNIVA_API_KEY=...
+OMNIVA_API_URL=https://api.omniva.ee/
+OMNIVA_TEST_MODE=false
+
+# PostgreSQL
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=pass
 POSTGRES_HOST=postgres
-POSTGRES_PORT=5432
 POSTGRES_DB=lais_marketplace
 
-# Server
-PORT=7000
-BACKEND_HOST=0.0.0.0
-
-# External Services
-NOTIFICATION_SERVICE_URL=http://notifications-service:6000
+# Сервисы
 POSTS_SERVICE_URL=http://posts-service:3000
-FRONTEND_URL=http://localhost:8080
+NOTIFICATION_SERVICE_URL=http://notifications-service:6000
 
-# JWT
-SECRET_KEY=My secret key
-TOKEN_ALGORITHM=HS256
-
-# Delivery providers (для будущего использования)
-OMNIVA_API_KEY=
-DPD_API_KEY=
-DPD_API_SECRET=
-
-# Simulation
-USE_SIMULATION_MODE=true
-TRANSIT_TIME_HOURS=24
-PICKUP_WAIT_DAYS=7
+# Время
+PICKUP_POINT_SYNC_INTERVAL_HOURS=12
+ESTIMATED_TRANSIT_DAYS_DPD=2
+ESTIMATED_TRANSIT_DAYS_OMNIVA=3
 ```
+
+---
 
 ## Запуск
 
-### Docker (рекомендуется)
 ```bash
+# Docker
 docker-compose up -d delivery-service
-```
+docker-compose logs -f delivery-service
 
-### Локально
-```bash
+# Локально
 cd delivery
 pip install -r requirements.txt
-python main.py
+uvicorn main:app --port 7000 --reload
 ```
 
-## Интеграция с другими сервисами
+---
 
-### Posts Service
-После создания заказа posts-service должен вызвать:
-```python
-import httpx
+## Связи с другими сервисами
 
-delivery_data = {
-    "order_id": order.id,
-    "provider": "omniva",  # или "dpd", "pickup"
-    "recipient_name": f"{order.buyer_first_name} {order.buyer_last_name}",
-    "recipient_phone": order.buyer_phone,
-    "recipient_email": order.buyer_email,
-    "sender_name": seller.name,
-    "sender_phone": seller.phone,
-    "delivery_city": order.delivery_city,
-    "delivery_address": order.delivery_address,
-    "delivery_zip": order.delivery_zip
-}
+| Сервис | Вызов | Когда |
+|---|---|---|
+| posts-service | POST /api/v1/orders/delivery-received | При изменении статуса доставки |
+| notifications-service | POST /api/v1/notifications/order-delivered | Когда посылка в пункте выдачи |
 
-async with httpx.AsyncClient() as client:
-    response = await client.post(
-        "http://delivery-service:7000/api/v1/delivery/create",
-        json=delivery_data
-    )
-```
+Входящие вызовы:
+- `posts-service` → POST `/api/v1/delivery/create` после оплаты заказа
 
-### Notification Service
-Delivery service автоматически отправляет уведомления через notification service:
-- При доставке в пункт выдачи (код получения)
-- При получении посылки (ссылка на отзыв)
-
-## Имитация процесса доставки
-
-Для тестирования используйте следующую последовательность:
-
-```bash
-# 1. Создайте доставку (обычно автоматически из posts-service)
-curl -X POST http://localhost:7000/api/v1/delivery/create \
-  -H "Content-Type: application/json" \
-  -d '{
-    "order_id": 1,
-    "provider": "omniva",
-    "recipient_name": "Иван Иванов",
-    "recipient_phone": "+37120000000",
-    "recipient_email": "ivan@example.com",
-    "sender_name": "Продавец",
-    "sender_phone": "+37120000001",
-    "delivery_city": "Рига"
-  }'
-
-# 2. Начните доставку (created → in_transit)
-curl -X POST http://localhost:7000/api/v1/delivery/1/simulate
-
-# 3. Доставьте в пункт выдачи (in_transit → at_pickup_point)
-#    Отправится SMS с кодом
-curl -X POST http://localhost:7000/api/v1/delivery/1/deliver-to-pickup-point
-
-# 4. Получите код из SMS или из API
-curl http://localhost:7000/api/v1/delivery/order/1
-
-# 5. Отметьте как полученное (at_pickup_point → picked_up)
-#    Отправится SMS с ссылкой на отзыв
-curl -X POST "http://localhost:7000/api/v1/delivery/1/mark-picked-up?pickup_code=123456"
-```
-
-## Будущие улучшения
-
-- [ ] Реальная интеграция с Omniva API
-- [ ] Реальная интеграция с DPD API
-- [ ] Webhook endpoints для получения обновлений от провайдеров
-- [ ] Автоматическое обновление статусов по расписанию
-- [ ] Карта с пунктами выдачи
-- [ ] Расчет стоимости доставки
-- [ ] Печать этикеток для посылок
-- [ ] История местоположения посылки
-
-## Техническая информация
-
-- **Язык**: Python 3.11
-- **Фреймворк**: FastAPI
-- **База данных**: PostgreSQL
-- **ORM**: SQLModel
-- **Порт**: 7000
-
-## Документация API
-
-После запуска сервиса документация доступна по адресу:
-- Swagger UI: http://localhost:7000/delivery/docs
-- ReDoc: http://localhost:7000/delivery/redoc
+**Дата последнего обновления:** 2026-06-16

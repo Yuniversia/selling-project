@@ -24,6 +24,7 @@ def create_db_and_tables():
 
 def _seed_pickup_points():
     """Первичное заполнение справочника пунктов выдачи"""
+    dpd_mode = configs.get_dpd_mode()
     default_points = [
         {
             "system_point_id": "LV10193",
@@ -79,6 +80,8 @@ def _seed_pickup_points():
 
     with Session(engine) as session:
         for point in default_points:
+            if point["provider"] == "dpd" and dpd_mode == "test":
+                continue
             exists = session.query(PickupPoint).filter(
                 PickupPoint.system_point_id == point["system_point_id"]
             ).first()

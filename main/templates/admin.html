@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     {% include 'seo_meta.html' %}
-    <title>Администратор - LAIS Marketplace</title>
+    <title>Администратор - Viedix Marketplace</title>
     <meta name="robots" content="noindex, nofollow">
     <meta name="googlebot" content="noindex, nofollow">
     <link rel="stylesheet" href="/templates/static/styles2.css?v=42">
@@ -1106,8 +1106,8 @@
             </div>
             <div class="modal-footer">
                 <button class="btn-modal btn-cancel" onclick="closeModal()">Отмена</button>
-                <button class="btn-modal btn-approve" onclick="approveReport()">✓ Одобрить</button>
-                <button class="btn-modal btn-danger" onclick="rejectReport()">✗ Отклонить</button>
+                <button id="modalApproveBtn" class="btn-modal btn-approve" onclick="approveReport()">✓ Одобрить</button>
+                <button id="modalRejectBtn" class="btn-modal btn-danger" onclick="rejectReport()">✗ Отклонить</button>
             </div>
         </div>
     </div>
@@ -1124,6 +1124,7 @@
         let selectedChatId = null;
         let reportCache = [];
         let activeReportSection = 'reports';
+        let selectedDisputeId = null;
 
         // ===== NAVIGATION =====
         document.querySelectorAll('.admin-nav-item').forEach(item => {
@@ -1180,11 +1181,24 @@
             const reason = (report?.reason || '').toLowerCase();
 
             return details.includes('[tracking:')
+                || details.includes('[dispute_id:')
                 || details.includes('[type:return')
                 || details.includes('[type:refund')
                 || reason.includes('возврат')
                 || reason.includes('refund')
                 || reason.includes('return');
+        }
+
+        function parseDisputeId(details) {
+            if (!details) return null;
+            const match = String(details).match(/\[dispute_id:(\d+)\]/i);
+            return match ? Number(match[1]) : null;
+        }
+
+        function parseTracking(details) {
+            if (!details) return null;
+            const match = String(details).match(/\[tracking:([^\]]+)\]/i);
+            return match ? match[1] : null;
         }
 
         async function refreshDashboardCounters() {
@@ -1319,7 +1333,8 @@
                 });
                 
                 const reports = response.data || response.reports || [];
-                reportCache = reports.filter(isOrderIssueReport);
+                // Фильтруем OrderIssue и ИСКЛЮЧАЕМ 'waiting_buyer' (ожидание ответа покупателя на скидку)
+                reportCache = reports.filter(report => isOrderIssueReport(report) && report.status !== 'waiting_buyer');
                 activeReportSection = 'reports';
                 displayReports(reportCache);
                 refreshDashboardCounters();
@@ -1371,6 +1386,7 @@
 
             const statusLabel = (status) => {
                 if (status === 'pending') return 'На рассмотрении';
+                if (status === 'awaiting_return') return 'Ожидается возврат товара';
                 if (status === 'approved' || status === 'resolved') return 'Одобрено';
                 if (status === 'rejected' || status === 'closed') return 'Отклонено';
                 return status || '—';
@@ -1378,6 +1394,7 @@
 
             const statusClass = (status) => {
                 if (status === 'pending') return 'pending';
+                if (status === 'awaiting_return') return 'pending';
                 if (status === 'approved' || status === 'resolved') return 'approved';
                 if (status === 'rejected' || status === 'closed') return 'rejected';
                 return 'pending';
@@ -1428,6 +1445,7 @@
 
             const statusLabel = (status) => {
                 if (status === 'pending') return 'На рассмотрении';
+                if (status === 'awaiting_return') return 'Ожидается возврат товара';
                 if (status === 'approved' || status === 'resolved') return 'Одобрено';
                 if (status === 'rejected' || status === 'closed') return 'Отклонено';
                 return status || '—';
@@ -1435,6 +1453,7 @@
 
             const statusClass = (status) => {
                 if (status === 'pending') return 'pending';
+                if (status === 'awaiting_return') return 'pending';
                 if (status === 'approved' || status === 'resolved') return 'approved';
                 if (status === 'rejected' || status === 'closed') return 'rejected';
                 return 'pending';
@@ -1465,6 +1484,8 @@
             activeReportSection = sourceSection;
             const modal = document.getElementById('reportModal');
             const modalBody = document.getElementById('modalBody');
+            const approveBtn = document.getElementById('modalApproveBtn');
+            const rejectBtn = document.getElementById('modalRejectBtn');
 
             const reportData = reportCache.find(item => item.id === reportId);
             if (!reportData) {
@@ -1478,7 +1499,23 @@
                 return;
             }
 
-            modalBody.innerHTML = `
+            const disputeId = parseDisputeId(reportData.details);
+            selectedDisputeId = disputeId;
+            const tracking = parseTracking(reportData.details);
+
+            approveBtn.style.display = 'inline-flex';
+            rejectBtn.style.display = 'inline-flex';
+            approveBtn.textContent = '✓ Одобрить';
+            rejectBtn.textContent = '✗ Отклонить';
+
+            if (disputeId) {
+                const status = String(reportData.status || '').toLowerCase();
+                const showReturnConfirm = status === 'approved' || status === 'awaiting_return';
+                approveBtn.textContent = showReturnConfirm ? '✓ Подтвердить возврат товара' : '✓ Покупатель прав';
+                rejectBtn.textContent = '✗ Продавец прав';
+            }
+
+            const baseContent = `
                 <div style="margin-bottom: 16px;">
                     <strong>Жалоба #${reportData.id}</strong><br>
                     <div style="font-size: 12px; color: #94a3b8; margin-top: 4px;">${AdminHelper.formatDate(reportData.created_at)}</div>
@@ -1508,18 +1545,136 @@
                     <div style="font-size: 12px; color: #94a3b8; margin-bottom: 4px;">Отправитель:</div>
                     <div>${reportData.reporter_id ? `User #${reportData.reporter_id}` : (reportData.reporter_ip || 'Анонимный')}</div>
                 </div>
-
-                <div style="background: #334155; padding: 12px; border-radius: 6px; margin-top: 16px; font-size: 12px;">
-                    <strong>Рекомендуемое действие:</strong><br>
-                    Проверить историю платежей продавца и контактировать с ним для разрешения спора.
-                </div>
             `;
 
-            modal.classList.add('show');
+            // Если это спор, загружаем детали с медиа файлами
+            if (disputeId) {
+                modalBody.innerHTML = baseContent + `<div style="font-size: 12px; color: #94a3b8; text-align: center; padding: 20px;">Загрузка детей спора...</div>`;
+                modal.classList.add('show');
+
+                AdminAPI.disputes.getDetails(disputeId).then((response) => {
+                    if (!response.success) throw new Error('Invalid response');
+                    const dispute = response.dispute;
+
+                    const isVideoUrl = (url) => {
+                        const ext = url.split('?')[0].split('.').pop().toLowerCase();
+                        return ['mp4', 'webm', 'ogg', 'mov', 'avi'].includes(ext);
+                    };
+
+                    const mediaGalleryHtml = (urls, title) => {
+                        if (!urls || urls.length === 0) return '';
+                        const tiles = urls.map(url => {
+                            if (isVideoUrl(url)) {
+                                return `<div style="border:1px solid #475569; border-radius:6px; overflow:hidden; background:#0f172a;">
+                                    <video src="${url}" style="width:100%; height:100px; object-fit:cover;" controls preload="metadata"></video>
+                                </div>`;
+                            } else {
+                                return `<div style="border:1px solid #475569; border-radius:6px; overflow:hidden; background:#0f172a;">
+                                    <img src="${url}" style="width:100%; height:100px; object-fit:cover;" loading="lazy">
+                                </div>`;
+                            }
+                        }).join('');
+
+                        return `<div style="margin-bottom: 12px;">
+                            <div style="font-size: 12px; color: #94a3b8; margin-bottom: 8px;"><strong>${title}</strong></div>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px;">
+                                ${tiles}
+                            </div>
+                        </div>`;
+                    };
+
+                    const disputeContent = `
+                        <div style="margin-bottom: 12px;">
+                            <div style="font-size: 12px; color: #94a3b8; margin-bottom: 4px;">Спор:</div>
+                            <div><strong>#${dispute.id}</strong>${tracking ? ` • tracking: ${tracking}` : ''}</div>
+                            <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Статус: ${dispute.status}</div>
+                        </div>
+
+                        ${dispute.reason ? `<div style="margin-bottom: 12px;">
+                            <div style="font-size: 12px; color: #94a3b8; margin-bottom: 4px;">Причина спора:</div>
+                            <div style="background: #0f172a; padding: 8px; border-radius: 4px; font-size: 12px;">${dispute.reason}</div>
+                        </div>` : ''}
+
+                        ${dispute.description ? `<div style="margin-bottom: 12px;">
+                            <div style="font-size: 12px; color: #94a3b8; margin-bottom: 4px;">Описание покупателя:</div>
+                            <div style="background: #0f172a; padding: 8px; border-radius: 4px; font-size: 12px;">${dispute.description}</div>
+                        </div>` : ''}
+
+                        ${mediaGalleryHtml(dispute.buyer_media_urls, '📸 Доказательства покупателя (фото/видео)')}
+
+                        ${dispute.seller_response_text ? `<div style="margin-bottom: 12px;">
+                            <div style="font-size: 12px; color: #94a3b8; margin-bottom: 4px;">Ответ продавца:</div>
+                            <div style="background: #0f172a; padding: 8px; border-radius: 4px; font-size: 12px;">${dispute.seller_response_text}</div>
+                            ${dispute.seller_response_action === 'offer_discount' && dispute.seller_discount_amount ? `<div style="margin-top: 4px; font-size: 11px; color: #06b6d4;"><strong>💰 Предложена скидка:</strong> ${dispute.seller_discount_amount} ${dispute.order?.price ? '(' + Math.round((dispute.seller_discount_amount/dispute.order.price)*100) + '%)' : ''}</div>` : ''}
+                        </div>` : ''}
+
+                        ${mediaGalleryHtml(dispute.seller_media_urls, '📸 Доказательства продавца (фото/видео)')}
+
+                        <div style="margin-bottom: 12px;">
+                            <label style="font-size: 12px; color: #94a3b8; margin-bottom: 4px; display:block;">Комментарий администратора:</label>
+                            <textarea id="adminDisputeComment" rows="3" style="width:100%; background:#0f172a; border:1px solid #475569; color:#e2e8f0; border-radius:6px; padding:10px;"></textarea>
+                        </div>
+                    `;
+
+                    modalBody.innerHTML = baseContent + disputeContent + `
+                        <div style="background: #334155; padding: 12px; border-radius: 6px; margin-top: 16px; font-size: 12px;">
+                            <strong>Рекомендуемое действие:</strong><br>
+                            Проверить доказательства сторон и вынести вердикт. При вердикте в пользу покупателя после фактического возврата нажать подтверждение возврата.
+                        </div>
+                    `;
+                }).catch((error) => {
+                    console.error('Error loading dispute details:', error);
+                    modalBody.innerHTML = baseContent + `
+                        <div style="background: #ef4444; color: white; padding: 12px; border-radius: 6px; margin-top: 12px; font-size: 12px;">
+                            ⚠️ Ошибка загрузки деталей спора: ${error.message}
+                        </div>
+                    `;
+                });
+            } else {
+                // Обычная жалоба (не спор)
+                modalBody.innerHTML = baseContent + `
+                    <div style="background: #334155; padding: 12px; border-radius: 6px; margin-top: 16px; font-size: 12px;">
+                        <strong>Рекомендуемое действие:</strong><br>
+                        Проверить историю платежей продавца и контактировать с ним для разрешения спора.
+                    </div>
+                `;
+                modal.classList.add('show');
+            }
         }
 
         function approveReport() {
             if (!selectedReportId) return;
+
+            if (selectedDisputeId) {
+                const reportData = reportCache.find(item => item.id === selectedReportId) || {};
+                const currentStatus = String(reportData.status || '').toLowerCase();
+                const adminComment = document.getElementById('adminDisputeComment')?.value || '';
+
+                if (currentStatus === 'approved' || currentStatus === 'awaiting_return') {
+                    AdminAPI.disputes.confirmReturnReceived(selectedDisputeId).then(() => {
+                        AdminHelper.notify('✓ Возврат подтвержден. Инициирован refund покупателю.', 'success');
+                        closeModal();
+                        loadReports();
+                    }).catch(error => {
+                        console.error('Error confirming return received:', error);
+                        AdminHelper.notify('Ошибка подтверждения возврата', 'error');
+                    });
+                    return;
+                }
+
+                AdminAPI.disputes.verdict(selectedDisputeId, {
+                    verdict: 'buyer_wins',
+                    comment: adminComment
+                }).then(() => {
+                    AdminHelper.notify('✓ Вердикт вынесен: покупатель прав. Ожидаем возврат товара продавцу.', 'success');
+                    closeModal();
+                    loadReports();
+                }).catch(error => {
+                    console.error('Error setting dispute verdict:', error);
+                    AdminHelper.notify('Ошибка при вынесении вердикта', 'error');
+                });
+                return;
+            }
             
             AdminAPI.reports.approve(selectedReportId, {
                 action: null
@@ -1539,6 +1694,22 @@
 
         function rejectReport() {
             if (!selectedReportId) return;
+
+            if (selectedDisputeId) {
+                const adminComment = document.getElementById('adminDisputeComment')?.value || '';
+                AdminAPI.disputes.verdict(selectedDisputeId, {
+                    verdict: 'seller_wins',
+                    comment: adminComment
+                }).then(() => {
+                    AdminHelper.notify('✗ Вердикт вынесен: продавец прав. Деньги остаются продавцу.', 'success');
+                    closeModal();
+                    loadReports();
+                }).catch(error => {
+                    console.error('Error setting seller_wins verdict:', error);
+                    AdminHelper.notify('Ошибка при вынесении вердикта', 'error');
+                });
+                return;
+            }
             
             AdminAPI.reports.reject(selectedReportId, {
                 action: null
@@ -1747,6 +1918,7 @@
         function closeModal() {
             document.getElementById('reportModal').classList.remove('show');
             selectedReportId = null;
+            selectedDisputeId = null;
         }
 
         // ===== UTILITIES =====

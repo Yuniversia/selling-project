@@ -10,7 +10,7 @@ from sqlmodel import select
 from urllib.parse import urlencode
 
 from configs import configs
-from models import NotificationLog, NotificationTemplate, NotificationStatus, OrderNotificationData
+from models import NotificationLog, NotificationTemplate, NotificationStatus, OrderNotificationData, DisputeNotificationData, DisputeEventType
 
 
 # Настройка логирования
@@ -22,17 +22,35 @@ SMS_TEXTS = {
     "ru": {
         "order_paid_seller": "Товар '{product_name}' куплен. Подготовьте отправку.",
         "order_paid_buyer": "Оплата {product_name} успешна! Отслеживание: {tracking_url}",
-        "order_review_request": "Заказ #{order_id} получен. Оставьте отзыв: {review_url}"
+        "order_review_request": "Заказ #{order_id} получен. Оставьте отзыв: {review_url}",
+        "dispute_opened_seller": "По заказу #{order_id} открыт спор ({reason}). Ответьте в карточке заказа: {tracking_url}",
+        "dispute_seller_response_buyer": "Продавец ответил по спору #{dispute_id} и предложил скидку {discount_amount}. Примите или отклоните: {tracking_url}",
+        "dispute_seller_response_buyer_generic": "Продавец ответил по спору #{dispute_id}. Проверьте детали: {tracking_url}",
+        "dispute_discount_closed_seller": "Покупатель принял скидку по спору #{dispute_id}. Спор закрыт автоматически.",
+        "dispute_platform_result_buyer": "Площадка вынесла решение по спору #{dispute_id}: {verdict_label}. Детали: {tracking_url}",
+        "dispute_platform_result_seller": "Площадка вынесла решение по спору #{dispute_id}: {verdict_label}. Детали: {tracking_url}"
     },
     "lv": {
         "order_paid_seller": "Prece '{product_name}' ir nopirkta. Sagatavojiet nosūtīšanu.",
         "order_paid_buyer": "Maksājums par {product_name} veiksmīgs! Izsekošana: {tracking_url}",
-        "order_review_request": "Pasūtījums #{order_id} ir saņemts. Atstājiet atsauksmi: {review_url}"
+        "order_review_request": "Pasūtījums #{order_id} ir saņemts. Atstājiet atsauksmi: {review_url}",
+        "dispute_opened_seller": "Pasūtījumam #{order_id} atvērts strīds ({reason}). Atbildiet pasūtījuma lapā: {tracking_url}",
+        "dispute_seller_response_buyer": "Pārdevējs atbildēja uz strīdu #{dispute_id} un piedāvāja atlaidi {discount_amount}. Pieņemiet vai noraidiet: {tracking_url}",
+        "dispute_seller_response_buyer_generic": "Pārdevējs atbildēja uz strīdu #{dispute_id}. Skatiet detaļas: {tracking_url}",
+        "dispute_discount_closed_seller": "Pircējs pieņēma atlaidi strīdā #{dispute_id}. Strīds automātiski aizvērts.",
+        "dispute_platform_result_buyer": "Platformas lēmums strīdā #{dispute_id}: {verdict_label}. Detaļas: {tracking_url}",
+        "dispute_platform_result_seller": "Platformas lēmums strīdā #{dispute_id}: {verdict_label}. Detaļas: {tracking_url}"
     },
     "en": {
         "order_paid_seller": "Item '{product_name}' has been purchased. Please prepare shipment.",
         "order_paid_buyer": "Payment for {product_name} successful! Tracking: {tracking_url}",
-        "order_review_request": "Order #{order_id} has been received. Leave a review: {review_url}"
+        "order_review_request": "Order #{order_id} has been received. Leave a review: {review_url}",
+        "dispute_opened_seller": "A dispute was opened for order #{order_id} ({reason}). Please respond in the order page: {tracking_url}",
+        "dispute_seller_response_buyer": "Seller responded to dispute #{dispute_id} and offered a discount of {discount_amount}. Accept or reject: {tracking_url}",
+        "dispute_seller_response_buyer_generic": "Seller responded to dispute #{dispute_id}. Check details: {tracking_url}",
+        "dispute_discount_closed_seller": "Buyer accepted the discount for dispute #{dispute_id}. The dispute is now closed.",
+        "dispute_platform_result_buyer": "Marketplace decision for dispute #{dispute_id}: {verdict_label}. Details: {tracking_url}",
+        "dispute_platform_result_seller": "Marketplace decision for dispute #{dispute_id}: {verdict_label}. Details: {tracking_url}"
     }
 }
 
@@ -391,6 +409,144 @@ class NotificationService:
         elif error:
             errors.append(f"SMS: {error}")
         
+        return len(errors) == 0, notification_ids, errors
+
+    def send_dispute_event(self, data: DisputeNotificationData) -> Tuple[bool, list[int], list[str]]:
+        notification_ids = []
+        errors = []
+
+        language = self._normalize_language(data.language)
+        tracking_url = data.tracking_url or f"{configs.frontend_url.rstrip('/')}/order?tracking={data.tracking_number}"
+
+        verdict_map = {
+            "ru": {
+                "buyer_wins": "покупатель прав",
+                "seller_wins": "продавец прав",
+            },
+            "lv": {
+                "buyer_wins": "pircējam taisnība",
+                "seller_wins": "pārdevējam taisnība",
+            },
+            "en": {
+                "buyer_wins": "buyer wins",
+                "seller_wins": "seller wins",
+            },
+        }
+
+        event = data.event_type
+        if event == DisputeEventType.DISPUTE_OPENED_SELLER:
+            if data.seller_phone and not self._already_sent("dispute_opened_seller", data.order_id, data.seller_phone):
+                sms = self._build_default_sms(
+                    "dispute_opened_seller",
+                    language,
+                    {
+                        "order_id": data.order_id,
+                        "reason": data.reason or "—",
+                        "tracking_url": tracking_url,
+                    },
+                )
+                ok, log_id, err = self._send_with_retry(
+                    "sms", data.seller_phone, None, sms, data.order_id,
+                    notification_type="dispute_opened_seller", recipient_name=language,
+                )
+                if ok and log_id:
+                    notification_ids.append(log_id)
+                elif err:
+                    errors.append(err)
+
+        elif event == DisputeEventType.DISPUTE_SELLER_RESPONSE_BUYER:
+            if data.buyer_phone and not self._already_sent(
+                f"dispute_seller_response_buyer_{data.dispute_id}", data.order_id, data.buyer_phone
+            ):
+                if (data.seller_response_action or "").lower() == "offer_discount":
+                    sms_key = "dispute_seller_response_buyer"
+                    sms_data = {
+                        "dispute_id": data.dispute_id,
+                        "discount_amount": f"€{(data.seller_discount_amount or 0):.2f}",
+                        "tracking_url": tracking_url,
+                    }
+                else:
+                    sms_key = "dispute_seller_response_buyer_generic"
+                    sms_data = {
+                        "dispute_id": data.dispute_id,
+                        "tracking_url": tracking_url,
+                    }
+
+                sms = self._build_default_sms(sms_key, language, sms_data)
+                ok, log_id, err = self._send_with_retry(
+                    "sms", data.buyer_phone, None, sms, data.order_id,
+                    notification_type=f"dispute_seller_response_buyer_{data.dispute_id}", recipient_name=language,
+                )
+                if ok and log_id:
+                    notification_ids.append(log_id)
+                elif err:
+                    errors.append(err)
+
+        elif event == DisputeEventType.DISPUTE_DISCOUNT_CLOSED_SELLER:
+            if data.seller_phone and not self._already_sent(
+                f"dispute_discount_closed_seller_{data.dispute_id}", data.order_id, data.seller_phone
+            ):
+                sms = self._build_default_sms(
+                    "dispute_discount_closed_seller",
+                    language,
+                    {
+                        "dispute_id": data.dispute_id,
+                    },
+                )
+                ok, log_id, err = self._send_with_retry(
+                    "sms", data.seller_phone, None, sms, data.order_id,
+                    notification_type=f"dispute_discount_closed_seller_{data.dispute_id}", recipient_name=language,
+                )
+                if ok and log_id:
+                    notification_ids.append(log_id)
+                elif err:
+                    errors.append(err)
+
+        elif event == DisputeEventType.DISPUTE_PLATFORM_RESULT_BOTH:
+            verdict_label = verdict_map.get(language, verdict_map["ru"]).get((data.verdict or "").lower(), data.verdict or "—")
+
+            if data.buyer_phone and not self._already_sent(
+                f"dispute_platform_result_buyer_{data.dispute_id}", data.order_id, data.buyer_phone
+            ):
+                sms_buyer = self._build_default_sms(
+                    "dispute_platform_result_buyer",
+                    language,
+                    {
+                        "dispute_id": data.dispute_id,
+                        "verdict_label": verdict_label,
+                        "tracking_url": tracking_url,
+                    },
+                )
+                ok, log_id, err = self._send_with_retry(
+                    "sms", data.buyer_phone, None, sms_buyer, data.order_id,
+                    notification_type=f"dispute_platform_result_buyer_{data.dispute_id}", recipient_name=language,
+                )
+                if ok and log_id:
+                    notification_ids.append(log_id)
+                elif err:
+                    errors.append(err)
+
+            if data.seller_phone and not self._already_sent(
+                f"dispute_platform_result_seller_{data.dispute_id}", data.order_id, data.seller_phone
+            ):
+                sms_seller = self._build_default_sms(
+                    "dispute_platform_result_seller",
+                    language,
+                    {
+                        "dispute_id": data.dispute_id,
+                        "verdict_label": verdict_label,
+                        "tracking_url": tracking_url,
+                    },
+                )
+                ok, log_id, err = self._send_with_retry(
+                    "sms", data.seller_phone, None, sms_seller, data.order_id,
+                    notification_type=f"dispute_platform_result_seller_{data.dispute_id}", recipient_name=language,
+                )
+                if ok and log_id:
+                    notification_ids.append(log_id)
+                elif err:
+                    errors.append(err)
+
         return len(errors) == 0, notification_ids, errors
     
     def _send_with_retry(self, 

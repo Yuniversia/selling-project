@@ -203,6 +203,8 @@
             border-radius: 12px;
             max-width: 500px;
             width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
         }
 
         .modal-header {
@@ -240,6 +242,76 @@
             display: flex;
             gap: 10px;
             justify-content: flex-end;
+        }
+
+        .dispute-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 16px;
+            max-height: 220px;
+            overflow-y: auto;
+        }
+
+        .dispute-item {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 10px;
+            cursor: pointer;
+            transition: border-color .2s, background-color .2s;
+        }
+
+        .dispute-item.active {
+            border-color: var(--primary-color);
+            background: #f8fbff;
+        }
+
+        .dispute-item-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+            font-size: 14px;
+        }
+
+        .dispute-item-meta {
+            color: #666;
+            font-size: 12px;
+        }
+
+        .file-hint {
+            font-size: 12px;
+            color: #666;
+            margin-top: 6px;
+        }
+
+        .media-gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 10px;
+            margin-top: 8px;
+        }
+
+        .media-tile {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 6px;
+            background: #fff;
+        }
+
+        .media-tile img,
+        .media-tile video {
+            width: 100%;
+            height: 100px;
+            object-fit: cover;
+            border-radius: 6px;
+            display: block;
+        }
+
+        .media-open {
+            font-size: 11px;
+            margin-top: 4px;
+            display: inline-block;
+            color: var(--primary-color);
+            text-decoration: none;
         }
 
         /* Delivery Status Timeline */
@@ -392,6 +464,54 @@
         </div>
     </div>
 
+    <!-- Модальное окно ответа на спор для продавца -->
+    <div id="disputeModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Споры по заказу</h2>
+            </div>
+            <div class="modal-body">
+                <div id="disputeLoading" style="display:none; margin-bottom: 10px;">Загрузка споров...</div>
+                <div id="disputeEmpty" style="display:none; margin-bottom: 10px;">Нет открытых споров для ответа.</div>
+                <div id="disputeList" class="dispute-list"></div>
+
+                <form id="sellerDisputeForm" style="display:none;">
+                    <div id="sellerDisputeError" style="color: red; margin-bottom: 10px; display: none;"></div>
+                    <div id="sellerDisputeInfo" style="background:#f8f9fa;border:1px solid #e5e7eb;border-radius:8px;padding:10px;margin-bottom:12px;"></div>
+
+                    <div class="form-group">
+                        <label for="sellerDisputeAction">Действие</label>
+                        <select id="sellerDisputeAction" required style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px;">
+                            <option value="offer_discount">Согласиться и предложить скидку</option>
+                            <option value="appeal">Подать апелляцию</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" id="sellerDiscountWrap">
+                        <label for="sellerDisputeDiscount">Сумма скидки (€)</label>
+                        <input id="sellerDisputeDiscount" type="number" min="0.01" step="0.01" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="sellerDisputeComment">Комментарий</label>
+                        <textarea id="sellerDisputeComment" rows="4" minlength="5" maxlength="2000" required style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px;"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="sellerDisputeFiles">Фото/видео подтверждения</label>
+                        <input id="sellerDisputeFiles" type="file" accept="image/*,video/*" multiple />
+                        <div class="file-hint">До 6 файлов, максимум 20MB каждый</div>
+                    </div>
+
+                    <div class="modal-actions" style="padding-top:0; margin-top:6px; border-top:none;">
+                        <button type="button" class="btn btn-outline" onclick="closeDisputeModal()">Закрыть</button>
+                        <button type="submit" id="sellerDisputeSubmit" class="btn btn-primary">Отправить ответ</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Модальное окно отправки -->
     <div id="shipModal" class="modal">
         <div class="modal-content">
@@ -413,6 +533,8 @@
 
     <script>
         let currentShippingOrderId = null;
+        let currentDisputeTracking = null;
+        let selectedDispute = null;
 
         // Единый helper для извлечения сообщения об ошибке
         function extractError(payload, fallback = 'Ошибка') {
@@ -500,9 +622,139 @@
 
                     <div class="order-actions">
                         <a href="/product?id=${order.post_id}" class="btn btn-outline">{{ t.view_product }}</a>
+                        ${order.tracking_number ? `<button type="button" class="btn btn-outline" onclick="openDisputeModal('${order.tracking_number}')">Споры</button>` : ''}
                     </div>
                 </div>
             `).join('');
+        }
+
+        async function openDisputeModal(trackingNumber) {
+            currentDisputeTracking = trackingNumber;
+            selectedDispute = null;
+
+            document.getElementById('disputeModal').classList.add('active');
+            document.body.style.overflow = 'hidden';
+
+            const loadingNode = document.getElementById('disputeLoading');
+            const emptyNode = document.getElementById('disputeEmpty');
+            const listNode = document.getElementById('disputeList');
+            const formNode = document.getElementById('sellerDisputeForm');
+            const errorNode = document.getElementById('sellerDisputeError');
+            const infoNode = document.getElementById('sellerDisputeInfo');
+            const submitBtn = document.getElementById('sellerDisputeSubmit');
+
+            loadingNode.style.display = 'block';
+            emptyNode.style.display = 'none';
+            listNode.innerHTML = '';
+            formNode.style.display = 'none';
+            errorNode.style.display = 'none';
+            infoNode.innerHTML = '';
+            submitBtn.disabled = false;
+
+            try {
+                const response = await fetch(`${ORDERS_API}/shipments/${encodeURIComponent(trackingNumber)}`, {
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    const payload = await response.json();
+                    throw new Error(extractError(payload, 'Не удалось загрузить спор'));
+                }
+
+                const data = await response.json();
+                const body = data.data || data;
+                const issues = body.issues || [];
+
+                const statusText = (status) => {
+                    if (status === 'open') return 'Открыт (ожидает ваш ответ)';
+                    if (status === 'in_review') return 'Передан в админку';
+                    if (status === 'awaiting_return') return 'Покупатель выиграл, ожидается возврат';
+                    if (status === 'resolved') return 'Решён';
+                    if (status === 'rejected') return 'Отклонён';
+                    return status || '—';
+                };
+
+                const sortedDisputes = [...issues].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                loadingNode.style.display = 'none';
+
+                if (sortedDisputes.length === 0) {
+                    emptyNode.style.display = 'block';
+                    return;
+                }
+
+                listNode.innerHTML = sortedDisputes.map((issue) => `
+                    <div class="dispute-item" data-dispute-id="${issue.id}">
+                        <div class="dispute-item-title">#${issue.id} • ${issue.issue_type === 'return' ? 'Возврат' : 'Жалоба'}</div>
+                        <div class="dispute-item-meta">${issue.reason || 'Без причины'} • ${statusText(issue.status)}</div>
+                    </div>
+                `).join('');
+
+                listNode.querySelectorAll('.dispute-item').forEach((node) => {
+                    node.addEventListener('click', () => {
+                        const disputeId = Number(node.getAttribute('data-dispute-id'));
+                        const match = sortedDisputes.find((item) => item.id === disputeId);
+                        if (!match) return;
+
+                        selectedDispute = match;
+                        listNode.querySelectorAll('.dispute-item').forEach((x) => x.classList.remove('active'));
+                        node.classList.add('active');
+                        formNode.style.display = 'block';
+
+                        const isVideoUrl = (url) => /\.(mp4|webm|ogg|mov|m4v)(\?|$)/i.test(String(url || ''));
+                        const buyerFiles = (match.buyer_media_urls || []).length
+                            ? `<div class="media-gallery">${(match.buyer_media_urls || []).map((url) => `
+                                <div class="media-tile">
+                                    ${isVideoUrl(url)
+                                        ? `<video src="${url}" controls preload="metadata"></video>`
+                                        : `<img src="${url}" alt="evidence" loading="lazy" />`}
+                                    <a class="media-open" href="${url}" target="_blank" rel="noopener noreferrer">Открыть</a>
+                                </div>
+                            `).join('')}</div>`
+                            : '<div style="margin-top:6px;font-size:12px;color:#666;">Покупатель не приложил файлы</div>';
+
+                        infoNode.innerHTML = `
+                            <div><strong>Статус:</strong> ${statusText(match.status)}</div>
+                            <div style="margin-top:4px;"><strong>Причина:</strong> ${match.reason || '—'}</div>
+                            <div style="margin-top:4px;"><strong>Описание:</strong> ${match.description || '—'}</div>
+                            <div style="margin-top:4px;"><strong>Срок ответа:</strong> ${formatDate(match.seller_response_deadline || match.created_at)}</div>
+                            ${match.escalated_to_admin_at ? `<div style="margin-top:4px;color:#b45309;"><strong>Внимание:</strong> спор передан в админку ${formatDate(match.escalated_to_admin_at)}</div>` : ''}
+                            ${buyerFiles}
+                        `;
+
+                        const canRespond = match.status === 'open';
+                        document.getElementById('sellerDisputeAction').disabled = !canRespond;
+                        document.getElementById('sellerDisputeDiscount').disabled = !canRespond;
+                        document.getElementById('sellerDisputeComment').disabled = !canRespond;
+                        document.getElementById('sellerDisputeFiles').disabled = !canRespond;
+                        submitBtn.disabled = !canRespond;
+                        submitBtn.textContent = canRespond ? 'Отправить ответ' : 'Ответ недоступен';
+
+                        if (!canRespond) {
+                            errorNode.style.display = 'block';
+                            errorNode.textContent = 'Этот спор уже не требует ответа продавца (передан в админку или закрыт).';
+                        } else {
+                            errorNode.style.display = 'none';
+                            errorNode.textContent = '';
+                        }
+                    });
+                });
+
+                const firstNode = listNode.querySelector('.dispute-item');
+                if (firstNode) firstNode.click();
+            } catch (error) {
+                loadingNode.style.display = 'none';
+                emptyNode.style.display = 'block';
+                emptyNode.textContent = error.message || 'Ошибка загрузки споров';
+            }
+        }
+
+        function closeDisputeModal() {
+            document.getElementById('disputeModal').classList.remove('active');
+            document.body.style.overflow = '';
+            currentDisputeTracking = null;
+            selectedDispute = null;
+            document.getElementById('sellerDisputeForm').reset();
+            document.getElementById('sellerDiscountWrap').style.display = 'block';
         }
 
         // Открыть модальное окно отправки
@@ -652,6 +904,79 @@
         document.getElementById('shipModal').addEventListener('click', (e) => {
             if (e.target.id === 'shipModal') {
                 closeShipModal();
+            }
+        });
+
+        document.getElementById('disputeModal').addEventListener('click', (e) => {
+            if (e.target.id === 'disputeModal') {
+                closeDisputeModal();
+            }
+        });
+
+        document.getElementById('sellerDisputeAction').addEventListener('change', (e) => {
+            const discountWrap = document.getElementById('sellerDiscountWrap');
+            if (e.target.value === 'offer_discount') {
+                discountWrap.style.display = 'block';
+            } else {
+                discountWrap.style.display = 'none';
+                document.getElementById('sellerDisputeDiscount').value = '';
+            }
+        });
+
+        document.getElementById('sellerDisputeForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const errorNode = document.getElementById('sellerDisputeError');
+            const submitBtn = document.getElementById('sellerDisputeSubmit');
+            const action = document.getElementById('sellerDisputeAction').value;
+            const comment = document.getElementById('sellerDisputeComment').value;
+            const discount = document.getElementById('sellerDisputeDiscount').value;
+            const filesInput = document.getElementById('sellerDisputeFiles');
+
+            if (!selectedDispute || !currentDisputeTracking) {
+                errorNode.textContent = 'Сначала выберите спор';
+                errorNode.style.display = 'block';
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Отправляем...';
+            errorNode.style.display = 'none';
+
+            try {
+                const formData = new FormData();
+                formData.append('action', action);
+                formData.append('response_text', comment);
+                if (action === 'offer_discount' && discount) {
+                    formData.append('discount_amount', discount);
+                }
+
+                Array.from(filesInput.files || []).forEach((file) => {
+                    formData.append('files', file);
+                });
+
+                const response = await fetch(
+                    `${ORDERS_API}/shipments/${encodeURIComponent(currentDisputeTracking)}/disputes/${selectedDispute.id}/seller-response`,
+                    {
+                        method: 'POST',
+                        credentials: 'include',
+                        body: formData
+                    }
+                );
+
+                const payload = await response.json();
+                if (!response.ok) {
+                    throw new Error(extractError(payload, 'Не удалось отправить ответ на спор'));
+                }
+
+                alert('Ответ на спор отправлен. Спор передан в админку.');
+                closeDisputeModal();
+            } catch (error) {
+                errorNode.textContent = error.message || 'Ошибка отправки';
+                errorNode.style.display = 'block';
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Отправить ответ';
             }
         });
 

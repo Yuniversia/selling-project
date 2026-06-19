@@ -3,7 +3,7 @@
 TRANSLATIONS = {
     "ru": {
         # Общие элементы
-        "site_name": "LAIS Marketplace",
+        "site_name": "Viedix Marketplace",
         "login": "Войти",
         "post_ad": "Разместить",
         "check_imei": "Проверка IMEI",
@@ -16,7 +16,7 @@ TRANSLATIONS = {
         
         # SEO and meta
         "buy_prefix": "Купить",
-        "best_iphone_offers": "Лучшие предложения iPhone на LAIS Marketplace",
+        "best_iphone_offers": "Лучшие предложения iPhone на Viedix Marketplace",
         
         # Hero секция
         "hero_title": "Будь уверенным в том, что берёшь",
@@ -70,7 +70,7 @@ TRANSLATIONS = {
         "silver": "Серебристый",
         
         # Sidebar информация
-        "about_marketplace": "О LAIS Marketplace",
+        "about_marketplace": "О Viedix Marketplace",
         "security": "Безопасность",
         "security_desc": "Модерация всех объявлений и проверка продавцов",
         "money_protection": "Защита денег",
@@ -83,7 +83,7 @@ TRANSLATIONS = {
         "commission_desc": "Минимальная комиссия за полную безопасность сделки",
         
         # Модальное окно авторизации
-        "login_to_lais": "Вход в Lais",
+        "login_to_viedix": "Вход в Viedix",
         "manage_ads": "Управляйте своими объявлениями и покупками",
         "login_tab": "Вход",
         "register_tab": "Регистрация",
@@ -232,7 +232,7 @@ TRANSLATIONS = {
         "loading": "Загружается...",
         "seller_description": "Описание продавца",
         "no_description": "Нет описания",
-        "member_since": "На Lais с",
+        "member_since": "На Viedix с",
         "write_message": "Написать",
         "buy_for": "Купить за",
         "report_listing": "Пожаловаться",
@@ -619,7 +619,7 @@ TRANSLATIONS = {
         "sign_out": "Выйти",
         "my_profile_title": "Мой профиль",
         "change_photo": "Сменить фото",
-        "on_lais_since": "На Lais с",
+        "on_viedix_since": "На Viedix с",
         "ads_count": "Объявления",
         "sales_count": "Продажи",
         "my_orders": "🛒 Мои заказы",
@@ -654,6 +654,14 @@ TRANSLATIONS = {
         "status_reviewed": "Просмотрено",
         "status_resolved": "Решено",
         "status_reject": "Отклонить",
+        "stripe_onboarding_title": "Подключите аккаунт для получения выплат",
+        "stripe_onboarding_desc": "У вас есть активные объявления. Подключите платёжный аккаунт Stripe, чтобы получать деньги за продажи.",
+        "stripe_onboarding_btn": "Подключить аккаунт",
+        "stripe_onboarding_connecting": "Открываем Stripe...",
+        "stripe_onboarding_syncing": "Синхронизируем данные...",
+        "stripe_onboarding_synced": "Аккаунт подключён! Отложенные выплаты переведены.",
+        "language_settings": "Язык интерфейса",
+        "active_listings": "Активные объявления",
         
         # IMEI check translations
         "imei_check_title": "Проверка IMEI",
@@ -686,7 +694,7 @@ TRANSLATIONS = {
         "unknown": "Неизвестно",
         "expired": "Истекла",
         "check_another_imei": "Проверить другой IMEI",
-        "available_iphones": "📱 Доступные iPhone на Lais",
+        "available_iphones": "📱 Доступные iPhone на Viedix",
         "verified_devices": "Проверенные устройства с гарантией безопасности",
         "view_all_ads": "Смотреть все объявления →",
         "view_button": "Смотреть",
@@ -886,7 +894,7 @@ TRANSLATIONS = {
     
     "lv": {
         # Общие элементы
-        "site_name": "LAIS Tirgus",
+        "site_name": "Viedix Tirgus",
         "login": "Ieiet",
         "post_ad": "Ievietot",
         "check_imei": "IMEI pārbaude",
@@ -899,7 +907,7 @@ TRANSLATIONS = {
         
         # SEO and meta
         "buy_prefix": "Pirkt",
-        "best_iphone_offers": "Labākie iPhone piedāvājumi LAIS Tirgū",
+        "best_iphone_offers": "Labākie iPhone piedāvājumi Viedix Tirgū",
         
         # Hero секция
         "hero_title": "Esi drošs par to, ko perc",
@@ -953,7 +961,7 @@ TRANSLATIONS = {
         "silver": "Sudraba",
         
         # Sidebar информация
-        "about_marketplace": "Par LAIS Tirgus",
+        "about_marketplace": "Par Viedix Tirgus",
         "security": "Drošība",
         "security_desc": "Visu sludinājumu moderācija un pārdevēju pārbaude",
         "money_protection": "Naudas aizsardzība",
@@ -966,7 +974,7 @@ TRANSLATIONS = {
         "commission_desc": "Minimāla komisija par pilnīgu darījuma drošību",
         
         # Модальное окно авторизации
-        "login_to_lais": "Ieeja Lais",
+        "login_to_viedix": "Ieeja Viedix",
         "manage_ads": "Pārvaldiet savus sludinājumus un pirkumus",
         "login_tab": "Ieeja",
         "register_tab": "Reģistrācija",
@@ -1114,7 +1122,7 @@ TRANSLATIONS = {
         "loading": "Ielādē...",
         "seller_description": "Pārdevēja apraksts",
         "no_description": "Nav apraksta",
-        "member_since": "Lais kopš",
+        "member_since": "Viedix kopš",
         "write_message": "Rakstīt",
         "buy_for": "Pirkt par",
         "report_listing": "Sūdzēties",
@@ -1254,7 +1262,7 @@ TRANSLATIONS = {
         "sign_out": "Iziet",
         "my_profile_title": "Mans profils",
         "change_photo": "Mainīt foto",
-        "on_lais_since": "Lais kopš",
+        "on_viedix_since": "Viedix kopš",
         "ads_count": "Sludinājumi",
         "sales_count": "Pārdošanas",
         "my_orders": "🛒 Mani pasūtījumi",
@@ -1289,6 +1297,14 @@ TRANSLATIONS = {
         "status_reviewed": "Pārskatīts",
         "status_resolved": "Atrisināts",
         "status_reject": "Noraidīt",
+        "stripe_onboarding_title": "Pievienojiet kontu maksājumu saņemšanai",
+        "stripe_onboarding_desc": "Jums ir aktīvi sludinājumi. Pievienojiet Stripe maksājumu kontu, lai saņemtu naudu par pārdošanām.",
+        "stripe_onboarding_btn": "Pievienot kontu",
+        "stripe_onboarding_connecting": "Atveram Stripe...",
+        "stripe_onboarding_syncing": "Sinhronizē datus...",
+        "stripe_onboarding_synced": "Konts pievienots! Atliktie maksājumi pārskaitīti.",
+        "language_settings": "Saskarnes valoda",
+        "active_listings": "Aktīvie sludinājumi",
         
         # IMEI pārbaudes tulkojumi
         "imei_check_title": "IMEI pārbaude",
@@ -1321,7 +1337,7 @@ TRANSLATIONS = {
         "unknown": "Nezināms",
         "expired": "Beidzies",
         "check_another_imei": "Pārbaudīt citu IMEI",
-        "available_iphones": "📱 Pieejamie iPhone Lais",
+        "available_iphones": "📱 Pieejamie iPhone Viedix",
         "verified_devices": "Pārbaudītas ierīces ar drošības garantiju",
         "view_all_ads": "Skatīt visus sludinājumus →",
         "view_button": "Skatīt",
@@ -1649,7 +1665,7 @@ TRANSLATIONS = {
     
     "en": {
         # Общие элементы
-        "site_name": "LAIS Marketplace",
+        "site_name": "Viedix Marketplace",
         "login": "Log In",
         "post_ad": "Post Ad",
         "check_imei": "IMEI Check",
@@ -1662,7 +1678,7 @@ TRANSLATIONS = {
         
         # SEO and meta
         "buy_prefix": "Buy",
-        "best_iphone_offers": "Best iPhone offers on LAIS Marketplace",
+        "best_iphone_offers": "Best iPhone offers on Viedix Marketplace",
         
         # Hero секция
         "hero_title": "Be confident in what you're getting",
@@ -1716,7 +1732,7 @@ TRANSLATIONS = {
         "silver": "Silver",
         
         # Sidebar информация
-        "about_marketplace": "About LAIS Marketplace",
+        "about_marketplace": "About Viedix Marketplace",
         "security": "Security",
         "security_desc": "Moderation of all listings and seller verification",
         "money_protection": "Money Protection",
@@ -1729,7 +1745,7 @@ TRANSLATIONS = {
         "commission_desc": "Minimum commission for complete transaction security",
         
         # Модальное окно авторизации
-        "login_to_lais": "Log in to Lais",
+        "login_to_viedix": "Log in to Viedix",
         "manage_ads": "Manage your listings and purchases",
         "login_tab": "Login",
         "register_tab": "Register",
@@ -1882,7 +1898,7 @@ TRANSLATIONS = {
         "loading": "Loading...",
         "seller_description": "Seller Description",
         "no_description": "No description",
-        "member_since": "On Lais since",
+        "member_since": "On Viedix since",
         "write_message": "Message",
         "buy_for": "Buy for",
         "report_listing": "Report",
@@ -2023,7 +2039,7 @@ TRANSLATIONS = {
         "sign_out": "Sign Out",
         "my_profile_title": "My Profile",
         "change_photo": "Change Photo",
-        "on_lais_since": "On Lais since",
+        "on_viedix_since": "On Viedix since",
         "ads_count": "Listings",
         "sales_count": "Sales",
         "my_orders": "🛒 My Orders",
@@ -2058,6 +2074,14 @@ TRANSLATIONS = {
         "status_reviewed": "Reviewed",
         "status_resolved": "Resolved",
         "status_reject": "Reject",
+        "stripe_onboarding_title": "Connect your payout account",
+        "stripe_onboarding_desc": "You have active listings. Connect your Stripe payout account to receive money for your sales.",
+        "stripe_onboarding_btn": "Connect account",
+        "stripe_onboarding_connecting": "Opening Stripe...",
+        "stripe_onboarding_syncing": "Syncing data...",
+        "stripe_onboarding_synced": "Account connected! Pending payouts transferred.",
+        "language_settings": "Interface language",
+        "active_listings": "Active Listings",
         
         # IMEI Check translations
         "imei_check_title": "IMEI Check",
@@ -2090,7 +2114,7 @@ TRANSLATIONS = {
         "unknown": "Unknown",
         "expired": "Expired",
         "check_another_imei": "Check Another IMEI",
-        "available_iphones": "📱 Available iPhones on Lais",
+        "available_iphones": "📱 Available iPhones on Viedix",
         "verified_devices": "Verified devices with safety guarantee",
         "view_all_ads": "View All Listings →",
         "view_button": "View",

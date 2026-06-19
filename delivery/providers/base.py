@@ -2,6 +2,7 @@
 
 from abc import ABC, abstractmethod
 from models import DeliveryCreate
+from typing import Optional
 
 
 class DeliveryProviderClient(ABC):
@@ -14,6 +15,11 @@ class DeliveryProviderClient(ABC):
         Returns:
             str: техническая метка режима интеграции (для notes/audit)
         """
+        raise NotImplementedError
+    
+    @abstractmethod
+    def get_tracking_status(self, provider_tracking_number: str) -> Optional[str]:
+        """Запросить статус у стороннего API и вернуть ВНУТРЕННИЙ статус (DeliveryStatus)"""
         raise NotImplementedError
 
     @abstractmethod

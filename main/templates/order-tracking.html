@@ -21,6 +21,9 @@
         .form-group label { display: block; margin-bottom: 6px; font-size: 14px; font-weight: 600; }
         .form-group input, .form-group select, .form-group textarea { width: 100%; border: 1px solid #d8d8d8; border-radius: 8px; padding: 10px; font-size: 14px; }
         .actions { display: flex; gap: 10px; }
+        .file-hint { font-size: 12px; color: #777; margin-top: 6px; }
+        .media-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+        .media-link { font-size: 12px; padding: 5px 8px; background: #f3f4f6; border-radius: 6px; text-decoration: none; color: #114a9f; }
         
         /* Toast notification styles */
         .toast-container { position: fixed; top: 20px; right: 20px; z-index: 10000; }
@@ -171,12 +174,52 @@
                 <label id="issueDescriptionLabel" for="issueDescription">Описание</label>
                 <textarea id="issueDescription" rows="4" minlength="10" maxlength="2000" required></textarea>
             </div>
+            <div class="form-group">
+                <label for="issueMedia">Фото/видео доказательства</label>
+                <input id="issueMedia" type="file" accept="image/*,video/*" multiple />
+                <div class="file-hint">До 6 файлов, максимум 20MB каждый</div>
+            </div>
             <div class="actions">
                 <button id="createIssueBtn" type="submit" class="btn btn-primary">Создать заявку</button>
             </div>
             <div id="issueMsg" class="muted" style="margin-top:10px;"></div>
         </form>
         <div id="issuesList" style="margin-top:16px;"></div>
+    </div>
+
+    <div class="card" id="sellerDisputeCard" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+            <h2 style="margin-top:0; margin-bottom:0;">Ответ продавца на спор</h2>
+            <div id="sellerDisputeDeadline" class="muted"></div>
+        </div>
+        <form id="sellerDisputeForm" style="margin-top:16px;">
+            <div class="row">
+                <div class="form-group">
+                    <label for="sellerAction">Действие</label>
+                    <select id="sellerAction" required>
+                        <option value="offer_discount">Согласиться и предложить скидку</option>
+                        <option value="appeal">Подать апелляцию</option>
+                    </select>
+                </div>
+                <div class="form-group" id="discountWrap">
+                    <label for="sellerDiscount">Сумма скидки (€)</label>
+                    <input id="sellerDiscount" type="number" min="0.01" step="0.01" />
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="sellerResponseText">Комментарий продавца</label>
+                <textarea id="sellerResponseText" rows="4" minlength="5" maxlength="2000" required></textarea>
+            </div>
+            <div class="form-group">
+                <label for="sellerMedia">Подтверждения (фото/видео)</label>
+                <input id="sellerMedia" type="file" accept="image/*,video/*" multiple />
+                <div class="file-hint">До 6 файлов, максимум 20MB каждый</div>
+            </div>
+            <div class="actions">
+                <button type="submit" class="btn btn-primary">Отправить ответ и передать в админку</button>
+            </div>
+            <div id="sellerDisputeMsg" class="muted" style="margin-top:10px;"></div>
+        </form>
     </div>
 </main>
 
@@ -261,7 +304,10 @@
             confirmConditionCancel: 'Назад',
             confirmConditionLoading: 'Подтверждаю...',
             confirmConditionSuccess: 'Состояние подтверждено! Заказ теперь не может быть возвращен.',
-            confirmConditionError: 'Ошибка при подтверждении'
+            confirmConditionError: 'Ошибка при подтверждении',
+            sellerConfirmReturnBtn: 'Подтвердить получение возврата',
+            sellerConfirmReturnSuccess: 'Возврат подтверждён. Refund инициирован покупателю.',
+            sellerConfirmReturnError: 'Ошибка подтверждения возврата продавцом'
         },
         lv: {
             pageTitle: 'Pasūtījuma lapa',
@@ -275,6 +321,9 @@
             confirmConditionLoading: 'Apstipriņu...',
             confirmConditionSuccess: 'Stāvoklis apstiprināts! Pasūtījumu vairs nevar atgriezt.',
             confirmConditionError: 'Kļūda apstiprinājumā',
+            sellerConfirmReturnBtn: 'Apstiprināt atgriešanas saņemšanu',
+            sellerConfirmReturnSuccess: 'Atgriešana apstiprināta. Pircēja atmaksāšana uzsākta.',
+            sellerConfirmReturnError: 'Kļūda, apstiprinot atgriešanu',
             labelTracking: 'Sūtījuma numurs',
             labelOrderNumber: 'Pasūtījuma numurs',
             labelProduct: 'Prece',
@@ -341,6 +390,9 @@
             confirmConditionLoading: 'Confirming...',
             confirmConditionSuccess: 'Condition confirmed! Order cannot be returned anymore.',
             confirmConditionError: 'Error during confirmation',
+            sellerConfirmReturnBtn: 'Confirm return received',
+            sellerConfirmReturnSuccess: 'Return confirmed. Refund initiated for buyer.',
+            sellerConfirmReturnError: 'Error confirming return by seller',
             labelTracking: 'Tracking number',
             labelOrderNumber: 'Order number',
             labelProduct: 'Product',
@@ -427,8 +479,30 @@
         issueForm: document.getElementById('issueForm'),
         issueMsg: document.getElementById('issueMsg'),
         issuesList: document.getElementById('issuesList'),
-        toggleIssueBtn: document.getElementById('toggleIssueBtn')
+        toggleIssueBtn: document.getElementById('toggleIssueBtn'),
+        issueMedia: document.getElementById('issueMedia'),
+        sellerDisputeCard: document.getElementById('sellerDisputeCard'),
+        sellerDisputeForm: document.getElementById('sellerDisputeForm'),
+        sellerDisputeMsg: document.getElementById('sellerDisputeMsg'),
+        sellerAction: document.getElementById('sellerAction'),
+        sellerDiscount: document.getElementById('sellerDiscount'),
+        sellerResponseText: document.getElementById('sellerResponseText'),
+        sellerMedia: document.getElementById('sellerMedia'),
+        sellerDisputeDeadline: document.getElementById('sellerDisputeDeadline'),
+        discountWrap: document.getElementById('discountWrap')
     };
+
+    const DISPUTE_TEXT = {
+        open: 'Открыт',
+        in_review: 'На рассмотрении админом',
+        awaiting_return: 'Ожидается возврат продавцу',
+        resolved: 'Решено',
+        rejected: 'Отклонено',
+        seller_responded: 'Ответ продавца получен'
+    };
+
+    let activeDisputeForSeller = null;
+    let currentUserRole = 'guest';
 
     const STATUS_LABELS = UI.status;
 
@@ -498,11 +572,42 @@
             el.issuesList.innerHTML = `<div class="muted">${UI.noIssues}</div>`;
             return;
         }
+
+        const renderMedia = (urls) => {
+            if (!urls || !urls.length) return '';
+            return `
+                <div class="media-list">
+                    ${urls.map((url, index) => `<a class="media-link" href="${url}" target="_blank" rel="noopener noreferrer">Файл ${index + 1}</a>`).join('')}
+                </div>
+            `;
+        };
+
         el.issuesList.innerHTML = issues.map(issue => `
             <div class="card" style="box-shadow:none;border:1px solid #efefef;padding:12px;margin-bottom:8px;">
-                <div><strong>${issue.issue_type === 'return' ? UI.issueTypeReturn : UI.issueTypeComplaint}</strong> — ${issue.status}</div>
+                <div><strong>${issue.issue_type === 'return' ? UI.issueTypeReturn : UI.issueTypeComplaint}</strong> — ${DISPUTE_TEXT[issue.status] || issue.status}</div>
                 <div class="muted">${issue.reason}</div>
                 <div>${issue.description}</div>
+                ${renderMedia(issue.buyer_media_urls)}
+                ${issue.seller_response_text ? `<div style="margin-top:10px;"><strong>Ответ продавца:</strong><br>${issue.seller_response_text}</div>` : ''}
+                ${issue.seller_discount_amount ? `<div class="muted">Предложенная скидка: €${Number(issue.seller_discount_amount).toFixed(2)}</div>` : ''}
+                ${issue.status === 'seller_responded' && issue.seller_response_action === 'offer_discount' && !['seller', 'admin'].includes(currentUserRole)
+                    ? `<div style="margin-top:10px; padding: 12px; border: 1px solid #dbeafe; background: #eff6ff; border-radius: 10px;">
+                        <div style="font-weight: 600; margin-bottom: 8px; color: #114a9f;">Продавец предложил скидку. Выберите действие:</div>
+                        <div class="actions">
+                            <button type="button" class="btn btn-primary" onclick="respondDiscount(${issue.id}, true)">Принять скидку</button>
+                            <button type="button" class="btn btn-outline" onclick="respondDiscount(${issue.id}, false)">Отклонить и передать в админку</button>
+                        </div>
+                        ${currentUserRole === 'guest' ? `<div class="file-hint" style="margin-top:8px; color:#114a9f;">Если вы не вошли в аккаунт покупателя, сначала авторизуйтесь.</div>` : ''}
+                    </div>`
+                    : ''}
+                ${currentUserRole === 'seller' && issue.status === 'awaiting_return' && issue.admin_verdict === 'buyer_wins'
+                    ? `<div class="actions" style="margin-top:10px;">
+                        <button type="button" class="btn btn-primary" onclick="confirmReturnAsSeller(${issue.id})">${UI.sellerConfirmReturnBtn}</button>
+                    </div>`
+                    : ''}
+                ${renderMedia(issue.seller_media_urls)}
+                ${issue.admin_verdict ? `<div class="muted">Вердикт: ${issue.admin_verdict}</div>` : ''}
+                ${issue.seller_response_deadline ? `<div class="muted">Ответ продавца до: ${formatDate(issue.seller_response_deadline)}</div>` : ''}
                 <div class="muted">${formatDate(issue.created_at)}</div>
             </div>
         `).join('');
@@ -601,7 +706,17 @@
             // === ЛОГИКА ВИДИМОСТИ: Используем actions из backend ===
             // Backend отправляет правильные значения на основе статуса и способа доставки
             const canLeaveReview = data.actions.can_leave_review;    // ✅ Из backend
-            const canCreateIssue = data.actions.can_open_issue;       // ✅ Из backend
+            const userRole = data.actions.current_user_role || 'guest';
+            currentUserRole = userRole;
+            const issues = data.issues || [];
+            const hasAnyIssues = issues.length > 0;
+            const activeDispute = issues.find(item => ['open', 'in_review', 'awaiting_return'].includes(item.status));
+            const canCreateIssue = data.actions.can_open_issue && !activeDispute && !['seller', 'admin'].includes(userRole);
+            activeDisputeForSeller = issues.find(item => item.status === 'open') || null;
+            const hasDecisionOrDiscountFlow = issues.some(item =>
+                ['seller_responded', 'in_review', 'awaiting_return', 'resolved', 'rejected'].includes(item.status) ||
+                Boolean(item.admin_verdict)
+            );
             
             // ✅ Кнопка подтверждения: показываем если есть что подтверждать
             // PICKUP: при PAID (и не подтверждено)
@@ -610,12 +725,26 @@
             const showConfirmBtn = isPersonalPickup
                 ? (order.status === 'paid' && !order.order_confirmed_at)
                 : (order.status === 'picked_up' && !order.order_confirmed_at);
+            const showConfirmBtnSafe = showConfirmBtn && !hasDecisionOrDiscountFlow;
             
             el.reviewCard.style.display = canLeaveReview ? 'block' : 'none';
-            el.issueCard.style.display = canCreateIssue ? 'block' : 'none';
+            el.issueCard.style.display = (canCreateIssue || hasAnyIssues) ? 'block' : 'none';
+            el.sellerDisputeCard.style.display =
+                (userRole === 'seller' && data.actions.can_seller_respond_dispute && activeDisputeForSeller)
+                    ? 'block'
+                    : 'none';
+
+            el.toggleIssueBtn.style.display = canCreateIssue ? 'inline-flex' : 'none';
+            if (!canCreateIssue) {
+                el.issueForm.style.display = 'none';
+            }
+
+            if (el.sellerDisputeCard.style.display !== 'none' && activeDisputeForSeller?.seller_response_deadline) {
+                el.sellerDisputeDeadline.textContent = `Ответ до: ${formatDate(activeDisputeForSeller.seller_response_deadline)}`;
+            }
             
             const confirmConditionBtn = document.getElementById('confirmConditionBtn');
-            confirmConditionBtn.style.display = showConfirmBtn ? 'inline-flex' : 'none';
+            confirmConditionBtn.style.display = showConfirmBtnSafe ? 'inline-flex' : 'none';
             
             // === Показать адрес встречи для pickup (только если заказ еще не подтвержден) ===
             const pickupAddressCard = document.getElementById('pickupAddressCard');
@@ -687,7 +816,7 @@
                 }
             }
             
-            renderIssues(data.issues || []);
+            renderIssues(issues);
         } catch (err) {
             console.error(err);
             showError(UI.loadFailed);
@@ -727,17 +856,18 @@
         el.issueMsg.className = 'muted';
         el.issueMsg.textContent = UI.creatingIssue;
 
-        const payload = {
-            issue_type: document.getElementById('issueType').value,
-            reason: document.getElementById('issueReason').value,
-            description: document.getElementById('issueDescription').value
-        };
+        const formData = new FormData();
+        formData.append('issue_type', document.getElementById('issueType').value);
+        formData.append('reason', document.getElementById('issueReason').value);
+        formData.append('description', document.getElementById('issueDescription').value);
+
+        const files = Array.from(el.issueMedia?.files || []);
+        files.forEach(file => formData.append('files', file));
 
         try {
-            const response = await fetch(`/api/v1/orders/shipments/${encodeURIComponent(tracking)}/issues`, {
+            const response = await fetch(`/api/v1/orders/shipments/${encodeURIComponent(tracking)}/disputes`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
+                body: formData,
                 credentials: 'include'
             });
             const data = await response.json();
@@ -746,6 +876,7 @@
             el.issueMsg.textContent = UI.issueSuccess;
             document.getElementById('issueReason').value = '';
             document.getElementById('issueDescription').value = '';
+            if (el.issueMedia) el.issueMedia.value = '';
             await loadOrder();
         } catch (err) {
             el.issueMsg.className = 'error';
@@ -758,6 +889,102 @@
         el.issueForm.style.display = isHidden ? 'block' : 'none';
         el.toggleIssueBtn.textContent = isHidden ? UI.toggleClose : UI.toggleOpen;
     });
+
+    el.sellerAction?.addEventListener('change', () => {
+        const action = el.sellerAction.value;
+        el.discountWrap.style.display = action === 'offer_discount' ? 'block' : 'none';
+        if (action !== 'offer_discount') {
+            el.sellerDiscount.value = '';
+        }
+    });
+
+    el.sellerDisputeForm?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!activeDisputeForSeller) {
+            el.sellerDisputeMsg.className = 'error';
+            el.sellerDisputeMsg.textContent = 'Нет активного спора для ответа';
+            return;
+        }
+
+        el.sellerDisputeMsg.className = 'muted';
+        el.sellerDisputeMsg.textContent = 'Отправляем ответ...';
+
+        const formData = new FormData();
+        formData.append('action', el.sellerAction.value);
+        formData.append('response_text', el.sellerResponseText.value);
+        if (el.sellerAction.value === 'offer_discount' && el.sellerDiscount.value) {
+            formData.append('discount_amount', el.sellerDiscount.value);
+        }
+
+        const files = Array.from(el.sellerMedia?.files || []);
+        files.forEach(file => formData.append('files', file));
+
+        try {
+            const response = await fetch(
+                `/api/v1/orders/shipments/${encodeURIComponent(tracking)}/disputes/${activeDisputeForSeller.id}/seller-response`,
+                {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'include'
+                }
+            );
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.detail || 'Ошибка ответа продавца');
+            el.sellerDisputeMsg.className = 'ok';
+            el.sellerDisputeMsg.textContent = 'Ответ отправлен. Спор передан в админку.';
+            el.sellerResponseText.value = '';
+            el.sellerDiscount.value = '';
+            if (el.sellerMedia) el.sellerMedia.value = '';
+            await loadOrder();
+        } catch (err) {
+            el.sellerDisputeMsg.className = 'error';
+            el.sellerDisputeMsg.textContent = String(err.message || err);
+        }
+    });
+
+    window.respondDiscount = async function(disputeId, accepted) {
+        try {
+            const response = await fetch(
+                `/api/v1/orders/shipments/${encodeURIComponent(tracking)}/disputes/${disputeId}/buyer-discount-response`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ accepted })
+                }
+            );
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.detail || 'Ошибка ответа по скидке');
+            showToast(
+                accepted
+                    ? 'Скидка принята, спор закрыт.'
+                    : 'Скидка отклонена, спор передан в админку.',
+                'success',
+                4000
+            );
+            await loadOrder();
+        } catch (err) {
+            showToast(String(err.message || err), 'error', 4000);
+        }
+    }
+
+    window.confirmReturnAsSeller = async function(disputeId) {
+        try {
+            const response = await fetch(
+                `/api/v1/orders/shipments/${encodeURIComponent(tracking)}/disputes/${disputeId}/seller-confirm-return`,
+                {
+                    method: 'POST',
+                    credentials: 'include'
+                }
+            );
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.detail || UI.sellerConfirmReturnError);
+            showToast(UI.sellerConfirmReturnSuccess, 'success', 4500);
+            await loadOrder();
+        } catch (err) {
+            showToast(String(err.message || err), 'error', 4500);
+        }
+    }
 
     // === ФАЗА 4: ФУНКЦИИ ДЛЯ ПОДТВЕРЖДЕНИЯ СОСТОЯНИЯ (глобальные для onclick) ===
     window.openConfirmConditionModal = function() {

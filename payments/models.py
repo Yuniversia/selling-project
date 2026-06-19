@@ -1,4 +1,4 @@
-from datetime import datetime
+﻿from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, Optional
 
@@ -16,6 +16,8 @@ class PaymentStatus(str, Enum):
     FAILED = "failed"
     PARTIALLY_REFUNDED = "partially_refunded"
     REFUNDED = "refunded"
+    TRANSFERRED = "transferred"
+    PENDING_TRANSFER = "pending_transfer"
 
 
 class PaymentProvider(str, Enum):
@@ -54,6 +56,9 @@ class Payment(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow, index=True)
     paid_at: Optional[datetime] = Field(default=None, index=True)
     refunded_at: Optional[datetime] = Field(default=None, index=True)
+    seller_transfer_id: Optional[str] = Field(default=None, max_length=255)
+    transferred_at: Optional[datetime] = Field(default=None)
+    delivery_cost_cents: Optional[int] = Field(default=None)
 
 
 class PaymentWebhookEvent(SQLModel, table=True):
@@ -97,6 +102,24 @@ class PaymentIntentResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class SellerOnboardingStatus(str, Enum):
+    PENDING = "pending"
+    COMPLETED = "completed"
+    RESTRICTED = "restricted"
+
+
+class SellerPayoutAccount(SQLModel, table=True):
+    __tablename__ = "seller_payout_accounts"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    seller_id: int = Field(index=True, unique=True)
+    stripe_account_id: str = Field(max_length=255)  # acct_xxx
+    onboarding_status: str = Field(default=SellerOnboardingStatus.PENDING.value)
+    payouts_enabled: bool = Field(default=False)
+    details_submitted: bool = Field(default=False)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
 
 class RefundCreateData(BaseModel):
     amount_cents: Optional[int] = PydanticField(default=None, ge=1)
@@ -121,6 +144,7 @@ class CheckoutSessionCreateData(BaseModel):
     description: Optional[str] = PydanticField(default=None, max_length=500)
     success_url: str = PydanticField(..., min_length=8, max_length=2000)
     cancel_url: str = PydanticField(..., min_length=8, max_length=2000)
+    delivery_cost_cents: Optional[int] = PydanticField(default=None)
     metadata: Dict[str, Any] = PydanticField(default_factory=dict)
 
 
@@ -140,3 +164,4 @@ class CheckoutSessionStatusResponse(BaseModel):
     paid: bool
     order_id: Optional[int] = None
     provider_payment_intent_id: Optional[str] = None
+

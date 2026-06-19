@@ -167,6 +167,7 @@ class OrderStatus(str, Enum):
     - PICKED_UP: Customer has collected the package (webhook auto-sets this)
     - CONFIRMED: Customer confirmed receipt and condition (final status, can leave review)
     - CANCELLED: Order cancelled
+    - FAILURE: Order processing or delivery failed, payment should be refunded
     - REFUNDED: Payment refunded
     """
     PENDING_PAYMENT = "pending_payment"
@@ -176,6 +177,7 @@ class OrderStatus(str, Enum):
     PICKED_UP = "picked_up"  # Customer has collected the package (webhook auto-sets this)
     CONFIRMED = "confirmed"  # Customer confirmed receipt and condition (final)
     CANCELLED = "cancelled"
+    FAILURE = "failure"
     REFUNDED = "refunded"
 
 
@@ -300,9 +302,21 @@ class OrderIssueType(str, Enum):
 
 class OrderIssueStatus(str, Enum):
     OPEN = "open"
+    SELLER_RESPONDED = "seller_responded"
     IN_REVIEW = "in_review"
+    AWAITING_RETURN = "awaiting_return"
     RESOLVED = "resolved"
     REJECTED = "rejected"
+
+
+class SellerDisputeAction(str, Enum):
+    OFFER_DISCOUNT = "offer_discount"
+    APPEAL = "appeal"
+
+
+class AdminDisputeVerdict(str, Enum):
+    BUYER_WINS = "buyer_wins"
+    SELLER_WINS = "seller_wins"
 
 
 class OrderReview(SQLModel, table=True):
@@ -326,6 +340,19 @@ class OrderIssue(SQLModel, table=True):
     reason: str = Field(max_length=255)
     description: str = Field(max_length=2000)
     status: str = Field(default=OrderIssueStatus.OPEN.value, max_length=20, index=True)
+    buyer_media_urls: List[str] = Field(default_factory=list, sa_column=Column(JSON))
+    seller_response_action: Optional[str] = Field(default=None, max_length=30)
+    seller_response_text: Optional[str] = Field(default=None, max_length=2000)
+    seller_discount_amount: Optional[float] = Field(default=None, ge=0)
+    seller_media_urls: List[str] = Field(default_factory=list, sa_column=Column(JSON))
+    seller_response_deadline: Optional[datetime] = Field(default=None, index=True)
+    seller_responded_at: Optional[datetime] = Field(default=None, index=True)
+    escalated_to_admin_at: Optional[datetime] = Field(default=None, index=True)
+    admin_verdict: Optional[str] = Field(default=None, max_length=30)
+    admin_comment: Optional[str] = Field(default=None, max_length=2000)
+    admin_verdict_at: Optional[datetime] = Field(default=None, index=True)
+    return_received_at: Optional[datetime] = Field(default=None, index=True)
+    refund_payment_id: Optional[int] = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

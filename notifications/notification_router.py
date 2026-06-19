@@ -12,7 +12,8 @@ from configs import configs
 from models import (
     SendNotificationRequest, SendNotificationResponse,
     NotificationHistoryResponse, NotificationLog,
-    NotificationType, NotificationChannel, OrderNotificationData
+    NotificationType, NotificationChannel, OrderNotificationData,
+    DisputeNotificationData
 )
 from notification_service import NotificationService, SendBerryService
 
@@ -209,6 +210,31 @@ async def notify_pickup(
             "notification_ids": [],
             "errors": [str(e)],
             "message": "Pickup notification failed"
+        }
+
+
+@notification_router.post("/dispute-event")
+async def notify_dispute_event(
+    dispute_data: DisputeNotificationData,
+    db: Session = Depends(get_session)
+):
+    """События споров: открытие, ответ продавца, закрытие со скидкой, вердикт площадки."""
+    service = NotificationService(db)
+    try:
+        success, ids, errors = service.send_dispute_event(dispute_data)
+        return {
+            "success": success,
+            "notification_ids": ids,
+            "errors": errors,
+            "message": "Dispute notifications processed" if success else "Dispute notifications sent with errors"
+        }
+    except Exception as exc:
+        logger.error(f"Dispute notification error: {type(exc).__name__}")
+        return {
+            "success": False,
+            "notification_ids": [],
+            "errors": [str(exc)],
+            "message": "Dispute notifications failed"
         }
 
 

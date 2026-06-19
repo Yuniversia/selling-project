@@ -44,6 +44,8 @@ class Delivery(SQLModel, table=True):
     
     # Трекинг номер (генерируется автоматически)
     tracking_number: str = Field(max_length=100, unique=True, index=True)
+
+    provider_tracking_number: Optional[str] = Field(default=None, index=True)
     
     # Код получения из пакомата (6 цифр, генерируется при статусе at_pickup_point)
     pickup_code: Optional[str] = Field(default=None, max_length=6)
@@ -123,11 +125,11 @@ class DeliveryCreate(BaseModel):
     order_id: int = PydanticField(..., description="ID заказа")
     provider: DeliveryProvider = PydanticField(..., description="Провайдер доставки")
     
-    # Адрес доставки
+    # Адрес доставки (получателя)
     delivery_address: Optional[str] = PydanticField(None, max_length=500)
     delivery_city: Optional[str] = PydanticField(None, max_length=100)
     delivery_zip: Optional[str] = PydanticField(None, max_length=20)
-    delivery_country: str = PydanticField(default="Latvia", max_length=100)
+    delivery_country: str = PydanticField(default="LV", max_length=100)
     
     # Пункт выдачи (опционально)
     pickup_point_id: Optional[str] = PydanticField(None, max_length=100)
@@ -142,6 +144,14 @@ class DeliveryCreate(BaseModel):
     # Отправитель
     sender_name: str = PydanticField(..., max_length=200)
     sender_phone: str = PydanticField(..., max_length=20)
+    sender_email: Optional[str] = PydanticField(default=None, max_length=255)
+    sender_address: Optional[str] = PydanticField(default=None, max_length=500)
+    sender_city: Optional[str] = PydanticField(default="Riga", max_length=100)
+    sender_zip: Optional[str] = PydanticField(default="1001", max_length=20)
+    sender_country: str = PydanticField(default="LV", max_length=2)
+    
+    # Вес посылки (кг)
+    weight: Optional[float] = PydanticField(None, gt=0, description="Вес посылки в килограммах")
     
     notes: Optional[str] = PydanticField(None, max_length=1000)
 
@@ -153,6 +163,9 @@ class DeliveryResponse(BaseModel):
     provider: str
     tracking_number: str
     status: str
+    
+    # PIN-код для получения из пакомата (для DPD PICKUP)
+    pickup_code: Optional[str]
     
     # Пункт выдачи (без адреса)
     pickup_point_name: Optional[str]

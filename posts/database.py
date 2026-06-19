@@ -14,7 +14,12 @@ try:
 except ImportError:
     pass  # dotenv не установлен, используем SQLite по умолчанию
 
-# Проверяем, какую базу данных использовать (SQLite или PostgreSQL)
+# ===== IMPORTANT: Import ALL models so SQLModel.metadata knows about them =====
+# These imports MUST come BEFORE create_engine!
+import models  # Old models
+import models_v2  # New models (Product, Order, OrderIssue, etc.)
+
+# Check which database to use (SQLite or PostgreSQL)
 USE_POSTGRES = os.getenv("USE_POSTGRES", "false").lower() == "true"
 
 if USE_POSTGRES:
@@ -183,6 +188,51 @@ def create_db_and_tables():
             logger.info('Order delivery/discount columns added: success')
         except Exception as exc:
             logger.warning(f"Order delivery/discount columns add failed: {type(exc).__name__}: {exc}")
+
+        try:
+            with engine.begin() as connection:
+                connection.exec_driver_sql(
+                    "ALTER TABLE public.orderissue ADD COLUMN IF NOT EXISTS buyer_media_urls JSONB DEFAULT '[]'::jsonb"
+                )
+                connection.exec_driver_sql(
+                    'ALTER TABLE public.orderissue ADD COLUMN IF NOT EXISTS seller_response_action VARCHAR(30)'
+                )
+                connection.exec_driver_sql(
+                    'ALTER TABLE public.orderissue ADD COLUMN IF NOT EXISTS seller_response_text VARCHAR(2000)'
+                )
+                connection.exec_driver_sql(
+                    'ALTER TABLE public.orderissue ADD COLUMN IF NOT EXISTS seller_discount_amount NUMERIC(10, 2)'
+                )
+                connection.exec_driver_sql(
+                    "ALTER TABLE public.orderissue ADD COLUMN IF NOT EXISTS seller_media_urls JSONB DEFAULT '[]'::jsonb"
+                )
+                connection.exec_driver_sql(
+                    'ALTER TABLE public.orderissue ADD COLUMN IF NOT EXISTS seller_response_deadline TIMESTAMP'
+                )
+                connection.exec_driver_sql(
+                    'ALTER TABLE public.orderissue ADD COLUMN IF NOT EXISTS seller_responded_at TIMESTAMP'
+                )
+                connection.exec_driver_sql(
+                    'ALTER TABLE public.orderissue ADD COLUMN IF NOT EXISTS escalated_to_admin_at TIMESTAMP'
+                )
+                connection.exec_driver_sql(
+                    'ALTER TABLE public.orderissue ADD COLUMN IF NOT EXISTS admin_verdict VARCHAR(30)'
+                )
+                connection.exec_driver_sql(
+                    'ALTER TABLE public.orderissue ADD COLUMN IF NOT EXISTS admin_comment VARCHAR(2000)'
+                )
+                connection.exec_driver_sql(
+                    'ALTER TABLE public.orderissue ADD COLUMN IF NOT EXISTS admin_verdict_at TIMESTAMP'
+                )
+                connection.exec_driver_sql(
+                    'ALTER TABLE public.orderissue ADD COLUMN IF NOT EXISTS return_received_at TIMESTAMP'
+                )
+                connection.exec_driver_sql(
+                    'ALTER TABLE public.orderissue ADD COLUMN IF NOT EXISTS refund_payment_id INTEGER'
+                )
+            logger.info('OrderIssue dispute columns added: success')
+        except Exception as exc:
+            logger.warning(f"OrderIssue dispute columns add failed: {type(exc).__name__}: {exc}")
 
 # Функция для получения сессии базы данных
 def get_session() -> Generator[Session, None, None]:

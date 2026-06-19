@@ -1,366 +1,207 @@
-# 🏪 LAIS Marketplace
+﻿# LAIS Marketplace
 
-Платформа для покупки и продажи iPhone с системой аутентификации, объявлениями и покупками.
+Платформа для покупки и продажи iPhone. Микросервисная архитектура на FastAPI + PostgreSQL + Docker.
 
-## � Документация развертывания
-
-### 🖥️ Локальная разработка
-- **[Быстрый старт](#-быстрый-старт-3-шага)** - запуск на локальной машине
-- **[Docker Guide](DOCKER_GUIDE.md)** - полная документация Docker
-
-### 🌐 Production развертывание
-- **[Arch Linux + Nginx](ARCH-LINUX-DEPLOYMENT.md)** - полная инструкция для production
-- **[Быстрый старт Nginx](QUICK-START-NGINX.md)** - для серверов с существующим Nginx
-- **[Deployment Guide](DEPLOYMENT.md)** - детальная документация развертывания
-
-### 🔧 Скрипты автоматизации
-- `start-prod.sh` - запуск в production
-- `stop-prod.sh` - остановка с бэкапом
-- `backup.sh` - резервное копирование БД
-- `setup-nginx.sh` - настройка Nginx на сервере
+**Production:** https://test.yuniversia.eu/
 
 ---
 
-## �🚀 Быстрый старт (3 шага)
+## Быстрый старт
 
-### 1. Установите Docker Desktop
-- Windows/Mac: https://www.docker.com/products/docker-desktop
-- Linux: `sudo apt-get install docker.io docker-compose`
-
-### 2. Запустите проект
 ```bash
-docker-compose up -d
+# Скопировать .env.example в .env и заполнить ключи
+cp .env.example .env
+
+# Поднять все сервисы
+docker-compose up -d --build
+
+# Проверить статус
+docker-compose ps
 ```
 
-### 3. Откройте в браузере
-- **Frontend**: http://localhost:8080
-- **Auth API**: http://localhost:8000/auth/docs
-- **Posts API**: http://localhost:3000/docs
-- **Chat API**: http://localhost:4000/docs
-- **Payments API**: http://localhost:9000/docs
-- **Notifications API**: http://localhost:6000/notifications/docs
-- **Delivery API**: http://localhost:7000/delivery/docs
+**Доступные адреса после запуска:**
 
-## 📁 Структура проекта
+| Сервис | URL |
+|---|---|
+| Frontend | http://localhost:8080 |
+| Auth API docs | http://localhost:8000/auth/docs |
+| Posts API docs | http://localhost:3000/docs |
+| Chat API docs | http://localhost:4000/docs |
+| Payments API docs | http://localhost:9000/docs |
+| Notifications API docs | http://localhost:6000/notifications/docs |
+| Delivery API docs | http://localhost:7000/delivery/docs |
+| IMEI Checker API docs | http://localhost:5002/docs |
+
+---
+
+## Состав системы
 
 ```
-ss.lv/
-├── auth/              # Сервис аутентификации (JWT, пользователи)
-│   ├── Dockerfile
-│   ├── main.py
-│   ├── auth_router.py
-│   ├── auth_service.py
-│   ├── models.py
-│   └── database.py
-│
-├── posts/             # Сервис объявлений (iPhone, покупки)
-│   ├── Dockerfile
-│   ├── main.py
-│   ├── post_router.py
-│   ├── bought_router.py
-│   ├── order_router.py
-│   ├── models.py
-│   └── database.py
-│
-├── chat/              # Сервис чата (WebSocket)
-│   ├── Dockerfile
-│   ├── main.py
-│   ├── chat_router.py
-│   ├── websocket_manager.py
-│   └── models.py
-│
-├── notifications/     # Сервис уведомлений (SMS, Email)
-│   ├── Dockerfile
-│   ├── main.py
-│   ├── notification_router.py
-│   ├── notification_service.py
-│   └── models.py
-│
-├── payments/          # Сервис платежей (Stripe)
-│   ├── Dockerfile
-│   ├── main.py
-│   ├── payment_router.py
-│   ├── payment_service.py
-│   └── models.py
-│
-├── delivery/          # Сервис доставки (Omniva, DPD)
-│   ├── Dockerfile
-│   ├── main.py
-│   ├── delivery_router.py
-│   ├── delivery_service.py
-│   ├── models.py
-│   └── README.md
-│
-├── main/              # Frontend (HTML шаблоны)
-│   ├── Dockerfile
-│   ├── main.py
-│   ├── frontend_router.py
-│   └── templates/
-│
-├── docker-compose.yml # Конфигурация всех сервисов
-├── .env               # Переменные окружения
-├── Makefile           # Команды для управления
-└── DOCKER_GUIDE.md    # Полная документация
+marketplace/
+├── auth/              # Аутентификация, пользователи, JWT, Google OAuth    :8000
+├── posts/             # Объявления, заказы, споры, отзывы                  :3000
+├── chat/              # WebSocket чат, push-уведомления, файлы             :4000
+├── payments/          # Stripe платежи, webhooks, возвраты                 :9000
+├── notifications/     # SMS через SendBerry                                :6000
+├── delivery/          # DPD / Omniva доставка, трекинг                    :7000
+├── iphone_cheker/     # Проверка IMEI с кешированием                      :5002
+├── main/              # HTML/Jinja2 frontend, статика, sitemap             :8080
+├── nginx/             # Reverse proxy, единая точка входа                 :80->8080
+├── Markdown/          # Архитектурная документация
+├── ARCHITECTURE.md    # Общие паттерны и стандарты кода
+├── docker-compose.yml
+└── .env
 ```
 
-## 🎯 Основные команды
+Подробный README по каждому сервису — в соответствующей папке.
 
-### Docker Compose
+---
+
+## Архитектура
+
+```
+Browser
+  │
+  ▼
+NGINX :8080
+  │
+  ├─── /api/v1/auth/*          → auth-service:8000
+  ├─── /api/v1/posts/*         → posts-service:3000
+  ├─── /api/v1/chat/*          → chat-service:4000
+  ├─── /api/v1/imei/*          → imei-checker-service:5002
+  ├─── /api/v1/notifications/* → notifications-service:6000
+  ├─── /api/v1/delivery/*      → delivery-service:7000
+  ├─── /ws*                    → chat-service:4000 (WebSocket)
+  └─── /                       → main-service:8080
+
+Все сервисы → PostgreSQL :5432 (lais_marketplace)
+posts + chat → Cloudflare R2 (файлы и изображения)
+payments     → Stripe API
+notifications → SendBerry SMS API
+iphone_cheker → imei.info API
+auth         → Google OAuth API
+posts        → Redis (Taskiq очередь задач)
+```
+
+Межсервисные HTTP-вызовы (внутри Docker сети):
+
+| Откуда | Куда | Зачем |
+|---|---|---|
+| posts-service | imei-checker-service | Проверка IMEI при создании объявления |
+| posts-service | delivery-service | Создание доставки после оплаты |
+| posts-service | payments-service | Создание payment intent |
+| posts-service | notifications-service | SMS покупателю и продавцу |
+| posts-service | chat-service | Скрытие чата после завершения заказа |
+| chat-service | posts-service | Проверка активности объявления |
+| delivery-service | posts-service | Webhook об изменении статуса доставки |
+| delivery-service | notifications-service | SMS при доставке |
+
+---
+
+## База данных
+
+Единая PostgreSQL база `lais_marketplace`. Логические схемы по сервисам:
+
+- `public` — auth, chat, notifications, delivery
+- `posts_db` — posts service
+- `payments_db` — payments service
+
+Полная схема: [Markdown/DB_FULL_VIEW.md](Markdown/DB_FULL_VIEW.md)
+
+---
+
+## Команды разработки
+
 ```bash
-# Запуск всех сервисов
-docker-compose up -d
+# Запуск всего
+docker-compose up -d --build
 
 # Остановка
 docker-compose down
 
-# Просмотр логов
-docker-compose logs -f
+# Пересобрать один сервис
+docker-compose up -d --build posts-service
 
-# Статус сервисов
-docker-compose ps
+# Логи сервиса
+docker-compose logs -f posts-service
 
-# Перезапуск
-docker-compose restart
-```
-
-### Makefile (альтернатива)
-```bash
-# Показать все команды
-make help
-
-# Запустить проект
-make up
-
-# Остановить
-make down
-
-# Логи
-make logs
-
-# Проверка здоровья
-make health
+# Войти в контейнер
+docker-compose exec posts-service sh
 
 # Подключиться к БД
-make db-shell
-```
-
-## 🏗 Архитектура
-
-```
-┌─────────────────────────────────────────────────────┐
-│              LAIS Marketplace                       │
-│  http://localhost:8080                             │
-└──────────────┬──────────────────────────────────────┘
-               │
-     ┌─────────┼─────────┐
-     │         │         │
-┌────▼────┐ ┌─▼───────┐ ┌─▼──────────┐
-│  Main   │ │  Auth   │ │   Posts    │
-│ :8080   │ │ :8000   │ │   :3000    │
-│Frontend │ │JWT/Users│ │iPhone/Buy  │
-└─────────┘ └────┬────┘ └─────┬──────┘
-                 │            │
-                 └──────┬─────┘
-                        │
-                 ┌──────▼──────┐
-                 │ PostgreSQL  │
-                 │    :5432    │
-                 └─────────────┘
-```
-
-## 🔧 Технологии
-
-- **Backend**: FastAPI, SQLModel, PostgreSQL
-- **Frontend**: Jinja2, HTML, CSS, JavaScript
-- **Auth**: JWT tokens, bcrypt
-- **Deploy**: Docker, Docker Compose
-- **Database**: PostgreSQL 15
-
-## 📊 Функционал
-
-### Auth Service (`:8000`)
-- ✅ Регистрация пользователей
-- ✅ Авторизация (JWT токены)
-- ✅ Профиль пользователя
-- ✅ Управление аватарами
-- ✅ API документация: `/auth/docs`
-
-### Posts Service (`:3000`)
-- ✅ CRUD объявлений о продаже iPhone
-- ✅ Система покупок
-- ✅ Статистика просмотров
-- ✅ Фильтры и поиск
-- ✅ API документация: `/docs`
-
-### Payments Service (`:9000`)
-- ✅ Создание PaymentIntent в Stripe
-- ✅ Webhook обработка статусов платежей
-- ✅ Возвраты (refund) через Stripe
-- ✅ Идемпотентность через `X-Request-ID`
-- ✅ API документация: `/docs`
-
-### Main Service (`:8080`)
-- ✅ Главная страница
-- ✅ Страница товара
-- ✅ Профиль пользователя
-- ✅ Форма создания объявления
-- ✅ Модальные окна (покупка, контакты)
-
-## 🗄 База данных
-
-### Таблицы:
-- `user` - Пользователи (auth)
-- `iphone` - Объявления (posts)
-- `bought` - Покупки (posts)
-- `postreport` - Жалобы на объявления (moderation)
-- `postview` - Уникальные просмотры (analytics)
-
-### Подключение:
-```bash
-# Через Docker
 docker-compose exec postgres psql -U postgres -d lais_marketplace
 
-# Локально (если PostgreSQL установлен)
-psql -U postgres -h localhost -p 5432 -d lais_marketplace
+# Полный сброс данных
+docker-compose down -v && docker-compose up -d --build
 ```
 
-## 👑 Управление администраторами
+Все имена сервисов: `postgres`, `redis`, `auth-service`, `posts-service`, `chat-service`, `imei-checker-service`, `notifications-service`, `delivery-service`, `main-service`, `nginx`.
 
-### Быстрый способ (Python скрипт):
-```bash
-# Установка зависимостей (один раз)
-pip install tabulate
-
-# Показать всех пользователей
-python admin_manager.py list
-
-# Назначить админа
-python admin_manager.py set admin username
-
-# Назначить модератора
-python admin_manager.py set support username
-
-# Убрать права
-python admin_manager.py set regular username
-```
-
-### GUI программы для PostgreSQL:
-- **pgAdmin 4** (рекомендуется): https://www.pgadmin.org/download/
-- **DBeaver**: https://dbeaver.io/download/
-- **TablePlus**: https://tableplus.com/
-
-**Подробная инструкция**: [ADMIN_GUIDE.md](./ADMIN_GUIDE.md)
-
-## 🔐 Переменные окружения (`.env`)
-
-```env
-# PostgreSQL
-USE_POSTGRES=true
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=pass
-POSTGRES_HOST=postgres
-POSTGRES_PORT=5432
-POSTGRES_DB=lais_marketplace
-```
-
-## 🚨 Troubleshooting
-
-### Порт занят
-```bash
-# Найти процесс
-netstat -ano | findstr :8000
-
-# Убить процесс (Windows)
-taskkill /PID <PID> /F
-
-# Или изменить порт в docker-compose.yml
-```
-
-### БД не подключается
-```bash
-# Проверить статус PostgreSQL
-docker-compose ps postgres
-
-# Проверить логи
-docker-compose logs postgres
-
-# Перезапустить
-docker-compose restart postgres
-```
-
-### Таблицы не созданы
-```bash
-# Запустить миграцию вручную
-docker-compose exec posts-service python migrate_to_postgres.py
-```
-
-## 📖 Документация
-
-- **Полная документация**: [DOCKER_GUIDE.md](./DOCKER_GUIDE.md)
-- **API Auth**: http://localhost:8000/auth/docs
-- **API Posts**: http://localhost:3000/docs
-
-## 🎯 Development
-
-### Локальная разработка (без Docker)
-
-1. Установите PostgreSQL локально
-2. Создайте виртуальные окружения:
-   ```bash
-   cd auth && python -m venv auth
-   cd ../posts && python -m venv posts
-   ```
-3. Установите зависимости:
-   ```bash
-   pip install -r requirements.txt  # или requirments.txt для auth
-   ```
-4. Запустите сервисы:
-   ```bash
-   # Терминал 1
-   cd auth && uvicorn main:app --port 8000
-   
-   # Терминал 2
-   cd posts && uvicorn main:app --port 3000
-   
-   # Терминал 3
-   cd main && uvicorn main:app --port 8080
-   ```
-
-### Hot Reload
-
-Docker volumes настроены автоматически - изменения в коде применяются без перезапуска.
-
-## 🤝 Contributing
-
-1. Fork проекта
-2. Создайте feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit изменений (`git commit -m 'Add some AmazingFeature'`)
-4. Push в branch (`git push origin feature/AmazingFeature`)
-5. Откройте Pull Request
-
-## 📝 License
-
-MIT License
-
-## 👥 Authors
-
-- **Yuniversia** - [GitHub](https://github.com/Yuniversia)
-
-## 🌟 Roadmap
-
-- [ ] Добавить тесты (pytest)
-- [ ] CI/CD с GitHub Actions
-- [ ] Мониторинг (Prometheus + Grafana)
-- [ ] Резервное копирование БД
-- [ ] SSL сертификаты
-- [ ] Admin панель
-- [ ] Email уведомления
-- [ ] Чат между покупателем и продавцом
-- [ ] Рейтинги и отзывы
-- [ ] Мобильное приложение
+Полные команды и шпаргалка: [Markdown/info.md](Markdown/info.md)
 
 ---
 
-**Версия:** 1.0.0  
-**Дата:** 2025-11-29
+## Технологии
 
+- **Backend:** Python 3.11, FastAPI, SQLModel, Uvicorn
+- **БД:** PostgreSQL 15, Redis 7
+- **Хранилище файлов:** Cloudflare R2 (S3-compatible)
+- **Платежи:** Stripe
+- **SMS:** SendBerry
+- **Доставка:** DPD API, Omniva API
+- **IMEI:** imei.info API
+- **Auth:** JWT (HttpOnly cookies), Google OAuth 2.0, bcrypt
+- **Очередь задач:** Taskiq + Redis
+- **Инфраструктура:** Docker, Docker Compose, Nginx
+
+---
+
+## Переменные окружения
+
+Все переменные — в файле `.env` в корне проекта. Шаблон: `.env.example`.
+
+Ключевые группы:
+
+```env
+# PostgreSQL
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=...
+POSTGRES_HOST=postgres
+POSTGRES_DB=lais_marketplace
+
+# JWT
+SECRET_KEY=...
+TOKEN_ALGORITHM=HS256
+
+# Cloudflare R2
+CF_R2_ACCESS_KEY_ID=...
+CF_R2_SECRET_ACCESS_KEY=...
+
+# Stripe
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+
+# Delivery
+DELIVERY_COST_DPD=2.99
+DELIVERY_COST_OMNIVA=1.99
+
+# Redis
+REDIS_URL=redis://redis:6379/0
+
+# Режим разработки
+USE_TEST_MODE=false
+PAYMENTS_TEST_MODE=true
+```
+
+---
+
+## Документация
+
+- [ARCHITECTURE.md](ARCHITECTURE.md) — общие паттерны, стандарты написания кода
+- [Markdown/info.md](Markdown/info.md) — карта сервисов, команды, диаграммы
+- [Markdown/DB_FULL_VIEW.md](Markdown/DB_FULL_VIEW.md) — полная схема БД
+- `{service}/README.md` — документация каждого сервиса
+
+---
+
+**Дата последнего обновления:** 2026-06-16

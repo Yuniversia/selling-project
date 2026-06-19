@@ -15,6 +15,14 @@ class NotificationType(str, Enum):
     """Типы уведомлений"""
     ORDER_PAID = "order_paid"  # Заказ оплачен (продавцу и покупателю)
     ORDER_REVIEW_REQUEST = "order_review_request"  # Запрос на отзыв после получения
+    DISPUTE_EVENT = "dispute_event"  # События по спорам
+
+
+class DisputeEventType(str, Enum):
+    DISPUTE_OPENED_SELLER = "dispute_opened_seller"
+    DISPUTE_SELLER_RESPONSE_BUYER = "dispute_seller_response_buyer"
+    DISPUTE_DISCOUNT_CLOSED_SELLER = "dispute_discount_closed_seller"
+    DISPUTE_PLATFORM_RESULT_BOTH = "dispute_platform_result_both"
 
 
 class NotificationChannel(str, Enum):
@@ -118,6 +126,27 @@ class OrderNotificationData(BaseModel):
     tracking_url: Optional[str] = None
     review_url: Optional[str] = None
     tracking_number: Optional[str] = None
+    language: Optional[str] = None
+
+
+class DisputeNotificationData(BaseModel):
+    event_type: DisputeEventType
+    order_id: int
+    dispute_id: int
+    tracking_number: str
+
+    seller_name: Optional[str] = None
+    seller_phone: Optional[str] = None
+
+    buyer_name: Optional[str] = None
+    buyer_phone: Optional[str] = None
+
+    product_name: Optional[str] = None
+    reason: Optional[str] = None
+    seller_response_action: Optional[str] = None
+    seller_discount_amount: Optional[float] = None
+    verdict: Optional[str] = None
+    tracking_url: Optional[str] = None
     language: Optional[str] = None
 
 

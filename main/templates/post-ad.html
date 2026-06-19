@@ -1,16 +1,17 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="{{ lang }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
     <title>{{ t.new_ad }}</title>
     <link rel="stylesheet" href="/templates/static/styles2.css?v=16">
+    <script src="/templates/static/profile-guard.js?v=1" defer></script>
     <script>
-        // API Configuration - единый стандарт /api/v1/<service>
+        // API Configuration - ÃÂµÃÂ´ÃÂ¸ÃÂ½Ã‘â€¹ÃÂ¹ Ã‘ÂÃ‘â€šÃÂ°ÃÂ½ÃÂ´ÃÂ°Ã‘â‚¬Ã‘â€š /api/v1/<service>
         const API_V1 = "/api/v1";
         const AUTH_API = `${API_V1}/auth`;
         const POSTS_API = `${API_V1}/posts`;
-        console.log('🔧 API BASE:', API_V1);
+        console.log('Ã°Å¸â€Â§ API BASE:', API_V1);
 
         function showToast(message, type = 'info', duration = 3500) {
             const container = document.getElementById('toastContainer');
@@ -30,8 +31,8 @@
             }, duration);
         }
 
-        // Единый helper для извлечения сообщения об ошибке из нового формата {status, error}
-        function extractError(payload, fallback = 'Ошибка') {
+        // Ãâ€¢ÃÂ´ÃÂ¸ÃÂ½Ã‘â€¹ÃÂ¹ helper ÃÂ´ÃÂ»Ã‘Â ÃÂ¸ÃÂ·ÃÂ²ÃÂ»ÃÂµÃ‘â€¡ÃÂµÃÂ½ÃÂ¸Ã‘Â Ã‘ÂÃÂ¾ÃÂ¾ÃÂ±Ã‘â€°ÃÂµÃÂ½ÃÂ¸Ã‘Â ÃÂ¾ÃÂ± ÃÂ¾Ã‘Ë†ÃÂ¸ÃÂ±ÃÂºÃÂµ ÃÂ¸ÃÂ· ÃÂ½ÃÂ¾ÃÂ²ÃÂ¾ÃÂ³ÃÂ¾ Ã‘â€žÃÂ¾Ã‘â‚¬ÃÂ¼ÃÂ°Ã‘â€šÃÂ° {status, error}
+        function extractError(payload, fallback = 'ÃÅ¾Ã‘Ë†ÃÂ¸ÃÂ±ÃÂºÃÂ°') {
             if (payload?.error?.message) return payload.error.message;
             if (payload?.detail) {
                 return Array.isArray(payload.detail)
@@ -363,20 +364,20 @@
         
         <form>
             <!-- <div class="form-group">
-                <label class="label">Категория</label>
+                <label class="label">ÃÅ¡ÃÂ°Ã‘â€šÃÂµÃÂ³ÃÂ¾Ã‘â‚¬ÃÂ¸Ã‘Â</label>
                 <select id="catSelect" class="input">
-                    <option value="">Выберите категорию...</option>
+                    <option value="">Ãâ€™Ã‘â€¹ÃÂ±ÃÂµÃ‘â‚¬ÃÂ¸Ã‘â€šÃÂµ ÃÂºÃÂ°Ã‘â€šÃÂµÃÂ³ÃÂ¾Ã‘â‚¬ÃÂ¸Ã‘Å½...</option>
                     <option value="iphone">iPhone</option>
                     <option value="macbook">MacBook</option>
                     <option value="ipad">iPad</option>
-                    <option value="other">Другое</option>
+                    <option value="other">Ãâ€Ã‘â‚¬Ã‘Æ’ÃÂ³ÃÂ¾ÃÂµ</option>
                 </select>
             </div> -->
 
 
                         <div id="iphoneBlock" class="hidden-group">
                             <div class="form-group">
-                                <label class="label">{{ t.imei_label }} <a href="https://support.apple.com/ru-ru/HT204073" target="_blank" title="{{ t.how_to_find }}">❓</a></label>
+                                <label class="label">{{ t.imei_label }} <a href="https://support.apple.com/ru-ru/HT204073" target="_blank" title="{{ t.how_to_find }}">Ã¢Ââ€œ</a></label>
                                 <input id="imei-input" type="text" class="input" placeholder="{{ t.imei_placeholder }}" required>
                             </div>
 
@@ -388,29 +389,29 @@
                             </div>
                         </div>
 
-            <!-- MacBook блок закомментирован - сейчас только iPhone
+            <!-- MacBook ÃÂ±ÃÂ»ÃÂ¾ÃÂº ÃÂ·ÃÂ°ÃÂºÃÂ¾ÃÂ¼ÃÂ¼ÃÂµÃÂ½Ã‘â€šÃÂ¸Ã‘â‚¬ÃÂ¾ÃÂ²ÃÂ°ÃÂ½ - Ã‘ÂÃÂµÃÂ¹Ã‘â€¡ÃÂ°Ã‘Â Ã‘â€šÃÂ¾ÃÂ»Ã‘Å’ÃÂºÃÂ¾ iPhone
             <div id="macBlock" class="hidden-group">
                 <div class="form-group">
-                    <label class="label">Серия MacBook</label>
+                    <label class="label">ÃÂ¡ÃÂµÃ‘â‚¬ÃÂ¸Ã‘Â MacBook</label>
                     <select id="macSeries" class="input">
-                        <option value="">Выберите серию...</option>
+                        <option value="">Ãâ€™Ã‘â€¹ÃÂ±ÃÂµÃ‘â‚¬ÃÂ¸Ã‘â€šÃÂµ Ã‘ÂÃÂµÃ‘â‚¬ÃÂ¸Ã‘Å½...</option>
                         <option value="air">MacBook Air</option>
                         <option value="pro">MacBook Pro</option>
                     </select>
                 </div>
 
                 <div id="macAirSpecs" class="hidden-group" style="margin-bottom: 16px;">
-                    <label class="label">Чип (Air)</label>
+                    <label class="label">ÃÂ§ÃÂ¸ÃÂ¿ (Air)</label>
                     <select class="input">
                         <option>M1</option>
                         <option>M2</option>
                         <option>M3</option>
-                        <option>Intel (Старые)</option>
+                        <option>Intel (ÃÂ¡Ã‘â€šÃÂ°Ã‘â‚¬Ã‘â€¹ÃÂµ)</option>
                     </select>
                 </div>
 
                 <div id="macProSpecs" class="hidden-group" style="margin-bottom: 16px;">
-                    <label class="label">Чип (Pro)</label>
+                    <label class="label">ÃÂ§ÃÂ¸ÃÂ¿ (Pro)</label>
                     <select class="input">
                         <option>M1 Pro / Max</option>
                         <option>M2 Pro / Max</option>
@@ -421,7 +422,7 @@
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                     <div class="form-group">
-                        <label class="label">ОЗУ (RAM)</label>
+                        <label class="label">ÃÅ¾Ãâ€”ÃÂ£ (RAM)</label>
                         <select class="input"><option>8 GB</option><option>16 GB</option><option>18 GB</option><option>24 GB</option><option>32 GB+</option></select>
                     </div>
                     <div class="form-group">
@@ -457,23 +458,23 @@
                     </select>
                 </div>
 
-                <!-- ФАЗА 1: Опция личной встречи -->
+                <!-- ÃÂ¤ÃÂÃâ€”ÃÂ 1: ÃÅ¾ÃÂ¿Ã‘â€ ÃÂ¸Ã‘Â ÃÂ»ÃÂ¸Ã‘â€¡ÃÂ½ÃÂ¾ÃÂ¹ ÃÂ²Ã‘ÂÃ‘â€šÃ‘â‚¬ÃÂµÃ‘â€¡ÃÂ¸ -->
                 <div class="form-group">
                     <label class="check-item" style="margin-bottom: 16px;">
                         <input type="checkbox" id="personalPickupCheckbox" name="personal_pickup">
-                        Возможна личная встреча (Self pickup)
+                        Ãâ€™ÃÂ¾ÃÂ·ÃÂ¼ÃÂ¾ÃÂ¶ÃÂ½ÃÂ° ÃÂ»ÃÂ¸Ã‘â€¡ÃÂ½ÃÂ°Ã‘Â ÃÂ²Ã‘ÂÃ‘â€šÃ‘â‚¬ÃÂµÃ‘â€¡ÃÂ° (Self pickup)
                     </label>
                 </div>
 
-                <!-- Conditional fields для личной встречи -->
+                <!-- Conditional fields ÃÂ´ÃÂ»Ã‘Â ÃÂ»ÃÂ¸Ã‘â€¡ÃÂ½ÃÂ¾ÃÂ¹ ÃÂ²Ã‘ÂÃ‘â€šÃ‘â‚¬ÃÂµÃ‘â€¡ÃÂ¸ -->
                 <div id="personalPickupFields" style="display: none; border: 1px solid var(--color-border); border-radius: 12px; padding: 16px; margin-bottom: 16px; background: #f9f9f9;">
                     <div class="form-group">
-                        <label class="label">Адрес встречи</label>
-                        <input type="text" id="seller-meeting-address" class="input" placeholder="Например: Рига, ул. Айзпута 23" maxlength="255">
+                        <label class="label">ÃÂÃÂ´Ã‘â‚¬ÃÂµÃ‘Â ÃÂ²Ã‘ÂÃ‘â€šÃ‘â‚¬ÃÂµÃ‘â€¡ÃÂ¸</label>
+                        <input type="text" id="seller-meeting-address" class="input" placeholder="ÃÂÃÂ°ÃÂ¿Ã‘â‚¬ÃÂ¸ÃÂ¼ÃÂµÃ‘â‚¬: ÃÂ ÃÂ¸ÃÂ³ÃÂ°, Ã‘Æ’ÃÂ». ÃÂÃÂ¹ÃÂ·ÃÂ¿Ã‘Æ’Ã‘â€šÃÂ° 23" maxlength="255">
                     </div>
 
                     <div class="form-group">
-                        <label class="label">Способ связи</label>
+                        <label class="label">ÃÂ¡ÃÂ¿ÃÂ¾Ã‘ÂÃÂ¾ÃÂ± Ã‘ÂÃÂ²Ã‘ÂÃÂ·ÃÂ¸</label>
                         <div class="checkbox-group" style="display: flex; gap: 16px;">
                             <label class="check-item">
                                 <input type="radio" name="seller-contact-preference" value="email" checked>
@@ -481,7 +482,7 @@
                             </label>
                             <label class="check-item">
                                 <input type="radio" name="seller-contact-preference" value="phone">
-                                Номер телефона
+                                ÃÂÃÂ¾ÃÂ¼ÃÂµÃ‘â‚¬ Ã‘â€šÃÂµÃÂ»ÃÂµÃ‘â€žÃÂ¾ÃÂ½ÃÂ°
                             </label>
                         </div>
                     </div>
@@ -494,7 +495,7 @@
                     <!-- Price Warning with 5% fee -->
                     <div class="price-warning" id="priceWarning">
                         <div class="price-warning-text">
-                            <span class="price-final" id="finalPrice">0 €</span> - {{ t.final_price }}
+                            <span class="price-final" id="finalPrice">0 Ã¢â€šÂ¬</span> - {{ t.final_price }}
                         </div>
                         <div class="info-icon" id="infoIcon">?</div>
                         <div class="info-tooltip" id="infoTooltip">{{ t.fee_tooltip }}</div>
@@ -509,7 +510,7 @@
                 <div class="form-group">
                     <label class="label">{{ t.photos_label }}</label>
                     <div class="photo-upload-zone" id="photoUploadZone">
-                        <div style="font-size: 32px; margin-bottom: 8px;">📸</div>
+                        <div style="font-size: 32px; margin-bottom: 8px;">Ã°Å¸â€œÂ¸</div>
                         <div style="font-weight: 600; margin-bottom: 4px;">{{ t.click_or_drag }}</div>
                         <div style="font-size: 13px; color: var(--color-text-light);">{{ t.supported_formats }}</div>
                         <input type="file" id="photoInput" multiple accept="image/*" style="display: none;">
@@ -537,31 +538,31 @@
     </div>
 
     <script>
-        // const catSelect = document.getElementById('catSelect'); // Закомментировано - выбор категории отключен
+        // const catSelect = document.getElementById('catSelect'); // Ãâ€”ÃÂ°ÃÂºÃÂ¾ÃÂ¼ÃÂ¼ÃÂµÃÂ½Ã‘â€šÃÂ¸Ã‘â‚¬ÃÂ¾ÃÂ²ÃÂ°ÃÂ½ÃÂ¾ - ÃÂ²Ã‘â€¹ÃÂ±ÃÂ¾Ã‘â‚¬ ÃÂºÃÂ°Ã‘â€šÃÂµÃÂ³ÃÂ¾Ã‘â‚¬ÃÂ¸ÃÂ¸ ÃÂ¾Ã‘â€šÃÂºÃÂ»Ã‘Å½Ã‘â€¡ÃÂµÃÂ½
         const iphoneBlock = document.getElementById('iphoneBlock');
-        // const macBlock = document.getElementById('macBlock'); // Закомментировано
+        // const macBlock = document.getElementById('macBlock'); // Ãâ€”ÃÂ°ÃÂºÃÂ¾ÃÂ¼ÃÂ¼ÃÂµÃÂ½Ã‘â€šÃÂ¸Ã‘â‚¬ÃÂ¾ÃÂ²ÃÂ°ÃÂ½ÃÂ¾
         const commonSpecs = document.getElementById('commonSpecs');
         
-        // const macSeries = document.getElementById('macSeries'); // Закомментировано
-        // const macAirSpecs = document.getElementById('macAirSpecs'); // Закомментировано
-        // const macProSpecs = document.getElementById('macProSpecs'); // Закомментировано
+        // const macSeries = document.getElementById('macSeries'); // Ãâ€”ÃÂ°ÃÂºÃÂ¾ÃÂ¼ÃÂ¼ÃÂµÃÂ½Ã‘â€šÃÂ¸Ã‘â‚¬ÃÂ¾ÃÂ²ÃÂ°ÃÂ½ÃÂ¾
+        // const macAirSpecs = document.getElementById('macAirSpecs'); // Ãâ€”ÃÂ°ÃÂºÃÂ¾ÃÂ¼ÃÂ¼ÃÂµÃÂ½Ã‘â€šÃÂ¸Ã‘â‚¬ÃÂ¾ÃÂ²ÃÂ°ÃÂ½ÃÂ¾
+        // const macProSpecs = document.getElementById('macProSpecs'); // Ãâ€”ÃÂ°ÃÂºÃÂ¾ÃÂ¼ÃÂ¼ÃÂµÃÂ½Ã‘â€šÃÂ¸Ã‘â‚¬ÃÂ¾ÃÂ²ÃÂ°ÃÂ½ÃÂ¾
 
-        // Управление фотографиями
+        // ÃÂ£ÃÂ¿Ã‘â‚¬ÃÂ°ÃÂ²ÃÂ»ÃÂµÃÂ½ÃÂ¸ÃÂµ Ã‘â€žÃÂ¾Ã‘â€šÃÂ¾ÃÂ³Ã‘â‚¬ÃÂ°Ã‘â€žÃÂ¸Ã‘ÂÃÂ¼ÃÂ¸
         const photoUploadZone = document.getElementById('photoUploadZone');
         const photoInput = document.getElementById('photoInput');
         const photoGallery = document.getElementById('photoGallery');
         const photoCount = document.getElementById('photoCount');
         let photos = [];
         const MAX_PHOTOS = 15;
-        const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 МБ
+        const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 ÃÅ“Ãâ€˜
 
-        // Открытие файлового диалога при клике на зону
+        // ÃÅ¾Ã‘â€šÃÂºÃ‘â‚¬Ã‘â€¹Ã‘â€šÃÂ¸ÃÂµ Ã‘â€žÃÂ°ÃÂ¹ÃÂ»ÃÂ¾ÃÂ²ÃÂ¾ÃÂ³ÃÂ¾ ÃÂ´ÃÂ¸ÃÂ°ÃÂ»ÃÂ¾ÃÂ³ÃÂ° ÃÂ¿Ã‘â‚¬ÃÂ¸ ÃÂºÃÂ»ÃÂ¸ÃÂºÃÂµ ÃÂ½ÃÂ° ÃÂ·ÃÂ¾ÃÂ½Ã‘Æ’
         photoUploadZone.addEventListener('click', () => photoInput.click());
 
-        // Обработка выбранных файлов
+        // ÃÅ¾ÃÂ±Ã‘â‚¬ÃÂ°ÃÂ±ÃÂ¾Ã‘â€šÃÂºÃÂ° ÃÂ²Ã‘â€¹ÃÂ±Ã‘â‚¬ÃÂ°ÃÂ½ÃÂ½Ã‘â€¹Ã‘â€¦ Ã‘â€žÃÂ°ÃÂ¹ÃÂ»ÃÂ¾ÃÂ²
         photoInput.addEventListener('change', (e) => {
             addPhotos(e.target.files);
-            photoInput.value = ''; // Сброс input для возможности выбрать те же файлы
+            photoInput.value = ''; // ÃÂ¡ÃÂ±Ã‘â‚¬ÃÂ¾Ã‘Â input ÃÂ´ÃÂ»Ã‘Â ÃÂ²ÃÂ¾ÃÂ·ÃÂ¼ÃÂ¾ÃÂ¶ÃÂ½ÃÂ¾Ã‘ÂÃ‘â€šÃÂ¸ ÃÂ²Ã‘â€¹ÃÂ±Ã‘â‚¬ÃÂ°Ã‘â€šÃ‘Å’ Ã‘â€šÃÂµ ÃÂ¶ÃÂµ Ã‘â€žÃÂ°ÃÂ¹ÃÂ»Ã‘â€¹
         });
 
         // Drag & Drop
@@ -587,15 +588,15 @@
             for (let file of files) {
                 if (added >= availableSlots) break;
                 
-                // Проверка размера файла
+                // ÃÅ¸Ã‘â‚¬ÃÂ¾ÃÂ²ÃÂµÃ‘â‚¬ÃÂºÃÂ° Ã‘â‚¬ÃÂ°ÃÂ·ÃÂ¼ÃÂµÃ‘â‚¬ÃÂ° Ã‘â€žÃÂ°ÃÂ¹ÃÂ»ÃÂ°
                 if (file.size > MAX_FILE_SIZE) {
-                    alert(`Файл ${file.name} слишком большой (макс. 5 МБ)`);
+                    alert(`ÃÂ¤ÃÂ°ÃÂ¹ÃÂ» ${file.name} Ã‘ÂÃÂ»ÃÂ¸Ã‘Ë†ÃÂºÃÂ¾ÃÂ¼ ÃÂ±ÃÂ¾ÃÂ»Ã‘Å’Ã‘Ë†ÃÂ¾ÃÂ¹ (ÃÂ¼ÃÂ°ÃÂºÃ‘Â. 5 ÃÅ“Ãâ€˜)`);
                     continue;
                 }
 
-                // Проверка типа файла
+                // ÃÅ¸Ã‘â‚¬ÃÂ¾ÃÂ²ÃÂµÃ‘â‚¬ÃÂºÃÂ° Ã‘â€šÃÂ¸ÃÂ¿ÃÂ° Ã‘â€žÃÂ°ÃÂ¹ÃÂ»ÃÂ°
                 if (!file.type.startsWith('image/')) {
-                    alert(`${file.name} не является изображением`);
+                    alert(`${file.name} ÃÂ½ÃÂµ Ã‘ÂÃÂ²ÃÂ»Ã‘ÂÃÂµÃ‘â€šÃ‘ÂÃ‘Â ÃÂ¸ÃÂ·ÃÂ¾ÃÂ±Ã‘â‚¬ÃÂ°ÃÂ¶ÃÂµÃÂ½ÃÂ¸ÃÂµÃÂ¼`);
                     continue;
                 }
 
@@ -612,7 +613,7 @@
             }
 
             if (added < files.length && photos.length >= MAX_PHOTOS) {
-                alert(`Максимум достигнут! Можно загрузить только ${MAX_PHOTOS} фотографий`);
+                alert(`ÃÅ“ÃÂ°ÃÂºÃ‘ÂÃÂ¸ÃÂ¼Ã‘Æ’ÃÂ¼ ÃÂ´ÃÂ¾Ã‘ÂÃ‘â€šÃÂ¸ÃÂ³ÃÂ½Ã‘Æ’Ã‘â€š! ÃÅ“ÃÂ¾ÃÂ¶ÃÂ½ÃÂ¾ ÃÂ·ÃÂ°ÃÂ³Ã‘â‚¬Ã‘Æ’ÃÂ·ÃÂ¸Ã‘â€šÃ‘Å’ Ã‘â€šÃÂ¾ÃÂ»Ã‘Å’ÃÂºÃÂ¾ ${MAX_PHOTOS} Ã‘â€žÃÂ¾Ã‘â€šÃÂ¾ÃÂ³Ã‘â‚¬ÃÂ°Ã‘â€žÃÂ¸ÃÂ¹`);
             }
         }
 
@@ -623,7 +624,7 @@
                 photoItem.className = 'photo-item';
                 photoItem.innerHTML = `
                     <img src="${photo.preview}" alt="Photo ${index + 1}">
-                    <button class="delete-btn" data-index="${index}">✕</button>
+                    <button class="delete-btn" data-index="${index}">Ã¢Å“â€¢</button>
                 `;
                 
                 photoItem.querySelector('.delete-btn').addEventListener('click', () => {
@@ -634,8 +635,8 @@
                 photoGallery.appendChild(photoItem);
             });
 
-            // Обновляем счётчик
-            photoCount.textContent = `${photos.length} / ${MAX_PHOTOS} фотографий`;
+            // ÃÅ¾ÃÂ±ÃÂ½ÃÂ¾ÃÂ²ÃÂ»Ã‘ÂÃÂµÃÂ¼ Ã‘ÂÃ‘â€¡Ã‘â€˜Ã‘â€šÃ‘â€¡ÃÂ¸ÃÂº
+            photoCount.textContent = `${photos.length} / ${MAX_PHOTOS} Ã‘â€žÃÂ¾Ã‘â€šÃÂ¾ÃÂ³Ã‘â‚¬ÃÂ°Ã‘â€žÃÂ¸ÃÂ¹`;
             if (photos.length >= MAX_PHOTOS) {
                 photoCount.classList.add('max');
                 photoUploadZone.style.opacity = '0.5';
@@ -647,11 +648,11 @@
             }
         }
 
-        // Автоматически показываем блок iPhone (категория закомментирована)
+        // ÃÂÃÂ²Ã‘â€šÃÂ¾ÃÂ¼ÃÂ°Ã‘â€šÃÂ¸Ã‘â€¡ÃÂµÃ‘ÂÃÂºÃÂ¸ ÃÂ¿ÃÂ¾ÃÂºÃÂ°ÃÂ·Ã‘â€¹ÃÂ²ÃÂ°ÃÂµÃÂ¼ ÃÂ±ÃÂ»ÃÂ¾ÃÂº iPhone (ÃÂºÃÂ°Ã‘â€šÃÂµÃÂ³ÃÂ¾Ã‘â‚¬ÃÂ¸Ã‘Â ÃÂ·ÃÂ°ÃÂºÃÂ¾ÃÂ¼ÃÂ¼ÃÂµÃÂ½Ã‘â€šÃÂ¸Ã‘â‚¬ÃÂ¾ÃÂ²ÃÂ°ÃÂ½ÃÂ°)
         iphoneBlock.style.display = 'block';
         commonSpecs.style.display = 'block';
 
-        // === ФАЗА 1: ЛОГИКА ЛИЧНОЙ ВСТРЕЧИ ===
+        // === ÃÂ¤ÃÂÃâ€”ÃÂ 1: Ãâ€ºÃÅ¾Ãâ€œÃËœÃÅ¡ÃÂ Ãâ€ºÃËœÃÂ§ÃÂÃÅ¾Ãâ„¢ Ãâ€™ÃÂ¡ÃÂ¢ÃÂ Ãâ€¢ÃÂ§ÃËœ ===
         const personalPickupCheckbox = document.getElementById('personalPickupCheckbox');
         const personalPickupFields = document.getElementById('personalPickupFields');
 
@@ -659,7 +660,7 @@
             personalPickupFields.style.display = e.target.checked ? 'block' : 'none';
         });
 
-        // Расчет итоговой цены с комиссией 5%
+        // ÃÂ ÃÂ°Ã‘ÂÃ‘â€¡ÃÂµÃ‘â€š ÃÂ¸Ã‘â€šÃÂ¾ÃÂ³ÃÂ¾ÃÂ²ÃÂ¾ÃÂ¹ Ã‘â€ ÃÂµÃÂ½Ã‘â€¹ Ã‘Â ÃÂºÃÂ¾ÃÂ¼ÃÂ¸Ã‘ÂÃ‘ÂÃÂ¸ÃÂµÃÂ¹ 5%
         const priceInput = document.getElementById('price-input');
         const priceWarning = document.getElementById('priceWarning');
         const finalPrice = document.getElementById('finalPrice');
@@ -668,15 +669,15 @@
             const price = parseFloat(priceInput.value) || 0;
             
             if (price > 0) {
-                const finalAmount = Math.round(price * 1.05); // +5%
-                finalPrice.textContent = `${finalAmount} €`;
+                const finalAmount = Math.round(price * 1.05 * 100) / 100; // +5%, rounded to cents
+                finalPrice.textContent = `${finalAmount.toFixed(2)} €`;
                 priceWarning.classList.add('visible');
             } else {
                 priceWarning.classList.remove('visible');
             }
         });
 
-        // Управление tooltip
+        // ÃÂ£ÃÂ¿Ã‘â‚¬ÃÂ°ÃÂ²ÃÂ»ÃÂµÃÂ½ÃÂ¸ÃÂµ tooltip
         const infoIcon = document.getElementById('infoIcon');
         const infoTooltip = document.getElementById('infoTooltip');
         
@@ -693,7 +694,7 @@
                 infoTooltip.classList.toggle('visible');
             });
             
-            // Закрытие tooltip при клике вне его
+            // Ãâ€”ÃÂ°ÃÂºÃ‘â‚¬Ã‘â€¹Ã‘â€šÃÂ¸ÃÂµ tooltip ÃÂ¿Ã‘â‚¬ÃÂ¸ ÃÂºÃÂ»ÃÂ¸ÃÂºÃÂµ ÃÂ²ÃÂ½ÃÂµ ÃÂµÃÂ³ÃÂ¾
             document.addEventListener('click', (e) => {
                 if (!infoIcon.contains(e.target) && !infoTooltip.contains(e.target)) {
                     infoTooltip.classList.remove('visible');
@@ -701,12 +702,12 @@
             });
         }
 
-        /* Логика выбора категорий закомментирована - сейчас только iPhone
-        // Главная категория
+        /* Ãâ€ºÃÂ¾ÃÂ³ÃÂ¸ÃÂºÃÂ° ÃÂ²Ã‘â€¹ÃÂ±ÃÂ¾Ã‘â‚¬ÃÂ° ÃÂºÃÂ°Ã‘â€šÃÂµÃÂ³ÃÂ¾Ã‘â‚¬ÃÂ¸ÃÂ¹ ÃÂ·ÃÂ°ÃÂºÃÂ¾ÃÂ¼ÃÂ¼ÃÂµÃÂ½Ã‘â€šÃÂ¸Ã‘â‚¬ÃÂ¾ÃÂ²ÃÂ°ÃÂ½ÃÂ° - Ã‘ÂÃÂµÃÂ¹Ã‘â€¡ÃÂ°Ã‘Â Ã‘â€šÃÂ¾ÃÂ»Ã‘Å’ÃÂºÃÂ¾ iPhone
+        // Ãâ€œÃÂ»ÃÂ°ÃÂ²ÃÂ½ÃÂ°Ã‘Â ÃÂºÃÂ°Ã‘â€šÃÂµÃÂ³ÃÂ¾Ã‘â‚¬ÃÂ¸Ã‘Â
         catSelect.addEventListener('change', (e) => {
             const val = e.target.value;
             
-            // Сброс
+            // ÃÂ¡ÃÂ±Ã‘â‚¬ÃÂ¾Ã‘Â
             iphoneBlock.style.display = 'none';
             macBlock.style.display = 'none';
             commonSpecs.style.display = 'none';
@@ -722,7 +723,7 @@
             }
         });
 
-        // Логика MacBook (Air vs Pro)
+        // Ãâ€ºÃÂ¾ÃÂ³ÃÂ¸ÃÂºÃÂ° MacBook (Air vs Pro)
         macSeries.addEventListener('change', (e) => {
             const val = e.target.value;
             macAirSpecs.style.display = 'none';
@@ -736,46 +737,46 @@
         });
         */
 
-        // Обработка отправки формы на Posts API
+        // ÃÅ¾ÃÂ±Ã‘â‚¬ÃÂ°ÃÂ±ÃÂ¾Ã‘â€šÃÂºÃÂ° ÃÂ¾Ã‘â€šÃÂ¿Ã‘â‚¬ÃÂ°ÃÂ²ÃÂºÃÂ¸ Ã‘â€žÃÂ¾Ã‘â‚¬ÃÂ¼Ã‘â€¹ ÃÂ½ÃÂ° Posts API
         document.getElementById('publishBtn').addEventListener('click', async (e) => {
             e.preventDefault();
             
-            // Получаем элементы
+            // ÃÅ¸ÃÂ¾ÃÂ»Ã‘Æ’Ã‘â€¡ÃÂ°ÃÂµÃÂ¼ Ã‘ÂÃÂ»ÃÂµÃÂ¼ÃÂµÃÂ½Ã‘â€šÃ‘â€¹
             const publishBtn = document.getElementById('publishBtn');
             const progressModal = document.getElementById('progressModal');
             const progressBar = document.getElementById('progressBar');
             const progressText = document.getElementById('progressText');
             const progressPercent = document.getElementById('progressPercent');
             
-            // Показываем progress modal
+            // ÃÅ¸ÃÂ¾ÃÂºÃÂ°ÃÂ·Ã‘â€¹ÃÂ²ÃÂ°ÃÂµÃÂ¼ progress modal
             progressModal.classList.add('show');
             publishBtn.disabled = true;
             
             try {
-                // ===== ШАГ 1: ВАЛИДАЦИЯ ВСЕХ ПОЛЕЙ ПЕРЕД ЗАГРУЗКОЙ ФОТО =====
+                // ===== ÃÂ¨ÃÂÃâ€œ 1: Ãâ€™ÃÂÃâ€ºÃËœÃâ€ÃÂÃÂ¦ÃËœÃÂ¯ Ãâ€™ÃÂ¡Ãâ€¢ÃÂ¥ ÃÅ¸ÃÅ¾Ãâ€ºÃâ€¢Ãâ„¢ ÃÅ¸Ãâ€¢ÃÂ Ãâ€¢Ãâ€ Ãâ€”ÃÂÃâ€œÃÂ ÃÂ£Ãâ€”ÃÅ¡ÃÅ¾Ãâ„¢ ÃÂ¤ÃÅ¾ÃÂ¢ÃÅ¾ =====
                 updateProgress(progressBar, progressText, progressPercent, 5, '{{ t.checking_data }}');
                 
-                // Проверка фотографий
+                // ÃÅ¸Ã‘â‚¬ÃÂ¾ÃÂ²ÃÂµÃ‘â‚¬ÃÂºÃÂ° Ã‘â€žÃÂ¾Ã‘â€šÃÂ¾ÃÂ³Ã‘â‚¬ÃÂ°Ã‘â€žÃÂ¸ÃÂ¹
                 if (photos.length === 0) {
-                    showToast('Необходимо загрузить хотя бы одну фотографию', 'warning', 4000);
+                    showToast('ÃÂÃÂµÃÂ¾ÃÂ±Ã‘â€¦ÃÂ¾ÃÂ´ÃÂ¸ÃÂ¼ÃÂ¾ ÃÂ·ÃÂ°ÃÂ³Ã‘â‚¬Ã‘Æ’ÃÂ·ÃÂ¸Ã‘â€šÃ‘Å’ Ã‘â€¦ÃÂ¾Ã‘â€šÃ‘Â ÃÂ±Ã‘â€¹ ÃÂ¾ÃÂ´ÃÂ½Ã‘Æ’ Ã‘â€žÃÂ¾Ã‘â€šÃÂ¾ÃÂ³Ã‘â‚¬ÃÂ°Ã‘â€žÃÂ¸Ã‘Å½', 'warning', 4000);
                     progressModal.classList.remove('show');
                     publishBtn.disabled = false;
                     return;
                 }
                 
-                // IMEI (обязательное поле)
+                // IMEI (ÃÂ¾ÃÂ±Ã‘ÂÃÂ·ÃÂ°Ã‘â€šÃÂµÃÂ»Ã‘Å’ÃÂ½ÃÂ¾ÃÂµ ÃÂ¿ÃÂ¾ÃÂ»ÃÂµ)
                 const imeiInput = document.getElementById('imei-input');
                 if (!imeiInput || !imeiInput.value || imeiInput.value.length !== 15 || !/^\d{15}$/.test(imeiInput.value)) {
-                    showToast('{{ t.imei_label }} - обязательное поле (15 цифр)', 'warning', 4000);
+                    showToast('{{ t.imei_label }} - ÃÂ¾ÃÂ±Ã‘ÂÃÂ·ÃÂ°Ã‘â€šÃÂµÃÂ»Ã‘Å’ÃÂ½ÃÂ¾ÃÂµ ÃÂ¿ÃÂ¾ÃÂ»ÃÂµ (15 Ã‘â€ ÃÂ¸Ã‘â€žÃ‘â‚¬)', 'warning', 4000);
                     progressModal.classList.remove('show');
                     publishBtn.disabled = false;
                     return;
                 }
                 
-                // Батарея (обязательное поле)
+                // Ãâ€˜ÃÂ°Ã‘â€šÃÂ°Ã‘â‚¬ÃÂµÃ‘Â (ÃÂ¾ÃÂ±Ã‘ÂÃÂ·ÃÂ°Ã‘â€šÃÂµÃÂ»Ã‘Å’ÃÂ½ÃÂ¾ÃÂµ ÃÂ¿ÃÂ¾ÃÂ»ÃÂµ)
                 const batteryInput = document.getElementById('battery-input');
                 if (!batteryInput || !batteryInput.value) {
-                    showToast('{{ t.battery_condition }} - обязательное поле', 'warning', 4000);
+                    showToast('{{ t.battery_condition }} - ÃÂ¾ÃÂ±Ã‘ÂÃÂ·ÃÂ°Ã‘â€šÃÂµÃÂ»Ã‘Å’ÃÂ½ÃÂ¾ÃÂµ ÃÂ¿ÃÂ¾ÃÂ»ÃÂµ', 'warning', 4000);
                     progressModal.classList.remove('show');
                     publishBtn.disabled = false;
                     return;
@@ -783,16 +784,16 @@
                 
                 const batteryValue = parseInt(batteryInput.value);
                 if (batteryValue < 0 || batteryValue > 100) {
-                    showToast('{{ t.battery_condition }} должно быть от 0 до 100', 'warning', 4000);
+                    showToast('{{ t.battery_condition }} ÃÂ´ÃÂ¾ÃÂ»ÃÂ¶ÃÂ½ÃÂ¾ ÃÂ±Ã‘â€¹Ã‘â€šÃ‘Å’ ÃÂ¾Ã‘â€š 0 ÃÂ´ÃÂ¾ 100', 'warning', 4000);
                     progressModal.classList.remove('show');
                     publishBtn.disabled = false;
                     return;
                 }
                 
-                // Цена (обязательное поле)
+                // ÃÂ¦ÃÂµÃÂ½ÃÂ° (ÃÂ¾ÃÂ±Ã‘ÂÃÂ·ÃÂ°Ã‘â€šÃÂµÃÂ»Ã‘Å’ÃÂ½ÃÂ¾ÃÂµ ÃÂ¿ÃÂ¾ÃÂ»ÃÂµ)
                 const priceInput = document.getElementById('price-input');
                 if (!priceInput || !priceInput.value) {
-                    showToast('{{ t.price_label }} - обязательное поле', 'warning', 4000);
+                    showToast('{{ t.price_label }} - ÃÂ¾ÃÂ±Ã‘ÂÃÂ·ÃÂ°Ã‘â€šÃÂµÃÂ»Ã‘Å’ÃÂ½ÃÂ¾ÃÂµ ÃÂ¿ÃÂ¾ÃÂ»ÃÂµ', 'warning', 4000);
                     progressModal.classList.remove('show');
                     publishBtn.disabled = false;
                     return;
@@ -800,22 +801,22 @@
                 
                 const basePrice = parseFloat(priceInput.value);
                 if (basePrice <= 0) {
-                    showToast('{{ t.price_label }} должна быть больше 0', 'warning', 4000);
+                    showToast('{{ t.price_label }} ÃÂ´ÃÂ¾ÃÂ»ÃÂ¶ÃÂ½ÃÂ° ÃÂ±Ã‘â€¹Ã‘â€šÃ‘Å’ ÃÂ±ÃÂ¾ÃÂ»Ã‘Å’Ã‘Ë†ÃÂµ 0', 'warning', 4000);
                     progressModal.classList.remove('show');
                     publishBtn.disabled = false;
                     return;
                 }
                 
-                // Состояние (обязательное поле)
+                // ÃÂ¡ÃÂ¾Ã‘ÂÃ‘â€šÃÂ¾Ã‘ÂÃÂ½ÃÂ¸ÃÂµ (ÃÂ¾ÃÂ±Ã‘ÂÃÂ·ÃÂ°Ã‘â€šÃÂµÃÂ»Ã‘Å’ÃÂ½ÃÂ¾ÃÂµ ÃÂ¿ÃÂ¾ÃÂ»ÃÂµ)
                 const conditionInput = document.getElementById('condition-input');
                 if (!conditionInput || !conditionInput.value) {
-                    showToast('{{ t.device_condition }} - обязательное поле', 'warning', 4000);
+                    showToast('{{ t.device_condition }} - ÃÂ¾ÃÂ±Ã‘ÂÃÂ·ÃÂ°Ã‘â€šÃÂµÃÂ»Ã‘Å’ÃÂ½ÃÂ¾ÃÂµ ÃÂ¿ÃÂ¾ÃÂ»ÃÂµ', 'warning', 4000);
                     progressModal.classList.remove('show');
                     publishBtn.disabled = false;
                     return;
                 }
                 
-                // ===== ШАГ 2: ПРОВЕРКА АВТОРИЗАЦИИ И REFRESH ТОКЕНА =====
+                // ===== ÃÂ¨ÃÂÃâ€œ 2: ÃÅ¸ÃÂ ÃÅ¾Ãâ€™Ãâ€¢ÃÂ ÃÅ¡ÃÂ ÃÂÃâ€™ÃÂ¢ÃÅ¾ÃÂ ÃËœÃâ€”ÃÂÃÂ¦ÃËœÃËœ ÃËœ REFRESH ÃÂ¢ÃÅ¾ÃÅ¡Ãâ€¢ÃÂÃÂ =====
                 updateProgress(progressBar, progressText, progressPercent, 10, '{{ t.checking_auth }}');
                 
                 const authCheck = await fetch(`${AUTH_API}/me`, {
@@ -824,62 +825,62 @@
                 });
                 
                 if (authCheck.status === 401) {
-                    // Пытаемся обновить токен
+                    // ÃÅ¸Ã‘â€¹Ã‘â€šÃÂ°ÃÂµÃÂ¼Ã‘ÂÃ‘Â ÃÂ¾ÃÂ±ÃÂ½ÃÂ¾ÃÂ²ÃÂ¸Ã‘â€šÃ‘Å’ Ã‘â€šÃÂ¾ÃÂºÃÂµÃÂ½
                     const refreshResponse = await fetch(`${AUTH_API}/refresh`, {
                         method: 'GET',
                         credentials: 'include'
                     });
                     
                     if (!refreshResponse.ok) {
-                        showToast('Требуется авторизация. Пожалуйста, войдите в аккаунт.', 'error', 4000);
+                        showToast('ÃÂ¢Ã‘â‚¬ÃÂµÃÂ±Ã‘Æ’ÃÂµÃ‘â€šÃ‘ÂÃ‘Â ÃÂ°ÃÂ²Ã‘â€šÃÂ¾Ã‘â‚¬ÃÂ¸ÃÂ·ÃÂ°Ã‘â€ ÃÂ¸Ã‘Â. ÃÅ¸ÃÂ¾ÃÂ¶ÃÂ°ÃÂ»Ã‘Æ’ÃÂ¹Ã‘ÂÃ‘â€šÃÂ°, ÃÂ²ÃÂ¾ÃÂ¹ÃÂ´ÃÂ¸Ã‘â€šÃÂµ ÃÂ² ÃÂ°ÃÂºÃÂºÃÂ°Ã‘Æ’ÃÂ½Ã‘â€š.', 'error', 4000);
                         progressModal.classList.remove('show');
                         publishBtn.disabled = false;
                         window.location.href = '/';
                         return;
                     }
                     
-                    // Токен обновлен, повторная проверка
+                    // ÃÂ¢ÃÂ¾ÃÂºÃÂµÃÂ½ ÃÂ¾ÃÂ±ÃÂ½ÃÂ¾ÃÂ²ÃÂ»ÃÂµÃÂ½, ÃÂ¿ÃÂ¾ÃÂ²Ã‘â€šÃÂ¾Ã‘â‚¬ÃÂ½ÃÂ°Ã‘Â ÃÂ¿Ã‘â‚¬ÃÂ¾ÃÂ²ÃÂµÃ‘â‚¬ÃÂºÃÂ°
                     const retryAuth = await fetch(`${AUTH_API}/me`, {
                         method: 'GET',
                         credentials: 'include'
                     });
                     
                     if (!retryAuth.ok) {
-                        showToast('Ошибка авторизации', 'error', 4000);
+                        showToast('ÃÅ¾Ã‘Ë†ÃÂ¸ÃÂ±ÃÂºÃÂ° ÃÂ°ÃÂ²Ã‘â€šÃÂ¾Ã‘â‚¬ÃÂ¸ÃÂ·ÃÂ°Ã‘â€ ÃÂ¸ÃÂ¸', 'error', 4000);
                         progressModal.classList.remove('show');
                         publishBtn.disabled = false;
                         return;
                     }
                 }
                 
-                // ===== ШАГ 3: ПОДГОТОВКА ДАННЫХ ФОРМЫ =====
-                // Валидация личной встречи если включена
+                // ===== ÃÂ¨ÃÂÃâ€œ 3: ÃÅ¸ÃÅ¾Ãâ€Ãâ€œÃÅ¾ÃÂ¢ÃÅ¾Ãâ€™ÃÅ¡ÃÂ Ãâ€ÃÂÃÂÃÂÃÂ«ÃÂ¥ ÃÂ¤ÃÅ¾ÃÂ ÃÅ“ÃÂ« =====
+                // Ãâ€™ÃÂ°ÃÂ»ÃÂ¸ÃÂ´ÃÂ°Ã‘â€ ÃÂ¸Ã‘Â ÃÂ»ÃÂ¸Ã‘â€¡ÃÂ½ÃÂ¾ÃÂ¹ ÃÂ²Ã‘ÂÃ‘â€šÃ‘â‚¬ÃÂµÃ‘â€¡ÃÂ¸ ÃÂµÃ‘ÂÃÂ»ÃÂ¸ ÃÂ²ÃÂºÃÂ»Ã‘Å½Ã‘â€¡ÃÂµÃÂ½ÃÂ°
                 if (personalPickupCheckbox.checked) {
                     const meetingAddr = document.getElementById('seller-meeting-address').value.trim();
                     if (!meetingAddr) {
-                        showToast('Укажите адрес встречи', 'warning', 4000);
+                        showToast('ÃÂ£ÃÂºÃÂ°ÃÂ¶ÃÂ¸Ã‘â€šÃÂµ ÃÂ°ÃÂ´Ã‘â‚¬ÃÂµÃ‘Â ÃÂ²Ã‘ÂÃ‘â€šÃ‘â‚¬ÃÂµÃ‘â€¡ÃÂ¸', 'warning', 4000);
                         progressModal.classList.remove('show');
                         publishBtn.disabled = false;
                         return;
                     }
                 }
 
-                // Рассчитываем конечную цену с комиссией 5%
-                const finalPrice = Math.round(basePrice * 1.05);
+                // ÃÂ ÃÂ°Ã‘ÂÃ‘ÂÃ‘â€¡ÃÂ¸Ã‘â€šÃ‘â€¹ÃÂ²ÃÂ°ÃÂµÃÂ¼ ÃÂºÃÂ¾ÃÂ½ÃÂµÃ‘â€¡ÃÂ½Ã‘Æ’Ã‘Å½ Ã‘â€ ÃÂµÃÂ½Ã‘Æ’ Ã‘Â ÃÂºÃÂ¾ÃÂ¼ÃÂ¸Ã‘ÂÃ‘ÂÃÂ¸ÃÂµÃÂ¹ 5%
+                const finalPrice = Math.round(basePrice * 1.05 * 100) / 100; // rounded to cents, not whole euros
                 
-                // Создаем FormData
+                // ÃÂ¡ÃÂ¾ÃÂ·ÃÂ´ÃÂ°ÃÂµÃÂ¼ FormData
                 const formData = new FormData();
                 formData.append('category_id', '1');
                 formData.append('price', finalPrice);
                 formData.append('title', 'iPhone');
                 
-                // Добавляем описание (необязательное)
+                // Ãâ€ÃÂ¾ÃÂ±ÃÂ°ÃÂ²ÃÂ»Ã‘ÂÃÂµÃÂ¼ ÃÂ¾ÃÂ¿ÃÂ¸Ã‘ÂÃÂ°ÃÂ½ÃÂ¸ÃÂµ (ÃÂ½ÃÂµÃÂ¾ÃÂ±Ã‘ÂÃÂ·ÃÂ°Ã‘â€šÃÂµÃÂ»Ã‘Å’ÃÂ½ÃÂ¾ÃÂµ)
                 const description = document.getElementById('description').value;
                 if (description) {
                     formData.append('description', description);
                 }
                 
-                // Атрибуты продукта
+                // ÃÂÃ‘â€šÃ‘â‚¬ÃÂ¸ÃÂ±Ã‘Æ’Ã‘â€šÃ‘â€¹ ÃÂ¿Ã‘â‚¬ÃÂ¾ÃÂ´Ã‘Æ’ÃÂºÃ‘â€šÃÂ°
                 const attributes = {
                     imei: imeiInput.value,
                     batery: batteryValue,
@@ -889,7 +890,7 @@
                     has_cable: document.querySelector('input[name="has_cable"]').checked,
                     has_receipt: document.querySelector('input[name="has_receipt"]').checked,
                     has_warranty: document.querySelector('input[name="has_warranty"]').checked,
-                    // ФАЗА 1: Данные личной встречи
+                    // ÃÂ¤ÃÂÃâ€”ÃÂ 1: Ãâ€ÃÂ°ÃÂ½ÃÂ½Ã‘â€¹ÃÂµ ÃÂ»ÃÂ¸Ã‘â€¡ÃÂ½ÃÂ¾ÃÂ¹ ÃÂ²Ã‘ÂÃ‘â€šÃ‘â‚¬ÃÂµÃ‘â€¡ÃÂ¸
                     personal_pickup: personalPickupCheckbox.checked,
                     seller_meeting_address: personalPickupCheckbox.checked ? document.getElementById('seller-meeting-address').value : null,
                     seller_contact_preference: personalPickupCheckbox.checked ? document.querySelector('input[name="seller-contact-preference"]:checked')?.value : null,
@@ -901,18 +902,18 @@
                 };
                 formData.append('attributes', JSON.stringify(attributes));
                 
-                // Добавляем файлы фотографий (server-side compression to webp)
+                // Ãâ€ÃÂ¾ÃÂ±ÃÂ°ÃÂ²ÃÂ»Ã‘ÂÃÂµÃÂ¼ Ã‘â€žÃÂ°ÃÂ¹ÃÂ»Ã‘â€¹ Ã‘â€žÃÂ¾Ã‘â€šÃÂ¾ÃÂ³Ã‘â‚¬ÃÂ°Ã‘â€žÃÂ¸ÃÂ¹ (server-side compression to webp)
                 updateProgress(progressBar, progressText, progressPercent, 20, '{{ t.preparing_data }}');
                 for (let i = 0; i < photos.length; i++) {
                     formData.append('files', photos[i].file);
                 }
-                console.log(`Добавлено ${photos.length} файлов в FormData для обработки на сервере`);
+                console.log(`Ãâ€ÃÂ¾ÃÂ±ÃÂ°ÃÂ²ÃÂ»ÃÂµÃÂ½ÃÂ¾ ${photos.length} Ã‘â€žÃÂ°ÃÂ¹ÃÂ»ÃÂ¾ÃÂ² ÃÂ² FormData ÃÂ´ÃÂ»Ã‘Â ÃÂ¾ÃÂ±Ã‘â‚¬ÃÂ°ÃÂ±ÃÂ¾Ã‘â€šÃÂºÃÂ¸ ÃÂ½ÃÂ° Ã‘ÂÃÂµÃ‘â‚¬ÃÂ²ÃÂµÃ‘â‚¬ÃÂµ`);
                 
-                // ===== ШАГ 4: ОТПРАВКА ДАННЫХ НА СЕРВЕР =====
-                // Сервер сжимает фото в webp и загружает в R2
+                // ===== ÃÂ¨ÃÂÃâ€œ 4: ÃÅ¾ÃÂ¢ÃÅ¸ÃÂ ÃÂÃâ€™ÃÅ¡ÃÂ Ãâ€ÃÂÃÂÃÂÃÂ«ÃÂ¥ ÃÂÃÂ ÃÂ¡Ãâ€¢ÃÂ Ãâ€™Ãâ€¢ÃÂ  =====
+                // ÃÂ¡ÃÂµÃ‘â‚¬ÃÂ²ÃÂµÃ‘â‚¬ Ã‘ÂÃÂ¶ÃÂ¸ÃÂ¼ÃÂ°ÃÂµÃ‘â€š Ã‘â€žÃÂ¾Ã‘â€šÃÂ¾ ÃÂ² webp ÃÂ¸ ÃÂ·ÃÂ°ÃÂ³Ã‘â‚¬Ã‘Æ’ÃÂ¶ÃÂ°ÃÂµÃ‘â€š ÃÂ² R2
                 updateProgress(progressBar, progressText, progressPercent, 60, '{{ t.uploading_photos }}');
                 
-                console.log('Отправляем данные с файлами на Posts API...');
+                console.log('ÃÅ¾Ã‘â€šÃÂ¿Ã‘â‚¬ÃÂ°ÃÂ²ÃÂ»Ã‘ÂÃÂµÃÂ¼ ÃÂ´ÃÂ°ÃÂ½ÃÂ½Ã‘â€¹ÃÂµ Ã‘Â Ã‘â€žÃÂ°ÃÂ¹ÃÂ»ÃÂ°ÃÂ¼ÃÂ¸ ÃÂ½ÃÂ° Posts API...');
                 const response = await fetch(`${POSTS_API}`, {
                     method: 'POST',
                     body: formData,
@@ -923,30 +924,30 @@
                     const payload = await response.json();
                     const data = payload.data || payload;
                     
-                    // Обновляем прогресс: 100% - успешно
+                    // ÃÅ¾ÃÂ±ÃÂ½ÃÂ¾ÃÂ²ÃÂ»Ã‘ÂÃÂµÃÂ¼ ÃÂ¿Ã‘â‚¬ÃÂ¾ÃÂ³Ã‘â‚¬ÃÂµÃ‘ÂÃ‘Â: 100% - Ã‘Æ’Ã‘ÂÃÂ¿ÃÂµÃ‘Ë†ÃÂ½ÃÂ¾
                     updateProgress(progressBar, progressText, progressPercent, 100, '{{ t.upload_complete }}');
                     
                     setTimeout(() => {
-                        showToast('Объявление в процессе обработки. Проверьте статус в личном кабинете.', 'success', 5000);
+                        showToast('ÃÅ¾ÃÂ±Ã‘Å Ã‘ÂÃÂ²ÃÂ»ÃÂµÃÂ½ÃÂ¸ÃÂµ ÃÂ² ÃÂ¿Ã‘â‚¬ÃÂ¾Ã‘â€ ÃÂµÃ‘ÂÃ‘ÂÃÂµ ÃÂ¾ÃÂ±Ã‘â‚¬ÃÂ°ÃÂ±ÃÂ¾Ã‘â€šÃÂºÃÂ¸. ÃÅ¸Ã‘â‚¬ÃÂ¾ÃÂ²ÃÂµÃ‘â‚¬Ã‘Å’Ã‘â€šÃÂµ Ã‘ÂÃ‘â€šÃÂ°Ã‘â€šÃ‘Æ’Ã‘Â ÃÂ² ÃÂ»ÃÂ¸Ã‘â€¡ÃÂ½ÃÂ¾ÃÂ¼ ÃÂºÃÂ°ÃÂ±ÃÂ¸ÃÂ½ÃÂµÃ‘â€šÃÂµ.', 'success', 5000);
                     }, 500);
                 } else {
                     const errPayload = await response.json();
-                    console.error('Ошибка публикации:', errPayload);
+                    console.error('ÃÅ¾Ã‘Ë†ÃÂ¸ÃÂ±ÃÂºÃÂ° ÃÂ¿Ã‘Æ’ÃÂ±ÃÂ»ÃÂ¸ÃÂºÃÂ°Ã‘â€ ÃÂ¸ÃÂ¸:', errPayload);
                     progressModal.classList.remove('show');
-                    showToast(`Ошибка: ${extractError(errPayload, 'Не удалось опубликовать пост')}`, 'error', 5000);
+                    showToast(`ÃÅ¾Ã‘Ë†ÃÂ¸ÃÂ±ÃÂºÃÂ°: ${extractError(errPayload, 'ÃÂÃÂµ Ã‘Æ’ÃÂ´ÃÂ°ÃÂ»ÃÂ¾Ã‘ÂÃ‘Å’ ÃÂ¾ÃÂ¿Ã‘Æ’ÃÂ±ÃÂ»ÃÂ¸ÃÂºÃÂ¾ÃÂ²ÃÂ°Ã‘â€šÃ‘Å’ ÃÂ¿ÃÂ¾Ã‘ÂÃ‘â€š')}`, 'error', 5000);
                 }
             } catch (error) {
                 console.log(error)
-                console.error('Ошибка при отправке:', error);
+                console.error('ÃÅ¾Ã‘Ë†ÃÂ¸ÃÂ±ÃÂºÃÂ° ÃÂ¿Ã‘â‚¬ÃÂ¸ ÃÂ¾Ã‘â€šÃÂ¿Ã‘â‚¬ÃÂ°ÃÂ²ÃÂºÃÂµ:', error);
                 progressModal.classList.remove('show');
-                showToast('Ошибка подключения к серверу', 'error', 5000);
+                showToast('ÃÅ¾Ã‘Ë†ÃÂ¸ÃÂ±ÃÂºÃÂ° ÃÂ¿ÃÂ¾ÃÂ´ÃÂºÃÂ»Ã‘Å½Ã‘â€¡ÃÂµÃÂ½ÃÂ¸Ã‘Â ÃÂº Ã‘ÂÃÂµÃ‘â‚¬ÃÂ²ÃÂµÃ‘â‚¬Ã‘Æ’', 'error', 5000);
             } finally {
                 publishBtn.disabled = false;
                 progressModal.classList.remove('show');
             }
         });
 
-        // Helper функция для обновления прогресса
+        // Helper Ã‘â€žÃ‘Æ’ÃÂ½ÃÂºÃ‘â€ ÃÂ¸Ã‘Â ÃÂ´ÃÂ»Ã‘Â ÃÂ¾ÃÂ±ÃÂ½ÃÂ¾ÃÂ²ÃÂ»ÃÂµÃÂ½ÃÂ¸Ã‘Â ÃÂ¿Ã‘â‚¬ÃÂ¾ÃÂ³Ã‘â‚¬ÃÂµÃ‘ÂÃ‘ÂÃÂ°
         function updateProgress(progressBar, progressText, progressPercent, percent, text) {
             progressBar.style.width = percent + '%';
             progressPercent.textContent = percent + '%';
@@ -954,11 +955,95 @@
         }
 
         /**
-         * Загружает фотографии (файлы будут отправлены на сервер при основном POST запросе)
-         * Эта функция больше не используется - файлы отправляются прямо в FormData
-         * для обработки на сервере (компрессия в webp + загрузка в R2)
+         * Ãâ€”ÃÂ°ÃÂ³Ã‘â‚¬Ã‘Æ’ÃÂ¶ÃÂ°ÃÂµÃ‘â€š Ã‘â€žÃÂ¾Ã‘â€šÃÂ¾ÃÂ³Ã‘â‚¬ÃÂ°Ã‘â€žÃÂ¸ÃÂ¸ (Ã‘â€žÃÂ°ÃÂ¹ÃÂ»Ã‘â€¹ ÃÂ±Ã‘Æ’ÃÂ´Ã‘Æ’Ã‘â€š ÃÂ¾Ã‘â€šÃÂ¿Ã‘â‚¬ÃÂ°ÃÂ²ÃÂ»ÃÂµÃÂ½Ã‘â€¹ ÃÂ½ÃÂ° Ã‘ÂÃÂµÃ‘â‚¬ÃÂ²ÃÂµÃ‘â‚¬ ÃÂ¿Ã‘â‚¬ÃÂ¸ ÃÂ¾Ã‘ÂÃÂ½ÃÂ¾ÃÂ²ÃÂ½ÃÂ¾ÃÂ¼ POST ÃÂ·ÃÂ°ÃÂ¿Ã‘â‚¬ÃÂ¾Ã‘ÂÃÂµ)
+         * ÃÂ­Ã‘â€šÃÂ° Ã‘â€žÃ‘Æ’ÃÂ½ÃÂºÃ‘â€ ÃÂ¸Ã‘Â ÃÂ±ÃÂ¾ÃÂ»Ã‘Å’Ã‘Ë†ÃÂµ ÃÂ½ÃÂµ ÃÂ¸Ã‘ÂÃÂ¿ÃÂ¾ÃÂ»Ã‘Å’ÃÂ·Ã‘Æ’ÃÂµÃ‘â€šÃ‘ÂÃ‘Â - Ã‘â€žÃÂ°ÃÂ¹ÃÂ»Ã‘â€¹ ÃÂ¾Ã‘â€šÃÂ¿Ã‘â‚¬ÃÂ°ÃÂ²ÃÂ»Ã‘ÂÃ‘Å½Ã‘â€šÃ‘ÂÃ‘Â ÃÂ¿Ã‘â‚¬Ã‘ÂÃÂ¼ÃÂ¾ ÃÂ² FormData
+         * ÃÂ´ÃÂ»Ã‘Â ÃÂ¾ÃÂ±Ã‘â‚¬ÃÂ°ÃÂ±ÃÂ¾Ã‘â€šÃÂºÃÂ¸ ÃÂ½ÃÂ° Ã‘ÂÃÂµÃ‘â‚¬ÃÂ²ÃÂµÃ‘â‚¬ÃÂµ (ÃÂºÃÂ¾ÃÂ¼ÃÂ¿Ã‘â‚¬ÃÂµÃ‘ÂÃ‘ÂÃÂ¸Ã‘Â ÃÂ² webp + ÃÂ·ÃÂ°ÃÂ³Ã‘â‚¬Ã‘Æ’ÃÂ·ÃÂºÃÂ° ÃÂ² R2)
          */
     </script>
 
+    <script>
+    // ===== STRIPE ONBOARDING GUARD =====
+    (async function () {
+        const PAYMENTS_API = '/api/v1/payments';
+
+        let user;
+        try {
+            const r = await fetch('/api/v1/auth/me', { credentials: 'include' });
+            if (!r.ok) { window.location.href = '/'; return; }
+            user = await r.json();
+        } catch (_) { return; }
+
+        // Handle return from Stripe onboarding
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('stripe_return') === '1') {
+            try {
+                await fetch(`${PAYMENTS_API}/sellers/${user.id}/sync-status`, { method: 'POST', credentials: 'include' });
+            } catch (_) {}
+            window.history.replaceState({}, '', window.location.pathname);
+        }
+
+        // Check onboarding status
+        let data;
+        try {
+            const r = await fetch(`${PAYMENTS_API}/sellers/${user.id}/status`, { credentials: 'include' });
+            if (r.ok) {
+                const payload = await r.json();
+                data = payload.data || payload;
+            }
+        } catch (_) {}
+
+        if (!data || data.payouts_enabled || !data.needs_onboarding) return;
+
+        // Show blocking overlay
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99998;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);';
+        overlay.innerHTML = `
+            <div style="background:#fff;border-radius:20px;padding:40px 32px;max-width:440px;width:92%;box-shadow:0 24px 64px rgba(0,0,0,.25);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;text-align:center;box-sizing:border-box;">
+                <div style="width:60px;height:60px;background:#fff8e1;border-radius:16px;margin:0 auto 18px;display:flex;align-items:center;justify-content:center;">
+                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#FF9500" stroke-width="2.2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+                </div>
+                <h2 style="font-size:21px;font-weight:700;margin:0 0 10px;color:#111;">Setup payout account</h2>
+                <p style="font-size:14px;color:#666;margin:0 0 24px;line-height:1.6;">
+                    Before posting an ad you need to connect a<br>
+                    Stripe account to receive payments.<br>
+                    <span style="color:#888;font-size:13px;">Takes 2-3 minutes.</span>
+                </p>
+                <button id="sg-btn" style="width:100%;background:#007AFF;color:#fff;border:none;border-radius:12px;padding:14px 20px;font-size:16px;font-weight:600;cursor:pointer;margin-bottom:12px;">
+                    Connect payout account
+                </button>
+                <p id="sg-err" style="display:none;color:#d32f2f;font-size:13px;padding:8px 12px;background:#fdecea;border-radius:8px;margin:0;"></p>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        document.getElementById('sg-btn').addEventListener('click', async () => {
+            const btn   = document.getElementById('sg-btn');
+            const errEl = document.getElementById('sg-err');
+            btn.disabled = true;
+            btn.textContent = '...';
+            errEl.style.display = 'none';
+
+            const returnUrl  = window.location.origin + '/post-ad?stripe_return=1';
+            const refreshUrl = window.location.origin + '/post-ad?stripe_return=1';
+            try {
+                const r = await fetch(
+                    PAYMENTS_API + '/sellers/' + user.id + '/onboarding-link?return_url=' + encodeURIComponent(returnUrl) + '&refresh_url=' + encodeURIComponent(refreshUrl),
+                    { method: 'POST', credentials: 'include' }
+                );
+                if (r.ok) {
+                    const payload = await r.json();
+                    const d = payload.data || payload;
+                    if (d.onboarding_url) { window.location.href = d.onboarding_url; return; }
+                }
+                throw new Error('No URL');
+            } catch (_) {
+                errEl.textContent = 'Error creating onboarding link. Please try again.';
+                errEl.style.display = 'block';
+                btn.disabled = false;
+                btn.textContent = 'Connect payout account';
+            }
+        });
+    })();
+    </script>
 </body>
 </html>

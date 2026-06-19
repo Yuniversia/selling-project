@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Cookie, Depends, Header, Request, Response, status
+﻿from fastapi import APIRouter, Cookie, Depends, Header, Request, Response, status
 from sqlmodel import Session
 
 from api_response import success_response
@@ -12,6 +12,7 @@ from models import (
     RefundCreateData,
 )
 from payment_service import PaymentService, decode_user_id_from_token
+from seller_service import SellerService
 
 
 payments_router = APIRouter(prefix="/api/v1/payments", tags=["Payments"])
@@ -107,6 +108,18 @@ def get_payment(
     return success_response(request, response_payload)
 
 
+@payments_router.get("/order/{order_id}")
+def get_payment_by_order(
+    request: Request,
+    order_id: int,
+    db: Session = Depends(get_session),
+):
+    service = PaymentService(db)
+    payment = service.get_latest_payment_by_order_id(order_id)
+    response_payload = PaymentIntentResponse.model_validate(payment).model_dump(mode="json")
+    return success_response(request, response_payload)
+
+
 @payments_router.post("/{payment_id}/refund", status_code=status.HTTP_202_ACCEPTED)
 def create_refund(
     request: Request,
@@ -120,6 +133,18 @@ def create_refund(
     return success_response(request, response_payload)
 
 
+@payments_router.post("/{payment_id}/release-to-seller", status_code=status.HTTP_202_ACCEPTED)
+def release_payment_to_seller(
+    request: Request,
+    payment_id: int,
+    db: Session = Depends(get_session),
+):
+    """Release held payment funds to the seller. Called after buyer confirms receipt."""
+    service = PaymentService(db)
+    payment = service.release_payment_to_seller(payment_id)
+    response_payload = PaymentIntentResponse.model_validate(payment).model_dump(mode="json")
+    return success_response(request, response_payload)
+
 @payments_router.post("/webhooks/stripe")
 async def stripe_webhook(
     request: Request,
@@ -130,3 +155,52 @@ async def stripe_webhook(
     payload = await request.body()
     result = service.process_stripe_webhook(payload=payload, signature=stripe_signature)
     return Response(content="ok", media_type="text/plain", status_code=200) if result else Response(status_code=204)
+
+
+
+
+@payments_router.get("/sellers/{seller_id}/status")
+def get_seller_onboarding_status(
+    request: Request,
+    seller_id: int,
+    db: Session = Depends(get_session),
+):
+    """Check seller Stripe Express onboarding status (no side effects)."""
+    service = SellerService(db)
+    result = service.get_onboarding_status(seller_id)
+    return success_response(request, result)
+
+
+@payments_router.post("/sellers/{seller_id}/onboarding-link")
+def get_seller_onboarding_link(
+    request: Request,
+    seller_id: int,
+    return_url: str,
+    refresh_url: str,
+    db: Session = Depends(get_session),
+):
+    service = SellerService(db)
+    url = service.create_onboarding_link(seller_id, return_url, refresh_url)
+    return success_response(request, {"onboarding_url": url})
+
+
+@payments_router.post("/sellers/{seller_id}/sync-status")
+def sync_seller_status(
+    request: Request,
+    seller_id: int,
+    db: Session = Depends(get_session),
+):
+    seller_svc = SellerService(db)
+    account = seller_svc.sync_account_status(seller_id)
+
+    released = 0
+    if account.payouts_enabled:
+        payment_svc = PaymentService(db)
+        released = payment_svc.retry_pending_transfers_for_seller(seller_id)
+
+    return success_response(request, {
+        "payouts_enabled": account.payouts_enabled,
+        "onboarding_status": account.onboarding_status,
+        "pending_transfers_released": released,
+    })
+

@@ -8,8 +8,8 @@ class Configs:
     # Стоимость доставки в евро (€)
     # Загружаются из переменных окружения или используются значения по умолчанию
     DELIVERY_COST_PICKUP = float(os.getenv('DELIVERY_COST_PICKUP', '0'))
-    DELIVERY_COST_DPD = float(os.getenv('DELIVERY_COST_DPD', '2.99'))
-    DELIVERY_COST_OMNIVA = float(os.getenv('DELIVERY_COST_OMNIVA', '1.99'))
+    DELIVERY_COST_DPD = float(os.getenv('DELIVERY_COST_DPD', '4.99'))
+    DELIVERY_COST_OMNIVA = float(os.getenv('DELIVERY_COST_OMNIVA', '4.99'))
     
     @classmethod
     def to_dict(cls):

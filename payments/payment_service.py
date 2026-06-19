@@ -1,4 +1,4 @@
-import json
+﻿import json
 import logging
 from datetime import datetime
 from typing import Any, Dict, Optional
@@ -8,6 +8,8 @@ import stripe
 from fastapi import HTTPException, status
 from jose import jwt
 from sqlmodel import Session, select
+import httpx
+
 
 from configs import settings
 from models import (
@@ -19,6 +21,7 @@ from models import (
     RefundCreateData,
 )
 
+from seller_service import SellerService
 
 logger = logging.getLogger("payments.payment_service")
 stripe.api_key = settings.stripe_secret_key
@@ -66,6 +69,16 @@ class PaymentService:
             raise HTTPException(status_code=404, detail="Payment not found")
         return payment
 
+    def get_latest_payment_by_order_id(self, order_id: int) -> Payment:
+        payment = self.db.exec(
+            select(Payment)
+            .where(Payment.order_id == order_id)
+            .order_by(Payment.created_at.desc())
+        ).first()
+        if not payment:
+            raise HTTPException(status_code=404, detail="Payment not found for order")
+        return payment
+    
     def create_payment_intent(
         self,
         payload: PaymentIntentCreateData,
@@ -95,26 +108,43 @@ class PaymentService:
         )
 
         try:
-            create_payload: Dict[str, Any] = {
-                "amount": payload.amount_cents,
-                "currency": payload.currency.lower(),
-                "description": payload.description,
-                "automatic_payment_methods": {
-                    "enabled": True,
-                    "allow_redirects": "never",
-                },
-                "metadata": stripe_metadata,
-                "idempotency_key": request_id or None,
-            }
+            seller_service = SellerService(self.db)
+            seller_stripe_id = seller_service.get_stripe_account_id(payload.seller_id)
 
-            if payload.confirm:
-                create_payload["confirm"] = True
-                if payload.test_payment_method:
-                    create_payload["payment_method"] = payload.test_payment_method
+            application_fee = int(payload.amount_cents * settings.application_fee)
 
             intent = stripe.PaymentIntent.create(
-                **create_payload,
+                amount=payload.amount_cents,
+                currency=payload.currency.lower(),
+                application_fee_amount=application_fee,  # 5% Ð¾ÑÑ‚Ð°Ñ‘Ñ‚ÑÑ Ñ‚ÐµÐ±Ðµ
+                transfer_data={
+                    "destination": seller_stripe_id,     # 95% â†’ Ð±Ð°Ð½Ðº Ð¿Ñ€Ð¾Ð´Ð°Ð²Ñ†Ð°
+                },
+                automatic_payment_methods={"enabled": True, "allow_redirects": "never"},
+                metadata=stripe_metadata,
             )
+
+            # create_payload: Dict[str, Any] = {
+            #     "amount": payload.amount_cents,
+            #     "currency": payload.currency.lower(),
+            #     "description": payload.description,
+            #     "automatic_payment_methods": {
+            #         "enabled": True,
+            #         "allow_redirects": "never",
+            #     },
+            #     "metadata": stripe_metadata,
+            #     "idempotency_key": request_id or None,
+            # }
+
+            # if payload.confirm:
+            #     create_payload["confirm"] = True
+            #     if payload.test_payment_method:
+            #         create_payload["payment_method"] = payload.test_payment_method
+
+            # intent = stripe.PaymentIntent.create(
+            #     **create_payload,
+            # )
+
         except stripe.error.StripeError as exc:
             raise HTTPException(status_code=502, detail=f"Stripe error: {str(exc)}")
 
@@ -165,6 +195,19 @@ class PaymentService:
             }
         )
 
+        # Auto-create Stripe Express account for seller if not exists.
+        # payouts_enabled is NOT required here — money goes to platform escrow.
+        # The seller completes onboarding later; payouts_enabled is enforced at release_payment_to_seller.
+        if payload.seller_id:
+            seller_service = SellerService(self.db)
+            try:
+                seller_service.get_or_create_stripe_account(payload.seller_id)
+            except Exception:
+                logger.warning(
+                    "Could not auto-create Stripe account for seller | seller_id=%s",
+                    payload.seller_id,
+                )
+
         try:
             session = stripe.checkout.Session.create(
                 mode="payment",
@@ -202,6 +245,7 @@ class PaymentService:
             description=payload.description,
             status=PaymentStatus.REQUIRES_PAYMENT_METHOD.value,
             provider_checkout_session_id=session.id,
+            delivery_cost_cents=payload.delivery_cost_cents,
             payment_metadata={
                 **(payload.metadata or {}),
                 "checkout_url": session.url,
@@ -348,6 +392,8 @@ class PaymentService:
                 if latest_charge:
                     payment.provider_charge_id = str(latest_charge)
 
+                self._notify_delivery_service_on_payment_success(payment)
+
             elif event_type == "payment_intent.payment_failed":
                 payment.status = PaymentStatus.FAILED.value
                 error_info = event_object.get("last_payment_error", {})
@@ -392,3 +438,143 @@ class PaymentService:
             "event_type": event_type,
             "payment_id": payment.id if payment else None,
         }
+    
+    def release_payment_to_seller(self, payment_id: int) -> Payment:
+        """Transfer held payment funds to the seller after buyer confirmation."""
+        payment = self.get_payment_by_id(payment_id)
+
+        if payment.seller_transfer_id:
+            return payment  # idempotent
+
+        if payment.status not in (
+            PaymentStatus.SUCCEEDED.value,
+            PaymentStatus.TRANSFERRED.value,
+            PaymentStatus.PENDING_TRANSFER.value,
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot release payment in status '{payment.status}'"
+            )
+
+        if not payment.seller_id:
+            raise HTTPException(status_code=400, detail="Payment has no seller_id")
+
+        seller_service = SellerService(self.db)
+        account = seller_service.get_or_create_stripe_account(payment.seller_id)
+
+        if not account.payouts_enabled:
+            payment.status = PaymentStatus.PENDING_TRANSFER.value
+            payment.updated_at = datetime.utcnow()
+            self.db.add(payment)
+            self.db.commit()
+            self.db.refresh(payment)
+            logger.warning(
+                "Payment queued for transfer -- seller onboarding incomplete | "
+                "payment_id=%s | seller_id=%s",
+                payment.id, payment.seller_id,
+            )
+            return payment
+
+        seller_stripe_id = account.stripe_account_id
+
+        delivery_cost_cents = payment.delivery_cost_cents or 0
+        product_cost_cents = payment.amount_cents - delivery_cost_cents
+        seller_amount = int(product_cost_cents / (1 + settings.application_fee))
+
+
+        # Resolve charge_id for source_transaction so the transfer draws from
+        # the specific charge funds (pending OK) instead of available balance.
+        charge_id = payment.provider_charge_id
+        if not charge_id and payment.provider_payment_intent_id:
+            try:
+                pi = stripe.PaymentIntent.retrieve(payment.provider_payment_intent_id)
+                charge_id = pi.get("latest_charge")
+                if charge_id:
+                    payment.provider_charge_id = charge_id
+                    self.db.add(payment)
+                    self.db.commit()
+            except Exception:
+                logger.warning(
+                    "Could not retrieve charge_id from PaymentIntent | payment_id=%s",
+                    payment.id,
+                )
+
+        transfer_args: Dict[str, Any] = {
+            "amount": seller_amount,
+            "currency": payment.currency.lower(),
+            "destination": seller_stripe_id,
+            "transfer_group": f"order_{payment.order_id}",
+            "metadata": {"payment_id": str(payment.id), "order_id": str(payment.order_id)},
+        }
+        if charge_id:
+            transfer_args["source_transaction"] = charge_id
+
+        try:
+            transfer = stripe.Transfer.create(**transfer_args)
+        except stripe.error.StripeError as exc:
+            raise HTTPException(status_code=502, detail=f"Stripe transfer error: {str(exc)}")
+
+        payment.seller_transfer_id = transfer.id
+        payment.status = PaymentStatus.TRANSFERRED.value
+        payment.transferred_at = datetime.utcnow()
+        payment.updated_at = datetime.utcnow()
+        self.db.add(payment)
+        self.db.commit()
+        self.db.refresh(payment)
+
+        _publish_event({
+            "event": "payment_transferred_to_seller",
+            "payment_id": payment.id,
+            "order_id": payment.order_id,
+            "transfer_id": transfer.id,
+            "seller_amount_cents": seller_amount,
+        })
+
+        logger.info(
+            "Payment released to seller | payment_id=%s | order_id=%s | "
+            "transfer_id=%s | amount_cents=%s",
+            payment.id, payment.order_id, transfer.id, seller_amount,
+        )
+        return payment
+    def retry_pending_transfers_for_seller(self, seller_id: int) -> int:
+        """Retry PENDING_TRANSFER payments for a seller that just completed onboarding."""
+        pending = self.db.exec(
+            select(Payment).where(
+                Payment.seller_id == seller_id,
+                Payment.status == PaymentStatus.PENDING_TRANSFER.value,
+                Payment.seller_transfer_id == None,
+            )
+        ).all()
+
+        released = 0
+        for payment in pending:
+            try:
+                self.release_payment_to_seller(payment.id)
+                released += 1
+            except Exception:
+                logger.exception(
+                    "Retry transfer failed | payment_id=%s | seller_id=%s",
+                    payment.id, seller_id,
+                )
+        return released
+
+    def _notify_delivery_service_on_payment_success(self, payment: Payment) -> None:
+        """Ð£Ð²ÐµÐ´Ð¾Ð¼Ð¸Ñ‚ÑŒ delivery-service Ð¾ ÑƒÑÐ¿ÐµÑˆÐ½Ð¾Ð¹ Ð¾Ð¿Ð»Ð°Ñ‚Ðµ"""
+        if not payment.order_id:
+            return
+        
+        try:
+            with httpx.Client(timeout=5.0) as client:
+                response = client.post(
+                    f"{settings.delivery_service_url}/api/v1/delivery/orders/{payment.order_id}/after-payment",
+                    json={"order_id": payment.order_id, "payment_id": payment.id}
+                )
+                
+                if response.status_code in (200, 201):
+                    logger.info(f"Delivery service notified | order_id={payment.order_id}")
+        
+        except Exception as e:
+            logger.error(f"Failed to notify delivery service: {e}")
+
+
+
